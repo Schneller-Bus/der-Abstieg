@@ -1,22 +1,5 @@
-<!doctype html>
-<html lang="de">
-<head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Der Abstieg</title>
-<meta name="description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
-<meta name="theme-color" content="#14110E">
-<meta name="color-scheme" content="dark">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314110E'/%3E%3Cpath d='M32 8c6 9 12 13 12 22a12 12 0 0 1-24 0c0-5 3-8 6-12 1 4 3 6 6 7-2-6 0-12 0-17z' fill='%23E8A94B'/%3E%3Cpath d='M32 26c3 4 5 6 5 10a5 5 0 0 1-10 0c0-3 2-5 5-10z' fill='%23FFF0C4'/%3E%3Crect x='29' y='44' width='6' height='14' rx='2' fill='%236B5335'/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314110E'/%3E%3Cpath d='M32 8c6 9 12 13 12 22a12 12 0 0 1-24 0c0-5 3-8 6-12 1 4 3 6 6 7-2-6 0-12 0-17z' fill='%23E8A94B'/%3E%3Cpath d='M32 26c3 4 5 6 5 10a5 5 0 0 1-10 0c0-3 2-5 5-10z' fill='%23FFF0C4'/%3E%3Crect x='29' y='44' width='6' height='14' rx='2' fill='%236B5335'/%3E%3C/svg%3E">
-
-<meta property="og:type" content="website">
-<meta property="og:title" content="Der Abstieg">
-<meta property="og:description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Der Abstieg">
-<meta name="twitter:description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Grenze+Gotisch:wght@400;600;800&family=Spectral:ital,wght@0,300;0,400;0,600;1,400&display=swap">
@@ -703,8 +686,7 @@ body {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 </style>
-</head>
-<body>
+
 <div class="frame">
   <header class="masthead">
     <h1>Der <span class="drop">Abstieg</span></h1>
@@ -770,7 +752,7 @@ body {
       <div class="divider"></div>
 
       <div class="keys">
-        <kbd>Pfeile</kbd> gehen · <kbd>Klick</kbd> laufen und angreifen<br>
+        <kbd>Pfeile</kbd> gehen · <kbd>Leer</kbd> schlagen · <kbd>Klick</kbd> laufen<br>
         <kbd>F</kbd> Fähigkeit · <kbd>G</kbd> aufheben · <kbd>I</kbd> Beutel<br>
         <kbd>Q</kbd> Aufträge · <kbd>C</kbd> Held · <kbd>R</kbd> rasten<br>
         <kbd>&gt;</kbd> Treppe · <kbd>M</kbd> Ton · <kbd>?</kbd> Hilfe
@@ -801,13 +783,36 @@ const MAX_FLOOR = 10;
 const REGEN_INTERVAL = 8;
 const SAVE_KEY = "der-abstieg-v1";
 
-const WALL = 0, FLOOR = 1, STAIRS = 2, DOOR = 3, PILLAR = 4, LAVA = 5;
-//                    Wand   Boden Treppe Schwelle Säule  Lava
-const WALKABLE    = [false, true,  true,  true,  false, false];
-// Über Lava sieht man hinweg - deshalb durchsichtig, aber nicht begehbar.
-const TRANSPARENT = [false, true,  true,  true,  false, true];
+const WALL = 0, FLOOR = 1, STAIRS = 2, DOOR = 3, PILLAR = 4, LAVA = 5, VEIL = 6;
+//                    Wand   Boden Treppe Schwelle Säule  Lava   Schleier
+const WALKABLE    = [false, true,  true,  true,  false, false, false];
+// Über Lava und Schleier sieht man hinweg; durch den Schleier tritt man
+// nur bewusst mit Enter - deshalb ist er nicht begehbar.
+const TRANSPARENT = [false, true,  true,  true,  false, true,  true];
 const BRAZIER_RANGE = 4.6;
 const LAVA_RANGE = 3.8;
+
+/* ── Echtzeit ─────────────────────────────────────────────────────────────
+   Die Welt läuft weiter, auch wenn du stillstehst. Jedes Wesen hat einen
+   eigenen Zeitgeber; Verwaltung (Öl, Gift, Erholung) läuft in festen Takten,
+   damit die alten Zahlen ihre Bedeutung behalten. */
+/* Positionen sind Fließkommazahlen in Kachelmaßen: 12.5 ist die Mitte von
+   Kachel 12. Bewegung ist stufenlos, nur Karte und Wegfindung bleiben Raster. */
+const SPEED_PLAYER = 5.2;     // Kachelmaße je Sekunde
+const SPEED_MONSTER = 3.4;
+const R_PLAYER = 0.32;        // Kollisionsradius
+const R_MONSTER = 0.32;
+const REACH = 1.30;           // Reichweite eines Schlags
+const ARC = Math.PI * 0.80;   // Öffnungswinkel des Schlagbogens
+const MONSTER_REACH = 1.05;   // ab hier kann ein Gegner zuschlagen
+const SWING_TIME = 0.36;      // Abklingzeit eines Schlags
+// Wie oft ein Gegner eine Entscheidung trifft (Angriff, Schuss, Fähigkeit)
+const MONSTER_STEP = 0.28;
+const AGGRO_RANGE = 8.5;      // ab hier bemerkt dich ein Gegner
+const KITE_BUDGET = 1.1;      // Sekunden, die ein Schütze zurückweichen darf
+const UPKEEP = 0.9;           // Sekunden je Verwaltungstakt
+const STUN_TIME = 1.3;        // Sekunden Betäubung
+const CONFUSE_STEP = 0.9;     // Sekunden je Runde Verwirrung
 
 /* Fackelöl: das Licht ist deine Uhr. */
 const OIL_MAX = 100;
@@ -1490,6 +1495,8 @@ function newMap() {
     dist: new Int32Array(MAP_W * MAP_H).fill(-1),
     stairs: null,
     circle: null,   // Ritualkreis der Endkammer
+    veil: null,     // Felder des Bossschleiers
+    sealed: false,  // steht der Spieler schon drinnen?
   };
 }
 
@@ -1501,8 +1508,78 @@ const isTransparent = (x, y) => inBounds(x, y) && TRANSPARENT[G.map.tiles[idx(x,
 const isSolid = (x, y) => !inBounds(x, y) || !TRANSPARENT[G.map.tiles[idx(x, y)]];
 const seesTile = (x, y) => inBounds(x, y) && G.map.visible[idx(x, y)] === 1;
 
+// "Wer steht auf dieser Kachel?" - fuer Platzierung und Rasterlogik
 function actorAt(x, y) {
-  return G.actors.find(a => a.alive && a.x === x && a.y === y) || null;
+  return G.actors.find(a => a.alive && Math.floor(a.x) === x && Math.floor(a.y) === y) || null;
+}
+
+// "Wer ist in Reichweite?" - fuer Schlaege und Zielsuche
+function actorNear(x, y, r) {
+  let best = null, bd = r * r;
+  for (const a of G.actors) {
+    if (!a.alive || a.isPlayer) continue;
+    const d = (a.x - x) ** 2 + (a.y - y) ** 2;
+    if (d <= bd) { bd = d; best = a; }
+  }
+  return best;
+}
+
+const kachelX = a => Math.floor(a.x);
+const kachelY = a => Math.floor(a.y);
+const kachel = a => [Math.floor(a.x), Math.floor(a.y)];
+const mitte = t => t + 0.5;   // Kachelnummer -> Mittelpunkt
+
+/* Kollision: der Kreis um eine Position darf keine feste Kachel berühren.
+   Geprüft werden die vier Ecken des umschließenden Quadrats - für ein
+   Kachelraster genau genug und billig. */
+function blockiert(x, y, r) {
+  for (const [ox, oy] of [[-r, -r], [r, -r], [-r, r], [r, r]])
+    if (!isWalkable(Math.floor(x + ox), Math.floor(y + oy))) return true;
+  return false;
+}
+
+/* Bewegung achsenweise, damit man an Wänden entlanggleitet statt hängenzubleiben. */
+function bewege(a, dx, dy) {
+  const r = a.radius || R_MONSTER;
+  let bewegt = false;
+  if (dx) {
+    const nx = a.x + dx;
+    if (!blockiert(nx, a.y, r)) { a.x = nx; bewegt = true; }
+  }
+  if (dy) {
+    const ny = a.y + dy;
+    if (!blockiert(a.x, ny, r) && !schleierSperrt(ny)) { a.y = ny; bewegt = true; }
+  }
+  return bewegt;
+}
+
+/* Ist die Kammer versiegelt, darf kein Mittelpunkt über die Schleierzeile
+   zurück. Geprüft wird der Mittelpunkt, nicht die Ecken - sonst sperrt der
+   Schleier den Helden genau auf der Schwelle vollständig fest. */
+function schleierSperrt(ny) {
+  if (!G.map || !G.map.sealed || !G.map.veil || !G.map.veil.length) return false;
+  return ny < G.map.veil[0][1];
+}
+
+/* Wesen sollen nicht ineinanderstehen - sanft auseinanderdrücken. */
+function entflechte(dt) {
+  const lebende = G.actors.filter(a => a.alive);
+  for (let i = 0; i < lebende.length; i++) {
+    for (let j = i + 1; j < lebende.length; j++) {
+      const a = lebende[i], b = lebende[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const soll = (a.radius || R_MONSTER) + (b.radius || R_MONSTER);
+      const d2 = dx * dx + dy * dy;
+      if (d2 >= soll * soll || d2 < 1e-6) continue;
+      const d = Math.sqrt(d2);
+      const schub = (soll - d) * .5 * Math.min(1, dt * 12);
+      const ux = dx / d, uy = dy / d;
+      // Der Spieler wird weniger geschoben als die Gegner
+      const ga = a.isPlayer ? .25 : 1, gb = b.isPlayer ? .25 : 1;
+      bewege(a, -ux * schub * ga, -uy * schub * ga);
+      bewege(b, ux * schub * gb, uy * schub * gb);
+    }
+  }
 }
 function itemsAt(x, y) {
   return G.ground.filter(i => i.x === x && i.y === y);
@@ -1608,8 +1685,10 @@ function makeMonster(id, x, y, affixKey) {
     });
   }
   return {
-    id, spec, x, y, ax: x, ay: y,
+    id, spec, x: mitte(x), y: mitte(y), ax: mitte(x), ay: mitte(y),
     maff: a ? a.key : null,
+    radius: R_MONSTER * (spec.size > 1.2 ? 1.15 : 1),
+    wach: false, kite: KITE_BUDGET,
     hp: spec.hp, maxhp: spec.hp, alive: true,
     ai: spec.ai, confused: 0, stunned: 0, lastSeen: null,
     summons: 0, cooldown: 0,
@@ -1956,43 +2035,76 @@ function generateForge(floor) {
 }
 
 /* ── Kammer des Namenlosen: keine Würfelei, ein gebauter Ort ───────────── */
+/* ── Kammer des Namenlosen ────────────────────────────────────────────────
+   Kein Zufall: ein von Hand gezeichneter Grundriss, jedes Mal derselbe.
+   #  Wand      .  Boden       P  Säule
+   V  Schleier  B  Boss/Kreis  O  Fackelschale                            */
+const ARENA_PLAN = [
+  "###########################",
+  "#########.................#",
+  "#########.................#",
+  "#########.................#",
+  "#########.................#",
+  "############..#############",
+  "############..#############",
+  "############VV#############",
+  "#.........................#",
+  "#.O.....................O.#",
+  "#.........................#",
+  "#.....P....P...P....P.....#",
+  "#.........................#",
+  "#.........................#",
+  "#............B............#",
+  "#.........................#",
+  "#.........................#",
+  "#.....P....P...P....P.....#",
+  "#.........................#",
+  "#.O.....................O.#",
+  "#.........................#",
+  "###########################",
+];
+
 function generateArena(floor) {
   const map = newMap();
-  const hw = 11, hh = 8;
-  const cx = (MAP_W / 2) | 0, cy = ((MAP_H / 2) | 0) + 2;
+  const bw = ARENA_PLAN[0].length, bh = ARENA_PLAN.length;
+  const ox = ((MAP_W - bw) / 2) | 0, oy = ((MAP_H - bh) / 2) | 0;
 
-  const halle = { x1: cx - hw, y1: cy - hh, x2: cx + hw, y2: cy + hh, shape: "rect" };
-  carveRoom(map, halle);
+  const vorkammer = [], halle = [];
+  let bossX = 0, bossY = 0;
+  map.veil = [];
+  const schalen = [];
 
-  // Säulenkranz entlang der Wände
-  for (let i = -hw + 4; i <= hw - 4; i += 4) {
-    for (const dy of [-hh + 3, hh - 3]) {
-      const x = cx + i, y = cy + dy;
-      if (map.tiles[idx(x, y)] === FLOOR) map.tiles[idx(x, y)] = PILLAR;
+  for (let r = 0; r < bh; r++) {
+    for (let c = 0; c < bw; c++) {
+      const zeichen = ARENA_PLAN[r][c];
+      const x = ox + c, y = oy + r;
+      const i = idx(x, y);
+      if (zeichen === "#") { map.tiles[i] = WALL; continue; }
+
+      map.tiles[i] = FLOOR;
+      map.room[i] = 1;
+
+      if (zeichen === "P") map.tiles[i] = PILLAR;
+      else if (zeichen === "V") { map.tiles[i] = VEIL; map.veil.push([x, y]); }
+      else if (zeichen === "O") schalen.push({ x, y });
+      else if (zeichen === "B") { bossX = x; bossY = y; }
+
+      // Alles oberhalb des Schleiers gehört zur Vorkammer
+      if (map.tiles[i] !== PILLAR && map.tiles[i] !== VEIL) {
+        (r < 8 ? vorkammer : halle).push([x, y]);
+      }
     }
   }
-  for (let j = -hh + 5; j <= hh - 5; j += 5) {
-    for (const dx of [-hw + 3, hw - 3]) {
-      const x = cx + dx, y = cy + j;
-      if (map.tiles[idx(x, y)] === FLOOR) map.tiles[idx(x, y)] = PILLAR;
-    }
-  }
 
-  // Vorkammer oben, über einen Gang mit der Halle verbunden
-  const vor = { x1: cx - 4, y1: 2, x2: cx + 4, y2: 8, shape: "rect" };
-  carveRoom(map, vor);
-  carveLine(map, cx, 8, cx, cy - hh);
-  carveLine(map, cx - 1, 8, cx - 1, cy - hh);
-
-  markDoorways(map);
-  map.circle = { cx, cy, r: Math.min(hw, hh) - 3 };
+  map.sealed = false;
+  map.circle = { cx: bossX, cy: bossY, r: 5 };
+  map.arenaSchalen = schalen;
 
   const zones = [
-    { tiles: roomTiles(vor), center: roomCenter(vor) },
-    { tiles: roomTiles(halle).filter(([x, y]) => map.tiles[idx(x, y)] === FLOOR),
-      center: [cx, cy] },
+    { tiles: vorkammer, center: [ox + 17, oy + 2] },
+    { tiles: halle, center: [bossX, bossY] },
   ];
-  return { map, zones, arena: { cx, cy, hw, hh } };
+  return { map, zones, arena: { cx: bossX, cy: bossY } };
 }
 
 /* Wo ein Gang die Wand eines Raums durchbricht, steht eine Schwelle.
@@ -2032,8 +2144,9 @@ function populateFloor(floor) {
     if (frei) zone.center = frei;
   }
   const [sx, sy] = zones[0].center;
-  G.player.x = sx; G.player.y = sy;
-  G.player.ax = sx; G.player.ay = sy;
+  G.player.x = mitte(sx); G.player.y = mitte(sy);
+  G.player.ax = G.player.x; G.player.ay = G.player.y;
+  for (const a of G.actors) { a.wach = false; a.next = undefined; }
 
   const last = zones[zones.length - 1];
   const monsterChances = chancesFor(MONSTER_TABLE, floor);
@@ -2082,6 +2195,8 @@ function populateFloor(floor) {
     }
   }
   G.decals = [];
+  G.veilWarned = false;
+  if (map.arenaSchalen) G.braziers = map.arenaSchalen.map(b => ({ x: b.x, y: b.y }));
   G.hasLava = map.tiles.includes(LAVA);
 
   // Zwischenboss in einem mittleren Raum, weit weg vom Eingang
@@ -2177,9 +2292,10 @@ function updateFov() {
   G.map.visible.fill(0);
   const p = G.player;
   fovR = fovFromOil(p.oil) + (p.oil > 0 ? (p.fovBonus || 0) : 0);
-  G.map.visible[idx(p.x, p.y)] = 1;
+  const px = kachelX(p), py = kachelY(p);
+  G.map.visible[idx(px, py)] = 1;
   for (const [xx, xy, yx, yy] of OCTANTS)
-    castLight(p.x, p.y, 1, 1, 0, fovR, xx, xy, yx, yy);
+    castLight(px, py, 1, 1, 0, fovR, xx, xy, yx, yy);
   for (let i = 0; i < G.map.visible.length; i++)
     if (G.map.visible[i]) G.map.explored[i] = 1;
 
@@ -2187,7 +2303,7 @@ function updateFov() {
   for (const a of G.actors) {
     if (a.isPlayer || !a.alive || a.seen) continue;
     if (!(a.elite || (a.spec && a.spec.boss))) continue;
-    if (!G.map.visible[idx(a.x, a.y)]) continue;
+    if (!G.map.visible[idx(kachelX(a), kachelY(a))]) continue;
     a.seen = true;
     Sfx.spiel(a.spec.boss ? "boss" : "elite");
     banner(a.spec.name, a.spec.epithet || "wartet auf dich", "bad");
@@ -2200,9 +2316,10 @@ function computeDistance() {
   const d = G.map.dist;
   d.fill(-1);
   const p = G.player;
-  if (!isWalkable(p.x, p.y)) return;
-  d[idx(p.x, p.y)] = 0;
-  const queue = [idx(p.x, p.y)];
+  const px = kachelX(p), py = kachelY(p);
+  if (!isWalkable(px, py)) return;
+  d[idx(px, py)] = 0;
+  const queue = [idx(px, py)];
   for (let head = 0; head < queue.length; head++) {
     const cur = queue[head];
     const cx = cur % MAP_W, cy = (cur / MAP_W) | 0;
@@ -2239,9 +2356,11 @@ function pathTo(tx, ty) {
     }
   }
   const p = G.player;
-  if (d[idx(p.x, p.y)] === -1) return null;
+  // Von der Kachel aus, auf der der Held steht - nicht von seiner Fliesskommalage
+  const px = kachelX(p), py = kachelY(p);
+  if (d[idx(px, py)] === -1) return null;
   const steps = [];
-  let cx = p.x, cy = p.y;
+  let cx = px, cy = py;
   let guard = 0;
   while ((cx !== tx || cy !== ty) && guard++ < 500) {
     let best = null;
@@ -2342,6 +2461,7 @@ function kill(target, source) {
     questProgress("boss");
     G.won = true;
     G.siegRunden = G.turns;
+    oeffneKammer();
     // Der Lauf endet erst, wenn du dich entscheidest - Asche oder Tiefe.
     setTimeout(() => showVictory(), 900);
     return;
@@ -2390,7 +2510,7 @@ function refillFromBrazier() {
   if (p.oil >= oilCap()) return;
   for (const b of (G.braziers || [])) {
     if (b.used) continue;
-    if (Math.max(Math.abs(b.x - p.x), Math.abs(b.y - p.y)) > 1) continue;
+    if (Math.hypot(mitte(b.x) - p.x, mitte(b.y) - p.y) > 1.5) continue;
     const before = p.oil;
     p.oil = Math.min(oilCap(), p.oil + BRAZIER_REFILL);
     b.used = true;
@@ -2464,15 +2584,91 @@ function ring(x, y, radius, color) {
 }
 
 /* ══════════════════════════════════════════════════════════════ Aktionen */
+/* Zieht den Helden ein Stueck in eine Richtung. Wird von Maus-Laufwegen
+   genutzt; die Tastatur bewegt direkt ueber schritt(). */
 function tryMove(dx, dy) {
   const p = G.player;
-  const nx = p.x + dx, ny = p.y + dy;
-  const foe = actorAt(nx, ny);
-  if (foe && !foe.isPlayer) { attack(p, foe); return true; }
-  if (!isWalkable(nx, ny)) { log("Dort ist eine Wand.", "system"); return false; }
-  p.x = nx; p.y = ny;
-  refillFromBrazier();
-  return true;
+  if (!dx && !dy) return false;
+  const vorher = [Math.floor(p.x), Math.floor(p.y)];
+  const bewegt = bewege(p, dx, dy);
+  if (Math.floor(p.x) !== vorher[0] || Math.floor(p.y) !== vorher[1]) {
+    refillFromBrazier();
+    betritt();
+  }
+  return bewegt;
+}
+
+// Liegt das Feld jenseits des Schleiers, also außerhalb der Bosskammer?
+function istAusserhalbDerKammer(x, y) {
+  const v = G.map.veil;
+  if (!v || !v.length) return false;
+  // Die Schleierzeile selbst zählt als Schwelle, sonst sperrt sie den Helden
+  // auf genau dem Feld ein, auf dem er gerade steht.
+  return y < v[0][1];
+}
+
+/* Steht der Held dicht vor dem Schleier? Liefert das Feld, sonst null. */
+function schleierNah() {
+  if (!G.map || !G.map.veil || !G.map.veil.length || G.map.sealed) return null;
+  const p = G.player;
+  for (const [vx, vy] of G.map.veil) {
+    if (Math.hypot(mitte(vx) - p.x, mitte(vy) - p.y) < 1.9) return [vx, vy];
+  }
+  return null;
+}
+
+/* Warnung, solange man davorsteht - einmal laut, danach als Hinweiszeile. */
+function schleierWarnung() {
+  const nah = schleierNah();
+  if (nah) {
+    if (!G.veilWarned) {
+      G.veilWarned = true;
+      Sfx.spiel("boss");
+      banner("Der Namenlose wartet", "Jenseits des Schleiers gibt es kein Zurück", "bad");
+      log("Der Schleier steht vor dir. Wer hindurchtritt, kommt nicht zurück.", "bad");
+    }
+    setHint("⏎ Enter — durch den Schleier treten · es gibt kein Zurück");
+    G.veilHint = true;
+  } else if (G.veilHint) {
+    G.veilHint = false;
+    setHint(null);
+  }
+}
+
+/* Bewusst hindurchtreten. Nur von Hand, nie im Vorbeilaufen. */
+function durchschreite() {
+  const nah = schleierNah();
+  if (!nah) return;
+  const [vx, vy] = nah;
+  const p = G.player;
+  p.x = mitte(vx);
+  p.y = vy + 1.5;                 // eine Kachel jenseits des Schleiers
+  G.veilHint = false;
+  setHint(null);
+  versiegle();
+  updateFov();
+  refreshUI();
+}
+
+function versiegle() {
+  if (G.map.sealed) return;
+  G.map.sealed = true;
+  Sfx.spiel("boss");
+  anim.shake = 12;
+  log("Der Schleier schließt sich hinter dir. Es gibt nur noch einen Weg.", "bad");
+  banner("Die Kammer schließt sich", "Erst wenn er fällt, öffnet sie wieder", "bad");
+  for (const [vx, vy] of (G.map.veil || [])) ring(vx, vy, 1.6, "#B03A2E");
+}
+
+function oeffneKammer() {
+  if (!G.map || !G.map.veil || !G.map.sealed) return;
+  G.map.sealed = false;
+  for (const [vx, vy] of G.map.veil) {
+    G.map.tiles[idx(vx, vy)] = FLOOR;
+    ring(vx, vy, 2, "#E8A94B");
+  }
+  G.map.veil = null;
+  log("Der Schleier zerfällt. Der Weg nach oben steht offen.", "good");
 }
 
 // Der Späher weicht aus, statt Schläge nur abzufedern.
@@ -2517,7 +2713,7 @@ function attack(attacker, target) {
 }
 
 function pickUp() {
-  const here = itemsAt(G.player.x, G.player.y);
+  const here = itemsAt(kachelX(G.player), kachelY(G.player));
   if (!here.length) { log("Hier liegt nichts.", "system"); return false; }
   if (G.player.bag.length >= 20) { log("Dein Beutel ist voll.", "system"); return false; }
   const item = here[0];
@@ -2535,7 +2731,8 @@ function dropItem(entry) {
   for (const slot of Object.keys(G.player.equipped))
     if (G.player.equipped[slot] === entry) G.player.equipped[slot] = null;
   bag.splice(bag.indexOf(entry), 1);
-  G.ground.push({ id: entry.id, def: entry.def, ax: entry.ax, x: G.player.x, y: G.player.y });
+  G.ground.push({ id: entry.id, def: entry.def, ax: entry.ax,
+                  x: kachelX(G.player), y: kachelY(G.player) });
   log(`Du legst ${entry.def.name} ab.`, "you");
   return true;
 }
@@ -2558,7 +2755,7 @@ function toggleEquip(entry) {
 
 function takeStairs() {
   const s = G.map.stairs;
-  if (!s || G.player.x !== s[0] || G.player.y !== s[1]) {
+  if (!s || kachelX(G.player) !== s[0] || kachelY(G.player) !== s[1]) {
     log("Hier führt keine Treppe hinab.", "system");
     return false;
   }
@@ -2617,7 +2814,7 @@ function useItem(entry, targetXY) {
     case "lightning": {
       let best = null, bestDist = d.range + 1;
       for (const a of G.actors) {
-        if (a.isPlayer || !a.alive || !seesTile(a.x, a.y)) continue;
+        if (a.isPlayer || !a.alive || !seesTile(kachelX(a), kachelY(a))) continue;
         const dist = Math.hypot(a.x - p.x, a.y - p.y);
         if (dist < bestDist) { best = a; bestDist = dist; }
       }
@@ -2650,7 +2847,7 @@ function useItem(entry, targetXY) {
       const target = actorAt(tx, ty);
       if (!seesTile(tx, ty)) { log("Du kannst dieses Feld nicht sehen.", "system"); return false; }
       if (!target || target.isPlayer) { log("Dort ist kein Ziel.", "system"); return false; }
-      target.confused = d.turns;
+      target.confused = d.turns * CONFUSE_STEP;
       ring(tx, ty, 1.2, d.tint);
       log(`${target.spec.name} taumelt orientierungslos.`, "alert");
       consume(); return true;
@@ -2692,7 +2889,7 @@ function beginAbility() {
   const ab = ABILITIES[p.ability];
   if (!ab) return;
   if (p.abilityCd > 0) {
-    log(`${ab.name} ist noch nicht bereit — ${p.abilityCd} Runden.`, "system");
+    log(`${ab.name} ist noch nicht bereit — ${p.abilityCd.toFixed(1)} Sekunden.`, "system");
     return;
   }
   if (ab.aim) {
@@ -2713,8 +2910,8 @@ function useAbility(dx, dy) {
   const ab = ABILITIES[p.ability];
 
   if (p.ability === "bash") {
-    const target = actorAt(p.x + dx, p.y + dy);
-    if (!target || target.isPlayer) { log("Dort steht niemand.", "system"); return false; }
+    const target = actorNear(p.x + dx * .9, p.y + dy * .9, 1.15);
+    if (!target) { log("Dort steht niemand.", "system"); return false; }
     const [dmg] = resolveDamage(playerAtk(), defOf(target), .1 + (p.crit || 0));
     p.lunge = { dx, dy, life: 1 };
     log(`Du rammst ${target.spec.name} für ${dmg} Schaden zurück.`, "you");
@@ -2722,15 +2919,15 @@ function useAbility(dx, dy) {
     if (target.alive) {
       // Zwei Felder zurückstoßen, soweit der Weg frei ist
       let moved = 0, inLava = false;
-      for (let i = 0; i < 2; i++) {
-        const nx = target.x + dx, ny = target.y + dy;
-        if (inBounds(nx, ny) && G.map.tiles[idx(nx, ny)] === LAVA && !actorAt(nx, ny)) {
-          // In die Lava gestoßen - das überlebt so gut wie nichts
+      for (let i = 0; i < 16; i++) {
+        const nx = target.x + dx * .15, ny = target.y + dy * .15;
+        const tx = Math.floor(nx), ty = Math.floor(ny);
+        if (inBounds(tx, ty) && G.map.tiles[idx(tx, ty)] === LAVA) {
           target.x = nx; target.y = ny; moved++;
           inLava = true;
           break;
         }
-        if (!isWalkable(nx, ny) || actorAt(nx, ny)) break;
+        if (blockiert(nx, ny, target.radius || R_MONSTER)) break;
         target.x = nx; target.y = ny; moved++;
       }
       if (inLava) {
@@ -2740,7 +2937,7 @@ function useAbility(dx, dy) {
         log(`${target.spec.name} stürzt in die Lava.`, "alert");
         damage(target, 999, p);
       } else {
-        target.stunned = 1;
+        target.stunned = STUN_TIME;
         ring(target.x, target.y, 1.3, "#C8CEDA");
         if (!moved) log(`${target.spec.name} prallt gegen den Stein.`, "you");
       }
@@ -2752,17 +2949,17 @@ function useAbility(dx, dy) {
   }
 
   if (p.ability === "dash") {
+    const start = [p.x, p.y];
     let steps = 0;
-    for (let i = 0; i < 3; i++) {
-      const nx = p.x + dx, ny = p.y + dy;
-      if (!isWalkable(nx, ny) || actorAt(nx, ny)) break;
-      p.x = nx; p.y = ny; steps++;
+    for (let i = 0; i < 24; i++) {
+      if (!bewege(p, dx * .14, dy * .14)) break;
+      steps++;
     }
-    if (!steps) { log("Dorthin führt kein Weg.", "system"); return false; }
-    burst(p.x - dx * steps, p.y - dy * steps, "#7FD0E8", 12);
+    if (steps < 4) { log("Dorthin führt kein Weg.", "system"); return false; }
+    burst(start[0], start[1], "#7FD0E8", 12);
     burst(p.x, p.y, "#7FD0E8", 12);
     Sfx.spiel("sprung");
-    log(`Du rollst ${steps} ${steps === 1 ? "Feld" : "Felder"} zur Seite.`, "you");
+    log("Du rollst zur Seite.", "you");
     refillFromBrazier();
     p.abilityCd = ab.cd;
     return true;
@@ -2771,7 +2968,7 @@ function useAbility(dx, dy) {
   if (p.ability === "spark") {
     let best = null, bestDist = Infinity;
     for (const a of G.actors) {
-      if (a.isPlayer || !a.alive || !seesTile(a.x, a.y)) continue;
+      if (a.isPlayer || !a.alive || !seesTile(kachelX(a), kachelY(a))) continue;
       const d = Math.hypot(a.x - p.x, a.y - p.y);
       if (d < bestDist) { best = a; bestDist = d; }
     }
@@ -2791,7 +2988,7 @@ function useAbility(dx, dy) {
 /* ══════════════════════════════════════════════════════════════ Gegner-KI */
 function stepToward(a) {
   const d = G.map.dist;
-  const cur = d[idx(a.x, a.y)];
+  const cur = d[idx(kachelX(a), kachelY(a))];
   if (cur === -1) return null;
   let best = null;
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -2809,7 +3006,7 @@ function stepToward(a) {
 
 function stepAway(a) {
   const d = G.map.dist;
-  const cur = d[idx(a.x, a.y)];
+  const cur = d[idx(kachelX(a), kachelY(a))];
   if (cur === -1) return null;
   let best = null;
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -2823,7 +3020,11 @@ function stepAway(a) {
   return best && best[0] > cur ? [best[1], best[2]] : null;
 }
 
-function moveActor(a, x, y) { a.x = x; a.y = y; }
+function moveActor(a, x, y) {
+  // Wesen bleiben, wo sie sind - der Schleier ist für sie undurchlässig.
+  if (inBounds(x, y) && G.map.tiles[idx(x, y)] === VEIL) return;
+  a.x = x; a.y = y;
+}
 
 // Rasende Gegner schlagen zweimal zu.
 function strike(a, target) {
@@ -2836,58 +3037,56 @@ function strike(a, target) {
 
 function actorTurn(a) {
   const p = G.player;
-  let cheb = Math.max(Math.abs(p.x - a.x), Math.abs(p.y - a.y));
+  const dist = Math.hypot(p.x - a.x, p.y - a.y);
+  const takt = monsterInterval(a);
 
-  // Betäubt: eine Runde aussetzen (Schildstoß des Kriegers)
+  // Betäubt: eine Weile aussetzen (Schildstoß des Kriegers)
   if (a.stunned > 0) {
-    a.stunned--;
-    if (seesTile(a.x, a.y)) floatText(a.x, a.y, "benommen", "#C8CEDA");
+    a.stunned = Math.max(0, a.stunned - takt);
+    if (seesTile(kachelX(a), kachelY(a))) floatText(a.x, a.y, "benommen", "#C8CEDA");
     return;
-  }
-
-  // Flinke Gegner machen einen Schritt extra, bevor sie regulär handeln
-  if (a.maff === "flink" && cheb > 1 && !a.confused && seesTile(a.x, a.y)) {
-    const step = stepToward(a);
-    if (step) {
-      moveActor(a, step[0], step[1]);
-      cheb = Math.max(Math.abs(p.x - a.x), Math.abs(p.y - a.y));
-    }
   }
 
   if (a.confused > 0) {
-    a.confused--;
-    const dirs = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
-    const [dx, dy] = pick(dirs);
-    const nx = a.x + dx, ny = a.y + dy;
-    const other = actorAt(nx, ny);
-    if (other && other.isPlayer) attack(a, p);
-    else if (isWalkable(nx, ny) && !other) moveActor(a, nx, ny);
-    if (a.confused === 0) log(`${a.spec.name} ist wieder bei Sinnen.`, "system");
+    a.confused = Math.max(0, a.confused - takt);
+    if (dist <= MONSTER_REACH) attack(a, p);      // Bewegung macht lenke()
+    if (a.confused <= 0) log(`${a.spec.name} ist wieder bei Sinnen.`, "system");
     return;
   }
 
-  const canSee = seesTile(a.x, a.y);
+  /* Aufmerksamkeit: nicht die halbe Etage stürzt sich auf dich, nur was
+     dich wirklich bemerkt. In offenen Höhlen war das vorher ein Rudel. */
+  const sicht = seesTile(kachelX(a), kachelY(a)) &&
+                lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
+  if (!a.wach) {
+    if (sicht && dist <= AGGRO_RANGE) {
+      a.wach = true;
+      a.kite = KITE_BUDGET;
+    } else return;
+  } else if (!sicht && dist > AGGRO_RANGE * 1.6) {
+    // Aus den Augen verloren - Ruhe kehrt ein
+    a.wach = false;
+    return;
+  }
 
-  if (a.elite && canSee && elitePower(a, cheb)) return;
+  // Rückzugsbudget der Schützen füllt sich, wenn sie wieder Luft haben
+  if (a.ai === "ranged" && dist > (a.spec.keep || 4) + 2) a.kite = KITE_BUDGET;
 
-  if (a.ai === "boss" && canSee) {
-    a.cooldown = Math.max(0, a.cooldown - 1);
-    if (a.hp <= a.maxhp * .6 && !a.cooldown && a.summons < 4 && summon(a)) return;
-    if (cheb <= 1) {
+  if (a.elite && elitePower(a, dist)) return;
+
+  if (a.ai === "boss") {
+    a.cooldown = Math.max(0, a.cooldown - takt);
+    if (a.hp <= a.maxhp * .6 && a.cooldown <= 0 && a.summons < 4 && summon(a)) return;
+    if (dist <= MONSTER_REACH * 1.2) {
       const swings = rng() < .25 ? 2 : 1;
       for (let i = 0; i < swings && p.alive; i++) attack(a, p);
       return;
     }
   }
 
-  if (a.ai === "ranged" && canSee) {
-    a.lastSeen = [p.x, p.y];
-    if (cheb <= 1) { strike(a, p); return; }
-    if (cheb < a.spec.keep) {
-      const away = stepAway(a);
-      if (away) { moveActor(a, away[0], away[1]); return; }
-    }
-    if (cheb <= a.spec.range && lineOfSight(a.x, a.y, p.x, p.y)) {
+  if (a.ai === "ranged") {
+    if (dist <= MONSTER_REACH) { strike(a, p); return; }
+    if (dist <= a.spec.range && lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p))) {
       bolt(a.x, a.y, p.x, p.y, a.spec.body);
       if (playerDodges(a, p)) return;
       const [dmg, crit] = resolveDamage(a.spec.ratk + statusMag(a, "Stärke"), playerDef());
@@ -2897,25 +3096,10 @@ function actorTurn(a) {
       } else log(`${a.spec.name} schießt daneben.`, "foe");
       return;
     }
-    const step = stepToward(a);
-    if (step) moveActor(a, step[0], step[1]);
     return;
   }
 
-  if (canSee) {
-    a.lastSeen = [p.x, p.y];
-    if (cheb <= 1) { strike(a, p); return; }
-    const step = stepToward(a);
-    if (step) moveActor(a, step[0], step[1]);
-    return;
-  }
-
-  if (a.lastSeen) {
-    if (a.x === a.lastSeen[0] && a.y === a.lastSeen[1]) { a.lastSeen = null; return; }
-    const step = stepToward(a);
-    if (step) moveActor(a, step[0], step[1]);
-    else a.lastSeen = null;
-  }
+  if (dist <= MONSTER_REACH) strike(a, p);
 }
 
 /* Jeder Zwischenboss kann eine Sache, die normale Gegner nicht können. */
@@ -2970,7 +3154,7 @@ function elitePower(a, cheb) {
       if (spots.length) {
         burst(a.x, a.y, a.spec.glow, 14);
         const [nx, ny] = pick(spots);
-        a.x = nx; a.y = ny; a.ax = nx; a.ay = ny;
+        a.x = mitte(nx); a.y = mitte(ny); a.ax = a.x; a.ay = a.y;
         burst(nx, ny, a.spec.glow, 14);
         a.cooldown = 5;
         log(`${a.spec.name} steht plötzlich neben dir.`, "bad");
@@ -3001,24 +3185,24 @@ function summon(a) {
 }
 
 /* ════════════════════════════════════════════════════════════ Rundenlauf */
-function endTurn() {
+/* Verwaltungstakt: alles, was früher "je Runde" passierte.
+   Läuft jetzt auf der Uhr, unabhängig davon, was der Spieler tut. */
+function upkeep() {
   const p = G.player;
   G.turns++;
   tickStatuses(p);
   if (!p.alive) return;
 
-  if (p.abilityCd > 0) p.abilityCd--;
-
   // Öl brennt weiter, ob du dich bewegst oder ausruhst.
   p.oilTick++;
   if (resting > 0) {
-    if (p.oilTick >= OIL_PER_REST) {
-      p.oilTick = 0;
-      if (p.oil > 0) {
-        burnOil(1);
-        const healed = healActor(p, 1);
-        if (healed) floatText(p.x, p.y, "+1", "rgba(124,180,150,.75)");
-      }
+    // Ein Leben je Takt - die Rechnung bleibt 1 Öl je 1 Leben, es dauert nur
+    // nicht mehr ewig. Vorher waren 40 Leben über eine halbe Minute Stillstand.
+    p.oilTick = 0;
+    if (p.oil > 0) {
+      burnOil(1);
+      const healed = healActor(p, 1);
+      if (healed) floatText(p.x, p.y, "+1", "rgba(124,180,150,.75)");
     }
   } else {
     if (p.oilTick >= (p.oilSteps || OIL_PER_STEPS)) { p.oilTick = 0; burnOil(1); }
@@ -3029,19 +3213,256 @@ function endTurn() {
       if (healed) floatText(p.x, p.y, "+1", "rgba(124,180,150,.75)");
     }
   }
-  updateFov();
 
-  for (const a of [...G.actors]) {
+  for (const a of G.actors) {
     if (a.isPlayer || !a.alive) continue;
-    actorTurn(a);
-    if (a.alive) tickStatuses(a);
+    tickStatuses(a);
     if (!p.alive) return;
   }
-  updateFov();
-  G.actors = G.actors.filter(a => a.isPlayer || a.alive || a.deathAnim === undefined);
-
   if (p.xp >= xpNeeded()) setTimeout(showLevelUp, 120);
   saveGame();
+}
+
+/* Die Weltuhr. Wird jedes Bild aufgerufen und bewegt alles, was nicht
+   der Spieler ist. Bei offenem Fenster steht die Welt still. */
+function tickWorld(dt) {
+  if (!G || !G.player.alive || mode.kind !== "play" || modalOpen) return;
+  if (dt > .25) dt = .25;                 // nach einem Tabwechsel nicht nachholen
+  G.time += dt;
+
+  const p = G.player;
+  if (p.abilityCd > 0) p.abilityCd = Math.max(0, p.abilityCd - dt);
+
+  // Verwaltung in festen Takten
+  G.upkeepAt = G.upkeepAt || 0;
+  const takt = resting > 0 ? UPKEEP / 3 : UPKEEP;
+  let schutz = 0;
+  while (G.time >= G.upkeepAt && schutz++ < 12) {
+    G.upkeepAt += takt;
+    upkeep();
+    if (!p.alive) return;
+  }
+
+  // Stufenlose Bewegung jedes Wesens
+  for (const a of G.actors) {
+    if (a.isPlayer || !a.alive) continue;
+    lenke(a, dt);
+  }
+  entflechte(dt);
+  schleierWarnung();
+
+  // Entscheidungen laufen weiter im eigenen Takt
+  for (const a of [...G.actors]) {
+    if (a.isPlayer || !a.alive) continue;
+    if (a.next === undefined) a.next = G.time + monsterInterval(a) * rng();
+    let runden = 0;
+    while (a.alive && G.time >= a.next && runden++ < 4) {
+      a.next += monsterInterval(a);
+      actorTurn(a);
+      if (!p.alive) return;
+    }
+  }
+  updateFov();
+}
+
+/* Gegner bewegen sich stufenlos. Die Richtung kommt weiter aus dem
+   Abstandsfeld, aber gelaufen wird frei statt von Kachel zu Kachel. */
+function lenke(a, dt) {
+  if (!a.alive || a.stunned > 0) return;
+  const p = G.player;
+  const dist = Math.hypot(p.x - a.x, p.y - a.y);
+  let zx = 0, zy = 0;
+
+  if (a.confused > 0) {
+    if (!a.wirr || G.time > a.wirrBis) {
+      const w = rng() * 6.283;
+      a.wirr = [Math.cos(w), Math.sin(w)];
+      a.wirrBis = G.time + .6;
+    }
+    zx = a.wirr[0]; zy = a.wirr[1];
+  } else if (a.wach) {
+    if (a.ai === "ranged" && dist < (a.spec.keep || 4) && a.kite > 0) {
+      a.kite -= dt;                            // Rückzug ist begrenzt
+      zx = a.x - p.x; zy = a.y - p.y;          // Abstand halten
+    } else if (dist > (a.ai === "ranged" ? (a.spec.keep || 4) : MONSTER_REACH * .9)) {
+      const ziel = naechsterWegpunkt(a);
+      if (ziel) { zx = ziel[0] - a.x; zy = ziel[1] - a.y; }
+    }
+  }
+
+  const l = Math.hypot(zx, zy);
+  if (l < 1e-4) return;
+  let tempo = SPEED_MONSTER * (a.spec.tempo || 1);
+  if (a.maff === "flink") tempo *= 1.34;
+  if (a.maff === "rasend") tempo *= 1.14;
+  if (a.elite) tempo *= 1.06;
+  bewege(a, (zx / l) * tempo * dt, (zy / l) * tempo * dt);
+}
+
+/* Mittelpunkt der Nachbarkachel mit dem kleinsten Abstand zum Spieler. */
+function naechsterWegpunkt(a) {
+  const d = G.map.dist;
+  const ax = Math.floor(a.x), ay = Math.floor(a.y);
+  const hier = d[idx(ax, ay)];
+  if (hier === -1) return null;
+  let best = null;
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const nx = ax + dx, ny = ay + dy;
+      if (!isWalkable(nx, ny)) continue;
+      // Diagonalen nur, wenn beide Seiten frei sind
+      if (dx && dy && (!isWalkable(ax + dx, ay) || !isWalkable(ax, ay + dy))) continue;
+      const v = d[idx(nx, ny)];
+      if (v === -1) continue;
+      if (!best || v < best[0]) best = [v, mitte(nx), mitte(ny)];
+    }
+  if (!best || best[0] >= hier) return null;
+  return [best[1], best[2]];
+}
+
+// Wie oft ein Gegner handelt. Flinke sind schneller, Betäubte stehen still.
+function monsterInterval(a) {
+  let takt = MONSTER_STEP * (a.spec.tempo || 1);
+  if (a.maff === "flink") takt *= .72;   // knapp schneller als der Held
+  if (a.maff === "rasend") takt *= .80;
+  if (a.elite) takt *= .94;
+  return takt;
+}
+
+// Der Spieler hat gehandelt: Protokoll trennen, Sicht neu, Anzeige auffrischen.
+function endTurn() {
+  const p = G.player;
+  if (!p.alive) return;
+  updateFov();
+}
+
+/* ── Zuschlagen ──────────────────────────────────────────────────────────
+   Ein Schlag trifft einen Bogen aus drei Feldern vor dir, nicht nur eines.
+   Das macht Nahkampf lesbar, ohne dass man pixelgenau zielen muss. */
+function schwingen(dx, dy) {
+  const p = G.player;
+  if (!p.alive || mode.kind !== "play" || modalOpen) return;
+  if (G.time < (p.nextSwing || 0)) return;
+
+  if (dx || dy) {
+    const l = Math.hypot(dx, dy) || 1;
+    p.facing = [dx / l, dy / l];
+  }
+  const [fx, fy] = p.facing;
+  if (!fx && !fy) return;
+
+  p.nextSwing = G.time + SWING_TIME * (p.swingHaste || 1);
+  travel = null; chase = null; resting = 0;
+
+  // Getroffen wird, wer im Bogen vor dir steht - nicht wer auf einem Nachbarfeld sitzt
+  const winkel = Math.atan2(fy, fx);
+  const reichweite = REACH * (p.reachMult || 1);
+  const getroffen = [];
+  for (const z of G.actors) {
+    if (z.isPlayer || !z.alive) continue;
+    const dx = z.x - p.x, dy = z.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d > reichweite + (z.radius || R_MONSTER)) continue;
+    let ab = Math.abs(Math.atan2(dy, dx) - winkel);
+    if (ab > Math.PI) ab = Math.PI * 2 - ab;
+    if (ab <= ARC / 2 || d < .75) getroffen.push(z);   // ganz nah trifft immer
+  }
+
+  anim.swing = { x: p.x, y: p.y, fx, fy, life: 1 };
+
+  if (!getroffen.length) {
+    Sfx.spiel("abgeprallt");
+    logBreak();
+    refreshUI();
+    return;
+  }
+
+  logBreak();
+  for (const ziel of getroffen) attack(p, ziel);
+  endTurn();
+  refreshUI();
+}
+
+/* ── Bewegung in Echtzeit ────────────────────────────────────────────────
+   Gehaltene Richtungstasten werden gesammelt; die Uhr bestimmt das Tempo.
+   Zwei Richtungen zugleich ergeben eine Diagonale. */
+const gedrueckt = new Set();
+
+function haltungAusTasten() {
+  let dx = 0, dy = 0;
+  for (const k of gedrueckt) {
+    const m = MOVES[k];
+    if (!m) continue;
+    dx += m[0]; dy += m[1];
+  }
+  return [Math.sign(dx), Math.sign(dy)];
+}
+
+function schritt(dt) {
+  if (!G || mode.kind !== "play" || modalOpen || !G.player.alive) return;
+  const p = G.player;
+  let [rx, ry] = haltungAusTasten();
+
+  if (rx || ry) {
+    travel = null; chase = null; resting = 0;
+  } else {
+    // Ohne Tastendruck: dem angeklickten Weg oder Gegner folgen
+    const ziel = mausZiel();
+    if (!ziel) return;
+    rx = ziel[0] - p.x; ry = ziel[1] - p.y;
+    if (Math.hypot(rx, ry) < .12) return;
+  }
+  const laenge = Math.hypot(rx, ry) || 1;
+  const dx = rx / laenge, dy = ry / laenge;
+  p.facing = [dx, dy];
+
+  const weite = SPEED_PLAYER * dt * (p.speedMult || 1);
+  const vorher = [Math.floor(p.x), Math.floor(p.y)];
+  bewege(p, dx * weite, dy * weite);
+
+  // Kachelwechsel: erst dann lohnen Sichtfeld, Schalen und Protokoll
+  if (Math.floor(p.x) !== vorher[0] || Math.floor(p.y) !== vorher[1]) {
+    refillFromBrazier();
+    betritt();
+    updateFov();
+    refreshUI();
+  }
+}
+
+/* Naechster Zielpunkt aus Klickweg oder Verfolgung. */
+function mausZiel() {
+  const p = G.player;
+  if (chase) {
+    if (!chase.alive) { chase = null; return null; }
+    const d = Math.hypot(chase.x - p.x, chase.y - p.y);
+    if (d <= REACH * .85) {           // nah genug - zuschlagen statt weiterlaufen
+      schwingen(chase.x - p.x, chase.y - p.y);
+      return null;
+    }
+    const weg = pathTo(Math.floor(chase.x), Math.floor(chase.y));
+    if (weg && weg.length) return [mitte(weg[0][0]), mitte(weg[0][1])];
+    return [chase.x, chase.y];
+  }
+  if (travel && travel.length) {
+    const [tx, ty] = travel[0];
+    const zx = mitte(tx), zy = mitte(ty);
+    if (Math.hypot(zx - p.x, zy - p.y) < .3) {
+      travel.shift();
+      if (!travel.length) { travel = null; return null; }
+      return [mitte(travel[0][0]), mitte(travel[0][1])];
+    }
+    return [zx, zy];
+  }
+  return null;
+}
+
+/* Was passiert, wenn der Held eine neue Kachel betritt. */
+function betritt() {
+  const p = G.player;
+  const [tx, ty] = kachel(p);
+  const art = inBounds(tx, ty) ? G.map.tiles[idx(tx, ty)] : WALL;
+  if (art === VEIL && !G.map.sealed) versiegle();
 }
 
 // Zentrale Schleuse: jede Spieleraktion laeuft hier durch.
@@ -3109,8 +3530,9 @@ function camera() {
   // statt in eine Ecke der Tafel zu rutschen.
   const OVER = 5;
   const p = G.player;
-  let cx = Math.round(p.ax) - (VIEW_W >> 1);
-  let cy = Math.round(p.ay) - (VIEW_H >> 1);
+  // Kein Runden auf Kacheln - sonst ruckt das Bild bei jedem Feldwechsel
+  let cx = p.x - VIEW_W / 2;
+  let cy = p.y - VIEW_H / 2;
   cx = Math.max(-OVER, Math.min(cx, MAP_W - VIEW_W + OVER));
   cy = Math.max(-OVER, Math.min(cy, MAP_H - VIEW_H + OVER));
   return [cx, cy];
@@ -3132,7 +3554,7 @@ function drawFrame(dt) {
   ctx.translate(sx, sy);
   drawBedrock(camX, camY);
 
-  const px = G.player.ax, py = G.player.ay;
+  const px = G.player.x - .5, py = G.player.y - .5;
   const flicker = .93 + Math.sin(anim.t * 7.3) * .035 + Math.sin(anim.t * 17.1) * .025;
 
   // Lavafelder im Ausschnitt leuchten mit; jedes zweite reicht als Lichtquelle.
@@ -3160,17 +3582,16 @@ function drawFrame(dt) {
   }
 
   /* --- Kacheln --- */
-  for (let row = 0; row < VIEW_H; row++) {
-    const my = row + camY;
+  const startX = Math.floor(camX) - 1, startY = Math.floor(camY) - 1;
+  for (let my = startY; my <= startY + VIEW_H + 2; my++) {
     if (my < 0 || my >= MAP_H) continue;
-    for (let col = 0; col < VIEW_W; col++) {
-      const mx = col + camX;
+    for (let mx = startX; mx <= startX + VIEW_W + 2; mx++) {
       if (mx < 0 || mx >= MAP_W) continue;
       const i = idx(mx, my);
       const vis = G.map.visible[i], exp = G.map.explored[i];
       if (!vis && !exp) continue;
 
-      const x = col * TILE, y = row * TILE;
+      const x = Math.round((mx - camX) * TILE), y = Math.round((my - camY) * TILE);
       const kind = G.map.tiles[i];
 
       // Fackelabfall: nah warm und hell, am Rand gedämpft - aber nie unlesbar
@@ -3196,6 +3617,7 @@ function drawFrame(dt) {
 
       if (kind === WALL || kind === PILLAR) drawWall(x, y, mx, my, vis, light, kind);
       else if (kind === LAVA) drawLava(x, y, mx, my, vis, light);
+      else if (kind === VEIL) drawVeil(x, y, mx, my, vis, light);
       else drawFloor(x, y, mx, my, vis, light, kind);
     }
   }
@@ -3280,16 +3702,12 @@ function drawFrame(dt) {
 
   /* --- Wesen --- */
   const drawables = G.actors.filter(a => a.alive);
-  drawables.sort((a, b) => a.ay - b.ay);
+  drawables.sort((a, b) => a.y - b.y);
   for (const a of drawables) {
-    if (!G.map.visible[idx(a.x, a.y)] && !a.isPlayer) continue;
+    if (!G.map.visible[idx(kachelX(a), kachelY(a))] && !a.isPlayer) continue;
 
-    // Bewegung weich nachziehen
-    const speed = 14 * dt;
-    a.ax += (a.x - a.ax) * Math.min(1, speed);
-    a.ay += (a.y - a.ay) * Math.min(1, speed);
-    if (Math.abs(a.ax - a.x) < .01) a.ax = a.x;
-    if (Math.abs(a.ay - a.y) < .01) a.ay = a.y;
+    // Position ist bereits stufenlos - nichts mehr zu glätten
+    a.ax = a.x; a.ay = a.y;
 
     let ox = 0, oy = 0;
     if (a.lunge) {
@@ -3303,17 +3721,17 @@ function drawFrame(dt) {
     }
     if (a.flash > 0) a.flash = Math.max(0, a.flash - dt * 4.5);
 
-    const x = (a.ax - camX) * TILE + ox, y = (a.ay - camY) * TILE + oy;
+    const x = (a.x - .5 - camX) * TILE + ox, y = (a.y - .5 - camY) * TILE + oy;
     if (x < -TILE * 2 || y < -TILE * 2) continue;
 
-    const light = a.isPlayer ? 1 : lightAt(Math.hypot(a.ax - px, a.ay - py));
+    const light = a.isPlayer ? 1 : lightAt(Math.hypot(a.x - px, a.y - py));
 
     if (a.isPlayer) drawHero(ctx, x, y, light, anim.t, a);
     else drawCreature(ctx, x, y, a.spec, light, anim.t + a.bob, a);
   }
 
   /* --- Fackelschein als Farbschicht --- */
-  const lx = (px - camX + .5) * TILE, ly = (py - camY + .5) * TILE;
+  const lx = (G.player.x - camX) * TILE, ly = (G.player.y - camY) * TILE;
   const gc = theme().glow;
   const glow = ctx.createRadialGradient(lx, ly, TILE * .5, lx, ly, TILE * (fovR + 1.5));
   glow.addColorStop(0, `rgba(${gc},${.16 * flicker})`);
@@ -3321,6 +3739,34 @@ function drawFrame(dt) {
   glow.addColorStop(1, `rgba(${gc},0)`);
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, VIEW_W * TILE, VIEW_H * TILE);
+
+  /* --- Der eigene Schlag: ein Bogen vor dem Helden --- */
+  if (anim.swing) {
+    anim.swing.life -= dt * 5.5;
+    if (anim.swing.life <= 0) anim.swing = null;
+    else {
+      const sw = anim.swing;
+      const cx = (G.player.x - camX) * TILE;
+      const cy = (G.player.y - camY) * TILE;
+      const winkel = Math.atan2(sw.fy, sw.fx);
+      const oeffnung = Math.PI * .62;
+      const fort = 1 - sw.life;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, sw.life * 1.5) * .85;
+      ctx.strokeStyle = "#F2E4C0";
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE * (.65 + fort * .55),
+              winkel - oeffnung / 2, winkel + oeffnung / 2);
+      ctx.stroke();
+      ctx.globalAlpha *= .45;
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = "#E8A94B";
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 
   /* --- Staub, der im Fackelschein treibt --- */
   drawMotes(dt, camX, camY, px, py);
@@ -3351,27 +3797,29 @@ function drawFrame(dt) {
 let bedrock = null, bedrockKey = "";
 function drawBedrock(camX, camY) {
   const T = theme();
-  const key = `${camX},${camY},${T.name}`;
+  const gx = Math.floor(camX), gy = Math.floor(camY);
+  const key = `${gx},${gy},${T.name}`;
   if (bedrockKey !== key) {
     if (!bedrock) {
       bedrock = document.createElement("canvas");
-      bedrock.width = VIEW_W * TILE;
-      bedrock.height = VIEW_H * TILE;
+      bedrock.width = (VIEW_W + 2) * TILE;
+      bedrock.height = (VIEW_H + 2) * TILE;
     }
     const bc = bedrock.getContext("2d");
     bc.fillStyle = T.rock || "#100D0A";
     bc.fillRect(0, 0, bedrock.width, bedrock.height);
     // Feine Mineralsprenkel statt weicher Flecken - das liest sich als Fels.
-    for (let row = -1; row <= VIEW_H; row++) {
-      for (let col = -1; col <= VIEW_W; col++) {
-        const mx = col + camX, my = row + camY;
+    for (let row = -1; row <= VIEW_H + 1; row++) {
+      for (let col = -1; col <= VIEW_W + 1; col++) {
+        const mx = col + gx, my = row + gy;
         for (let k = 0; k < 3; k++) {
           const a = hash2(mx * 17 + k * 131 + 5, my * 23 + k * 57 + 11);
           if (a < .55) continue;
           const b = hash2(my * 41 + k * 13, mx * 29 + k * 7);
           bc.fillStyle = `rgba(236,224,206,${.010 + (a - .55) * .028})`;
           const w = 1 + a * 2.6, h = 1 + b * 1.6;
-          bc.fillRect(col * TILE + b * (TILE - w), row * TILE + a * (TILE - h), w, h);
+          bc.fillRect((col + 1) * TILE + b * (TILE - w),
+                      (row + 1) * TILE + a * (TILE - h), w, h);
         }
         // Vereinzelt ein dunkler Riss im Gestein
         const c = hash2(mx * 71 + 3, my * 89 + 19);
@@ -3379,15 +3827,16 @@ function drawBedrock(camX, camY) {
           bc.strokeStyle = "rgba(0,0,0,.35)";
           bc.lineWidth = 1;
           bc.beginPath();
-          bc.moveTo(col * TILE, row * TILE + c * TILE);
-          bc.lineTo(col * TILE + TILE, row * TILE + (1 - c) * TILE);
+          bc.moveTo((col + 1) * TILE, (row + 1) * TILE + c * TILE);
+          bc.lineTo((col + 2) * TILE, (row + 1) * TILE + (1 - c) * TILE);
           bc.stroke();
         }
       }
     }
     bedrockKey = key;
   }
-  ctx.drawImage(bedrock, 0, 0);
+  // Um den Bruchteil verschoben, damit auch der Fels mitscrollt
+  ctx.drawImage(bedrock, -TILE - (camX - gx) * TILE, -TILE - (camY - gy) * TILE);
 }
 
 function mix(a, b, t) {
@@ -3539,12 +3988,26 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
     ctx.fillRect(x, y, TILE, TILE);
 
     if (inRoom) {
-      // Räume sind gepflastert: regelmäßige Platten mit Fugen
-      ctx.fillStyle = `rgba(0,0,0,${.20})`;
+      /* Platten sind zwei Kacheln breit und zeilenweise versetzt (Läuferverband).
+         Dadurch fällt die Pflasterung nicht mit dem Bewegungsraster zusammen -
+         genau das ließ den Boden vorher wie ein Gitter aussehen. */
+      const reiheVersetzt = (my & 1) ? 1 : 0;
+      const steinX = Math.floor((mx + reiheVersetzt) / 2);
+      const linkeKante = ((mx + reiheVersetzt) & 1) === 0;
+      const n = hash2(steinX * 31 + 7, my * 17 + 2);
+
+      // Sehr zurückhaltende Tönung je Platte, nicht je Kachel
+      ctx.fillStyle = n > .5
+        ? `rgba(255,240,214,${.006 + (n - .5) * .022})`
+        : `rgba(0,0,0,${.010 + (.5 - n) * .030})`;
+      ctx.fillRect(x, y, TILE, TILE);
+
+      // Fugen: oben durchgehend, senkrecht nur an der linken Plattenkante
+      ctx.fillStyle = `rgba(0,0,0,${.15 + n * .06})`;
       ctx.fillRect(x, y, TILE, 1);
-      ctx.fillRect(x, y, 1, TILE);
-      ctx.fillStyle = `rgba(255,236,204,${.045 * light})`;
-      ctx.fillRect(x + 1, y + 1, TILE - 2, 1);
+      if (linkeKante) ctx.fillRect(x, y, 1, TILE);
+      ctx.fillStyle = `rgba(255,236,204,${.030 * light})`;
+      ctx.fillRect(x, y + 1, TILE, 1);
     } else if (T.style === "cave") {
       // Höhlenboden: unebene Erde mit Pfützen, kein Raster, kein Gangdunkel
       for (let k = 0; k < 5; k++) {
@@ -3595,9 +4058,10 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
     ctx.fillStyle = C.memFloor;
     ctx.fillRect(x, y, TILE, TILE);
     if (inRoom) {
-      ctx.fillStyle = "rgba(90,112,140,.14)";
+      const reiheVersetzt = (my & 1) ? 1 : 0;
+      ctx.fillStyle = "rgba(90,112,140,.11)";
       ctx.fillRect(x, y, TILE, 1);
-      ctx.fillRect(x, y, 1, TILE);
+      if (((mx + reiheVersetzt) & 1) === 0) ctx.fillRect(x, y, 1, TILE);
     }
   }
 
@@ -3647,6 +4111,47 @@ function drawLava(x, y, mx, my, vis, light) {
     const w = 3 + a * 7, h = 2 + b * 5;
     ctx.fillRect(x + b * (TILE - w), y + a * (TILE - h), w, h);
   }
+}
+
+/* Der Schleier vor der Bosskammer: eine stehende Nebelwand, die schimmert.
+   Ist die Kammer versiegelt, wird sie dichter und rot. */
+function drawVeil(x, y, mx, my, vis, light) {
+  const zu = G.map.sealed;
+  ctx.fillStyle = vis ? "#1A1216" : "#141A22";
+  ctx.fillRect(x, y, TILE, TILE);
+  if (!vis) {
+    ctx.strokeStyle = "#3E4E60";
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(x + .5, y + .5, TILE - 1, TILE - 1);
+    return;
+  }
+
+  const t = anim.t;
+  ctx.save();
+  const grad = ctx.createLinearGradient(x, y, x, y + TILE);
+  const kern = zu ? "216,64,56" : "196,168,232";
+  grad.addColorStop(0, `rgba(${kern},.06)`);
+  grad.addColorStop(.5, `rgba(${kern},${zu ? .34 : .22})`);
+  grad.addColorStop(1, `rgba(${kern},.06)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, TILE, TILE);
+
+  // Aufsteigende Schlieren
+  ctx.globalCompositeOperation = "lighter";
+  for (let k = 0; k < 4; k++) {
+    const ph = (t * (.22 + k * .05) + hash2(mx * 7 + k, my * 11)) % 1;
+    const sy = y + TILE - ph * TILE;
+    const br = 2 + hash2(mx + k, my + k) * 4;
+    ctx.fillStyle = `rgba(${kern},${(1 - Math.abs(ph - .5) * 2) * (zu ? .30 : .20)})`;
+    ctx.fillRect(x + hash2(my + k, mx) * (TILE - br), sy, br, 2.5);
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // Pfosten links und rechts, damit es als Durchgang lesbar bleibt
+  ctx.fillStyle = mix("#2A2018", "#7A6248", .3 + light * .5);
+  ctx.fillRect(x, y, 3, TILE);
+  ctx.fillRect(x + TILE - 3, y, 3, TILE);
+  ctx.restore();
 }
 
 /* Türrahmen: zwei Pfosten quer zur Durchgangsrichtung und eine Schwelle.
@@ -4652,7 +5157,7 @@ function drawMotes(dt, camX, camY, px, py) {
 // Kopfleiste für Zwischenbosse und den Namenlosen, solange sie in Sicht sind.
 function drawEliteBar() {
   const foe = G.actors.find(a =>
-    a.alive && !a.isPlayer && (a.elite || (a.spec && a.spec.boss)) && seesTile(a.x, a.y));
+    a.alive && !a.isPlayer && (a.elite || (a.spec && a.spec.boss)) && seesTile(kachelX(a), kachelY(a)));
   if (!foe) return;
 
   const w = Math.min(420, VIEW_W * TILE - 80);
@@ -4842,7 +5347,7 @@ function refreshUI() {
   }).join("");
 
   const foes = G.actors
-    .filter(a => !a.isPlayer && a.alive && seesTile(a.x, a.y))
+    .filter(a => !a.isPlayer && a.alive && seesTile(kachelX(a), kachelY(a)))
     .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))
     .slice(0, 7);
   $("foes").innerHTML = foes.length
@@ -5072,9 +5577,11 @@ function showHelp() {
     ["Pfeile · WASD · Ziffernblock", "gehen und angreifen"],
     ["Klick auf ein Feld", "dorthin laufen"],
     ["Klick auf einen Gegner", "hinlaufen und angreifen"],
-    ["Leertaste · Punkt", "eine Runde warten"],
+    ["Leertaste", "zuschlagen — trifft drei Felder vor dir"],
+    ["Punkt", "kurz innehalten"],
     ["F", "Fähigkeit deiner Klasse"],
     ["M", "Ton an oder aus"],
+    ["Enter", "vor der Bosskammer: durch den Schleier treten"],
     ["R", "rasten — heilt 1 Leben je 1 Öl"],
     ["G", "aufheben"],
     ["I oder E", "Beutel: benutzen, anlegen, wegwerfen"],
@@ -5333,7 +5840,7 @@ function beginTargeting(entry) {
   const p = G.player;
   let best = null, bestDist = Infinity;
   for (const a of G.actors) {
-    if (a.isPlayer || !a.alive || !seesTile(a.x, a.y)) continue;
+    if (a.isPlayer || !a.alive || !seesTile(kachelX(a), kachelY(a))) continue;
     const d = Math.hypot(a.x - p.x, a.y - p.y);
     if (d < bestDist) { best = a; bestDist = d; }
   }
@@ -5380,6 +5887,8 @@ function serialize() {
     explored: Array.from(G.map.explored),
     stairs: G.map.stairs,
     circle: G.map.circle || null,
+    veil: G.map.veil || null, sealed: !!G.map.sealed,
+    time: G.time, upkeepAt: G.upkeepAt,
     quest: G.quest, questLog: G.questLog,
     won: G.won, endless: G.endless, siegRunden: G.siegRunden,
     braziers: G.braziers, decals: G.decals,
@@ -5419,6 +5928,8 @@ function loadGame() {
     G = freshState();
     G.floor = data.floor; G.deepest = data.deepest; G.turns = data.turns;
     G.logEntries = data.logEntries || [];
+    G.time = data.time || 0;
+    G.upkeepAt = data.upkeepAt || 0;
     G.won = !!data.won;
     G.endless = !!data.endless;
     G.siegRunden = data.siegRunden || 0;
@@ -5433,6 +5944,8 @@ function loadGame() {
     G.map.explored.set(data.explored);
     G.map.stairs = data.stairs;
     G.map.circle = data.circle || null;
+    G.map.veil = data.veil || null;
+    G.map.sealed = !!data.sealed;
 
     const p = G.player;
     Object.assign(p, {
@@ -5496,6 +6009,7 @@ function freshState() {
     hp: 45, baseMaxHp: 45, baseAtk: 3, baseDef: 1,
     level: 1, xp: 0, alive: true,
     oil: OIL_MAX, oilMax: OIL_MAX, oilTick: 0, revive: 0,
+    facing: [0, 1], nextSwing: 0, radius: R_PLAYER,
     cls: "krieger", ability: "bash", abilityCd: 0,
     oilSteps: 4, fovBonus: 0, scrollPower: 1, crit: 0, evade: 0,
     bag: [], equipped: { "Waffe": null, "Rüstung": null, "Amulett": null },
@@ -5504,6 +6018,7 @@ function freshState() {
   return {
     player, actors: [player], ground: [], map: newMap(),
     braziers: [], decals: [], quest: null, questLog: [],
+    time: 0, upkeepAt: 0,
     floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
     logEntries: [],
   };
@@ -5566,6 +6081,13 @@ const MOVES = {
   1: [-1, 1], 2: [0, 1], 3: [1, 1], 4: [-1, 0], 6: [1, 0], 7: [-1, -1], 8: [0, -1], 9: [1, -1],
 };
 
+window.addEventListener("keyup", ev => {
+  const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
+  gedrueckt.delete(key);
+});
+// Beim Fensterwechsel bleiben sonst Tasten "gedrückt" hängen
+window.addEventListener("blur", () => gedrueckt.clear());
+
 window.addEventListener("keydown", ev => {
   Sfx.init();
   const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
@@ -5610,17 +6132,18 @@ window.addEventListener("keydown", ev => {
   if (key !== "r") resting = 0;
 
   if (MOVES[key]) {
-    const [dx, dy] = MOVES[key];
-    act(() => tryMove(dx, dy));
+    gedrueckt.add(key);
     ev.preventDefault(); return;
   }
 
   switch (key) {
-    case " ": case ".": case "5":
+    case " ":
+      schwingen(0, 0); ev.preventDefault(); break;
+    case ".": case "5":
       act(() => true); ev.preventDefault(); break;
     case "r": {
       if (G.player.hp >= playerMaxHp()) { log("Du bist bereits ausgeruht.", "system"); break; }
-      if (G.actors.some(a => !a.isPlayer && a.alive && seesTile(a.x, a.y))) {
+      if (G.actors.some(a => !a.isPlayer && a.alive && seesTile(kachelX(a), kachelY(a)))) {
         log("Nicht, solange dich etwas ansieht.", "system"); break;
       }
       if (G.player.oil <= 0) {
@@ -5630,6 +6153,7 @@ window.addEventListener("keydown", ev => {
       log("Du setzt dich ans Feuer deiner Fackel. Jede geheilte Wunde kostet Öl.", "system");
       break;
     }
+    case "Enter": durchschreite(); break;
     case "m": {
       Sfx.setAn(!Sfx.an);
       if (Sfx.an) Sfx.spiel("aufheben");
@@ -5655,8 +6179,8 @@ function tileFromEvent(ev) {
   const x = (ev.clientX - rect.left) * scale;
   const y = (ev.clientY - rect.top) * scale;
   const [camX, camY] = camera();
-  const tx = Math.floor(x / TILE) + camX;
-  const ty = Math.floor(y / TILE) + camY;
+  const tx = Math.floor(x / TILE + camX);
+  const ty = Math.floor(y / TILE + camY);
   return inBounds(tx, ty) ? [tx, ty] : null;
 }
 
@@ -5702,7 +6226,7 @@ canvas.addEventListener("click", ev => {
   // Auf einen sichtbaren Gegner geklickt: hinlaufen und zuschlagen
   const foe = actorAt(tx, ty);
   if (foe && !foe.isPlayer && seesTile(tx, ty)) {
-    if (Math.max(Math.abs(tx - p.x), Math.abs(ty - p.y)) === 1) act(() => tryMove(dx, dy));
+    if (Math.max(Math.abs(tx - p.x), Math.abs(ty - p.y)) === 1) schwingen(dx, dy);
     else chase = foe;
     return;
   }
@@ -5733,17 +6257,13 @@ setInterval(() => {
     }
     const p = G.player;
     if (Math.max(Math.abs(chase.x - p.x), Math.abs(chase.y - p.y)) <= 1) {
-      act(() => tryMove(Math.sign(chase.x - p.x), Math.sign(chase.y - p.y)));
+      schwingen(Math.sign(chase.x - p.x), Math.sign(chase.y - p.y));
       return;
     }
-    const path = pathTo(chase.x, chase.y);
-    if (!path || !path.length) { chase = null; return; }
-    const [nx, ny] = path[0];
-    act(() => tryMove(nx - p.x, ny - p.y));
-    return;
+    return;   // Annaeherung passiert in schritt()
   }
 
-  const danger = G.actors.some(a => !a.isPlayer && a.alive && seesTile(a.x, a.y));
+  const danger = G.actors.some(a => !a.isPlayer && a.alive && seesTile(kachelX(a), kachelY(a)));
   if (danger) {
     if (travel || resting) {
       travel = null; resting = 0;
@@ -5753,12 +6273,8 @@ setInterval(() => {
     return;
   }
 
-  if (travel && travel.length) {
-    const [nx, ny] = travel.shift();
-    act(() => tryMove(nx - G.player.x, ny - G.player.y));
-    if (!travel.length) travel = null;
-    return;
-  }
+  // Laufwege werden in schritt() stufenlos abgefahren
+  if (travel && travel.length) return;
 
   if (resting > 0) {
     if (G.player.hp >= playerMaxHp()) {
@@ -5773,14 +6289,11 @@ setInterval(() => {
       refreshUI();
       return;
     }
-    // Mehrere Runden je Takt, sonst dauert eine Rast quälend lang.
-    for (let i = 0; i < 10 && resting > 0; i++) {
-      resting--;
-      act(() => true);
-      if (!G.player.alive || G.player.hp >= playerMaxHp()) break;
-    }
+    // Geheilt wird im Verwaltungstakt der Weltuhr; hier läuft nur die Dauer ab.
+    resting = Math.max(0, resting - 1);
     if (resting === 0 && G.player.alive && G.player.hp < playerMaxHp())
       log("Du brichst die Rast ab.", "system");
+    refreshUI();
   }
 }, 105);
 
@@ -5791,6 +6304,8 @@ function loop(now) {
   const dt = Math.min(.05, (now - lastTime) / 1000);
   lastTime = now;
   if (G) {
+    tickWorld(dt);
+    schritt(dt);
     drawFrame(dt);
     // Untermalung: die eigene Fackel und, wenn Lava in Sicht ist, ihr Grollen
     if (Sfx.an && mode.kind === "play" && !modalOpen && G.player.alive) {
@@ -5830,6 +6345,3 @@ refreshUI();
 requestAnimationFrame(loop);
 showTitle();
 </script>
-
-</body>
-</html>
