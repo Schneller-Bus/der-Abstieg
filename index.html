@@ -142,6 +142,26 @@ body {
   align-items: start;
 }
 
+/* Die Seitenleiste ist laenger als das Spielfeld. Ohne Deckel bestimmt sie
+   die Hoehe des Rasters und schiebt das Protokoll unter den Bildschirmrand -
+   deshalb bekommt sie einen eigenen Rollbalken statt die Seite zu strecken. */
+.margin {
+  max-height: calc(100dvh - 250px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--stone-600) transparent;
+}
+
+@supports not (height: 100dvh) {
+  .margin { max-height: calc(100vh - 250px); }
+}
+
+@media (max-width: 900px) {
+  .margin { max-height: none; overflow-y: visible; padding-right: 0; }
+}
+
 @media (max-width: 900px) {
   .board { grid-template-columns: minmax(0, 1fr); }
 }
@@ -517,6 +537,94 @@ body {
 }
 
 .sheet { position: relative; }
+
+/* Der Beutel traegt rechts die Ausruestung und braucht dafuer Platz. */
+.sheet.weit { width: min(880px, 100%); }
+
+/* Ausruestungsfelder im Beutel: drei Kaesten mit Sinnbild, wie im Spielregal */
+.bag-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 214px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .bag-wrap { grid-template-columns: minmax(0, 1fr); }
+}
+
+.gear { border-left: 1px solid var(--stone-800); padding-left: 18px; }
+
+.gear h3 {
+  margin: 0 0 10px;
+  font-family: var(--rubric);
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--vellum-faint);
+  font-weight: 400;
+}
+
+.gear-slot {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.gear-slot:disabled { cursor: default; }
+.gear-slot:not(:disabled):hover,
+.gear-slot:not(:disabled):focus-visible { background: var(--stone-850); outline: none; }
+
+.gear-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--stone-700);
+  border-radius: 3px;
+  background: var(--stone-950);
+  box-shadow: inset 0 0 0 1px rgba(232,169,75,.04), inset 0 0 12px rgba(0,0,0,.6);
+}
+
+.gear-box.leer { border-style: dashed; opacity: .45; }
+.gear-box svg { width: 26px; height: 26px; display: block; }
+
+.gear-text { min-width: 0; line-height: 1.35; }
+
+.gear-text b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gear-text span {
+  display: block;
+  font-size: 11.5px;
+  color: var(--vellum-faint);
+}
+
+.gear-text .art {
+  font-family: var(--rubric);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--vellum-faint);
+}
 
 .stapel {
   font-size: 12px;
@@ -2242,8 +2350,9 @@ function markDoorways(map) {
    Stehen in Räumen herum und geben beim Öffnen mehrere Stücke auf einmal. */
 function stelleKisten(map, zones, floor, extra) {
   G.chests = [];
-  // Kisten sind die Hauptquelle fuer Nachschub, entsprechend mehr davon
-  const anzahl = 3 + (rng() < .6 ? 1 : 0) + (floor >= 5 ? 1 : 0) + (extra || 0);
+  // Kisten sind die Hauptquelle fuer Nachschub - aber knapp gehalten, sonst
+  // schwimmt man nach drei Etagen in Traenken und trifft keine Entscheidung mehr.
+  const anzahl = 2 + (rng() < .6 ? 1 : 0) + (floor >= 6 ? 1 : 0) + (extra || 0);
   const chancen = chancesFor(ITEM_TABLE, floor);
   if (!chancen.length) return;
 
@@ -2261,11 +2370,11 @@ function stelleKisten(map, zones, floor, extra) {
       if (!felder.length) continue;
       const [x, y] = felder[Math.floor(rng() * felder.length)];
 
-      // Kisten sind ergiebiger als loser Boden - zwei bis drei Stücke
+      // Ein bis zwei Stuecke je Kiste - ein Fund soll etwas heissen
       const beute = [];
-      const stueck = 2 + (rng() < .5 ? 1 : 0);
+      const stueck = 1 + (rng() < .45 ? 1 : 0);
       for (let i = 0; i < stueck; i++) {
-        const gebaut = rollItem(weighted(chancen), floor, .25);
+        const gebaut = rollItem(weighted(chancen), floor, .12);
         beute.push({ id: gebaut.id, ax: gebaut.ax || null });
       }
       G.chests.push({ x, y, opened: false, loot: beute });
@@ -2297,11 +2406,11 @@ function oeffneKiste() {
 /* Erschlagene Gegner lassen gelegentlich etwas fallen. */
 function beuteFallenLassen(gegner) {
   const floor = G.floor;
-  const chance = Math.min(.34, .12 + floor * .015) * (gegner.maff ? 1.8 : 1);
+  const chance = Math.min(.20, .07 + floor * .011) * (gegner.maff ? 1.6 : 1);
   if (rng() > chance) return;
   const chancen = chancesFor(ITEM_TABLE, floor);
   if (!chancen.length) return;
-  const gebaut = rollItem(weighted(chancen), floor, gegner.maff ? .2 : 0);
+  const gebaut = rollItem(weighted(chancen), floor, gegner.maff ? .1 : 0);
   const tx = Math.floor(gegner.x), ty = Math.floor(gegner.y);
   if (!WALKABLE[G.map.tiles[idx(tx, ty)]]) return;
   G.ground.push(Object.assign({}, gebaut, { x: tx, y: ty }));
@@ -6187,7 +6296,6 @@ function closeModal() {
   canvas.focus();
 }
 
-const LETTERS = "abcdefghijklmnopqrst";
 
 function primaryLabel(entry) {
   const d = entry.def;
@@ -6213,6 +6321,26 @@ function compareText(entry) {
   return `<i class="cmp">${parts.join(" ")}</i>`;
 }
 
+/* Sinnbilder der Ausruestungsplaetze. Eigene Pfade statt Schriftzeichen:
+   so faerben sie sich mit dem Gegenstand ein und brauchen keine Datei. */
+const SLOT_BILD = {
+  "Waffe": '<path d="M20.5 3.5 11 13l-1.4-1.4-1.8 1.8 4.8 4.8 1.8-1.8L13 15l9.5-9.5z" ' +
+           'fill="currentColor"/><path d="M8.4 15.2 3.5 20.1l.9.9 1.3-.5.5 1.3.9.9 4.9-4.9z" ' +
+           'fill="currentColor" opacity=".75"/>',
+  "Rüstung": '<path d="M12 2.5 4.5 5v7.2c0 4.4 3.1 7.6 7.5 9.3 4.4-1.7 7.5-4.9 7.5-9.3V5z" ' +
+             'fill="currentColor" opacity=".9"/><path d="M12 5.6 7.4 7.2v5.1c0 3 2 5.3 4.6 6.5z" ' +
+             'fill="#000" opacity=".25"/>',
+  "Amulett": '<path d="M6.5 3.5C6.5 3.5 8 9 12 9s5.5-5.5 5.5-5.5" fill="none" ' +
+             'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>' +
+             '<path d="M12 9.5 8.6 14 12 21l3.4-7z" fill="currentColor"/>' +
+             '<circle cx="12" cy="13.4" r="1.5" fill="#000" opacity=".3"/>',
+};
+
+function slotBild(slot, farbe) {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" style="color:${farbe}">` +
+         `${SLOT_BILD[slot] || ""}</svg>`;
+}
+
 function showBag(focus) {
   const bag = G.player.bag;
 
@@ -6224,7 +6352,7 @@ function showBag(focus) {
     return `<div class="bag-row">
       <button class="choice bag-main ${equipped ? "equipped" : ""}" data-i="${i}"
               ${action ? "" : "disabled"}>
-        <span class="key">${LETTERS[i]}</span>
+        <span class="key" aria-hidden="true">·</span>
         <span class="bag-name" style="color:${d.tint}">${escapeHtml(d.name)}${
           equipped ? ' <em>angelegt</em>' : ""}</span>
         <span class="note">${escapeHtml(note)}${equipped ? "" : compareText(entry)}</span>
@@ -6235,20 +6363,42 @@ function showBag(focus) {
   }).join("") : '<p class="quiet" style="padding:14px 0">Dein Beutel ist leer.</p>';
 
   const p = G.player;
+
+  // Rechte Spalte: was am Körper sitzt, als Bildfelder. Ein Klick nimmt es ab.
+  const gear = ["Waffe", "Rüstung", "Amulett"].map(slot => {
+    const e = p.equipped[slot];
+    const farbe = e ? e.def.tint : "var(--stone-600)";
+    return `<button class="gear-slot" data-gear="${slot}" ${e ? "" : "disabled"}>
+      <span class="gear-box ${e ? "" : "leer"}">${slotBild(slot, farbe)}</span>
+      <span class="gear-text">
+        <span class="art">${slot}</span>
+        <b style="color:${e ? e.def.tint : "var(--vellum-faint)"}">${
+          e ? escapeHtml(e.def.name) : "nichts"}</b>
+        <span>${e ? escapeHtml(bonusText(e.def)) : "—"}</span>
+      </span>
+    </button>`;
+  }).join("");
+
   openModal(`<h2>Beutel</h2>
     <p class="sub">${bag.length} von 20 Plätzen · ${p.hp}/${playerMaxHp()} Leben · ${p.oil} Öl.
       Der Beutel bleibt offen — Zielzauber schließen ihn, weil du die Karte brauchst.</p>
-    ${rows}
-    <div class="foot">Buchstabe benutzt · Umschalt + Buchstabe wirft weg · Esc schließt</div>`,
-    (key, ev) => {
-      const i = LETTERS.indexOf(key);
-      if (i < 0 || i >= bag.length) return false;
-      chooseBagItem(bag[i], !!(ev && ev.shiftKey));
-      return true;
-    });
+    <div class="bag-wrap">
+      <div class="bag-list">${rows}</div>
+      <aside class="gear"><h3>Angelegt</h3>${gear}</aside>
+    </div>
+    <div class="foot">Mit der Maus benutzen, anlegen oder wegwerfen · Klick auf ein
+      Ausrüstungsfeld nimmt es ab · Esc schließt</div>`);
 
   overlay.querySelectorAll("[data-i]").forEach(btn => {
     btn.onclick = () => chooseBagItem(bag[+btn.dataset.i], btn.dataset.do === "drop");
+  });
+
+  const blatt = overlay.querySelector(".sheet");
+  if (blatt) blatt.classList.add("weit");
+
+  overlay.querySelectorAll("[data-gear]").forEach(btn => {
+    const e = p.equipped[btn.dataset.gear];
+    if (e) btn.onclick = () => chooseBagItem(e, false);
   });
 
   if (focus != null && bag.length) {
@@ -6268,7 +6418,7 @@ function showChest(kiste) {
     const notiz = d.slot ? bonusText(d) : (d.note || "");
     return `<div class="bag-row">
       <button class="choice bag-main" data-i="${i}">
-        <span class="key">${LETTERS[i]}</span>
+        <span class="key" aria-hidden="true">·</span>
         <span style="color:${d.tint}">${escapeHtml(d.name)}</span>
         <span class="note">${escapeHtml(notiz)}</span>
       </button>
@@ -6282,14 +6432,9 @@ function showChest(kiste) {
       Was du liegen lässt, bleibt in der Kiste.</p>
     ${zeilen}
     ${kiste.loot.length ? `<button class="choice" id="allesBtn" style="margin-top:12px">
-      <span class="key">↵</span><span>Alles nehmen</span><span class="note"></span></button>` : ""}
-    <div class="foot">Buchstabe nimmt · Enter nimmt alles · Esc schließt</div>`,
-    key => {
-      if (key === "enter") { nimmAllesAusKiste(kiste); return true; }
-      const i = LETTERS.indexOf(key);
-      if (i >= 0 && i < kiste.loot.length) { nimmAusKiste(kiste, i); return true; }
-      return false;
-    });
+      <span class="key" aria-hidden="true">·</span><span>Alles nehmen</span>
+      <span class="note"></span></button>` : ""}
+    <div class="foot">Mit der Maus nehmen · Esc schließt</div>`);
 
   overlay.querySelectorAll("[data-i]").forEach(btn => {
     btn.onclick = () => nimmAusKiste(kiste, +btn.dataset.i);
@@ -6443,7 +6588,6 @@ function showHelp() {
     ["R", "rasten — heilt 1 Leben je 1 Öl"],
     ["G", "aufheben · Kiste öffnen"],
     ["I oder E", "Beutel: benutzen, anlegen, wegwerfen"],
-    ["Umschalt + Buchstabe", "im Beutel direkt wegwerfen"],
     ["Q", "Aufträge"],
     ["C", "Heldenbogen"],
     ["&gt; (Umschalt + .)", "Treppe hinabsteigen"],
