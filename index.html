@@ -372,6 +372,16 @@ body {
   color: var(--vellum-faint);
 }
 
+.mini {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  background: #0C0A08;
+  border: 1px solid var(--stone-700);
+  border-radius: 2px;
+}
+
 .quest-title {
   font-size: 14px;
   color: var(--torch);
@@ -748,6 +758,12 @@ body {
         <div id="slots"></div>
       </section>
 
+      <section>
+        <div class="divider" style="margin-bottom:14px"></div>
+        <h2 class="rubric">Karte</h2>
+        <canvas id="mini" class="mini" width="204" height="132" aria-label="Übersichtskarte"></canvas>
+      </section>
+
       <section id="questBlock">
         <div class="divider" style="margin-bottom:14px"></div>
         <h2 class="rubric">Auftrag</h2>
@@ -770,7 +786,7 @@ body {
       <div class="divider"></div>
 
       <div class="keys">
-        <kbd>Pfeile</kbd> gehen · <kbd>Leer</kbd> schlagen · <kbd>Klick</kbd> laufen<br>
+        <kbd>Pfeile</kbd> gehen · <kbd>Linksklick</kbd> schlagen · <kbd>Rechts</kbd> laufen<br>
         <kbd>F</kbd> Fähigkeit · <kbd>G</kbd> aufheben · <kbd>I</kbd> Beutel<br>
         <kbd>Q</kbd> Aufträge · <kbd>C</kbd> Held · <kbd>R</kbd> rasten<br>
         <kbd>&gt;</kbd> Treppe · <kbd>M</kbd> Ton · <kbd>?</kbd> Hilfe
@@ -1501,6 +1517,7 @@ let anim = { shake: 0, effects: [], t: 0 };
 let travel = null;   // laufender Mausweg
 let resting = 0;     // verbleibende Runden der Rast
 let chase = null;    // angeklickter Gegner, auf den zugelaufen wird
+let schlagen = false; // linke Maustaste gehalten
 let mode = { kind: "play" };   // play | target | dead | won
 let mouseTile = null;
 
@@ -1515,6 +1532,7 @@ function newMap() {
     circle: null,   // Ritualkreis der Endkammer
     veil: null,     // Felder des Bossschleiers
     veilRoom: null, // welche Felder liegen innerhalb der Kammer
+    gateBoss: false,// versperrt ein Namentlicher die Treppe?
     sealed: false,  // steht der Spieler schon drinnen?
   };
 }
@@ -2150,6 +2168,76 @@ function markDoorways(map) {
   }
 }
 
+/* ── Kisten ───────────────────────────────────────────────────────────────
+   Stehen in Räumen herum und geben beim Öffnen mehrere Stücke auf einmal. */
+function stelleKisten(map, zones, floor) {
+  G.chests = [];
+  const anzahl = 1 + (rng() < .55 ? 1 : 0) + (floor >= 5 && rng() < .4 ? 1 : 0);
+  const chancen = chancesFor(ITEM_TABLE, floor);
+  if (!chancen.length) return;
+
+  const pool = zones.slice(1);
+  for (let k = 0; k < anzahl && pool.length; k++) {
+    for (let versuch = 0; versuch < 30; versuch++) {
+      const zone = pool[Math.floor(rng() * pool.length)];
+      const felder = zone.tiles.filter(([x, y]) =>
+        WALKABLE[map.tiles[idx(x, y)]] &&
+        map.tiles[idx(x, y)] !== VEIL && map.tiles[idx(x, y)] !== STAIRS &&
+        !actorAt(x, y) &&
+        !G.ground.some(i => i.x === x && i.y === y) &&
+        !G.braziers.some(b => b.x === x && b.y === y) &&
+        !G.chests.some(c => c.x === x && c.y === y));
+      if (!felder.length) continue;
+      const [x, y] = felder[Math.floor(rng() * felder.length)];
+
+      // Kisten sind ergiebiger als loser Boden - zwei bis drei Stücke
+      const beute = [];
+      const stueck = 2 + (rng() < .45 ? 1 : 0);
+      for (let i = 0; i < stueck; i++) {
+        const gebaut = rollItem(weighted(chancen), floor, .25);
+        beute.push({ id: gebaut.id, ax: gebaut.ax || null });
+      }
+      G.chests.push({ x, y, opened: false, loot: beute });
+      break;
+    }
+  }
+}
+
+/* Öffnet eine Kiste in Reichweite. Der Inhalt fällt vor die Füße. */
+function oeffneKiste() {
+  const p = G.player;
+  const nah = (G.chests || []).find(c =>
+    !c.opened && Math.hypot(mitte(c.x) - p.x, mitte(c.y) - p.y) < 1.6);
+  if (!nah) return false;
+  nah.opened = true;
+  Sfx.spiel("ausruesten");
+  const namen = [];
+  for (const eintrag of nah.loot) {
+    const gebaut = buildItem(eintrag.id, eintrag.ax);
+    G.ground.push(Object.assign({}, gebaut, { x: nah.x, y: nah.y }));
+    namen.push(gebaut.def.name);
+  }
+  burst(mitte(nah.x), mitte(nah.y), "#E8C86A", 18);
+  ring(mitte(nah.x), mitte(nah.y), 1.4, "#E8C86A");
+  log(`Die Kiste gibt nach: ${namen.join(", ")}.`, "good");
+  floatText(mitte(nah.x), mitte(nah.y), "geöffnet", "#E8C86A");
+  return true;
+}
+
+/* Erschlagene Gegner lassen gelegentlich etwas fallen. */
+function beuteFallenLassen(gegner) {
+  const floor = G.floor;
+  const chance = Math.min(.34, .12 + floor * .015) * (gegner.maff ? 1.8 : 1);
+  if (rng() > chance) return;
+  const chancen = chancesFor(ITEM_TABLE, floor);
+  if (!chancen.length) return;
+  const gebaut = rollItem(weighted(chancen), floor, gegner.maff ? .2 : 0);
+  const tx = Math.floor(gegner.x), ty = Math.floor(gegner.y);
+  if (!WALKABLE[G.map.tiles[idx(tx, ty)]]) return;
+  G.ground.push(Object.assign({}, gebaut, { x: tx, y: ty }));
+  floatText(gegner.x, gegner.y, gebaut.def.name, gebaut.def.tint);
+}
+
 /* ── Bossräume der Namentlichen ───────────────────────────────────────────
    Ein Raum lässt sich versiegeln, wenn er wenige Zugänge hat. Die Zugänge
    werden zu Schleierfeldern, die Innenfelder gemerkt. */
@@ -2159,8 +2247,9 @@ function versiegelbar(map, zone) {
 
   const zugaenge = [];
   const gesehen = new Set();
+  // Achtfach, weil man auch diagonal laeuft - sonst bleibt eine Ecke offen
   for (const [x, y] of zone.tiles) {
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
       const nx = x + dx, ny = y + dy;
       if (!inBounds(nx, ny)) continue;
       const k = idx(nx, ny);
@@ -2174,40 +2263,90 @@ function versiegelbar(map, zone) {
 }
 
 /* Höhlen haben keine Räume - für den Namentlichen wird einer ausgehauen. */
-function hauKammerAus(map, cave) {
-  const bw = 11, bh = 8;
-  for (let versuch = 0; versuch < 500; versuch++) {
-    const x0 = ri(2, MAP_W - bw - 3), y0 = ri(2, MAP_H - bh - 3);
-    // Der Platz muss vollständig im Fels liegen
-    let frei = true;
-    for (let y = y0 - 1; y <= y0 + bh && frei; y++)
-      for (let x = x0 - 1; x <= x0 + bw && frei; x++)
-        if (map.tiles[idx(x, y)] !== WALL) frei = false;
-    if (!frei) continue;
+function hauKammerAus(map) {
+  const sichern = () => Uint8Array.from(map.tiles);
+  const zurueck = kopie => map.tiles.set(kopie);
 
-    // Ein Gang zur nächsten Höhlenfläche
-    let ziel = null, best = 1e9;
-    const mx = x0 + (bw >> 1);
-    for (let y = y0 + bh; y < MAP_H - 2; y++) {
-      if (WALKABLE[map.tiles[idx(mx, y)]]) { ziel = y; break; }
-    }
-    if (ziel === null || ziel - (y0 + bh) > 9) continue;
+  const p = G.player;
+  for (const [bw, bh] of [[11, 8], [9, 7], [7, 6], [6, 5]]) {
+    for (let versuch = 0; versuch < 500; versuch++) {
+      const x0 = ri(3, MAP_W - bw - 4), y0 = ri(3, MAP_H - bh - 4);
 
-    const tiles = [];
-    for (let y = y0; y < y0 + bh; y++)
-      for (let x = x0; x < x0 + bw; x++) {
-        map.tiles[idx(x, y)] = FLOOR;
-        map.room[idx(x, y)] = 1;
-        tiles.push([x, y]);
+      // Weder Held noch Treppe duerfen im Grundriss liegen
+      const drinnen = (x, y) => x >= x0 - 1 && x <= x0 + bw && y >= y0 - 1 && y <= y0 + bh;
+      if (drinnen(Math.floor(p.x), Math.floor(p.y))) continue;
+      if (map.stairs && drinnen(map.stairs[0], map.stairs[1])) continue;
+
+      const kopie = sichern();
+
+      // Kammer aushauen und ringsum zumauern - dadurch braucht es keinen
+      // vorhandenen Felsblock, die Kammer schafft sich ihren eigenen.
+      const tiles = [];
+      for (let y = y0 - 1; y <= y0 + bh; y++)
+        for (let x = x0 - 1; x <= x0 + bw; x++) {
+          const rand = (y === y0 - 1 || y === y0 + bh || x === x0 - 1 || x === x0 + bw);
+          if (rand) map.tiles[idx(x, y)] = WALL;
+          else { map.tiles[idx(x, y)] = FLOOR; map.room[idx(x, y)] = 1; tiles.push([x, y]); }
+        }
+
+      // Kürzesten Gang zur übrigen Höhle suchen und durchbrechen
+      const mx = x0 + (bw >> 1), my = y0 + (bh >> 1);
+      const richtungen = [
+        ["u", () => { for (let y = y0 + bh; y < MAP_H - 2; y++)
+                        if (WALKABLE[kopie[idx(mx, y)]]) return [y, y - (y0 + bh)]; return null; }],
+        ["o", () => { for (let y = y0 - 1; y > 1; y--)
+                        if (WALKABLE[kopie[idx(mx, y)]]) return [y, (y0 - 1) - y]; return null; }],
+        ["r", () => { for (let x = x0 + bw; x < MAP_W - 2; x++)
+                        if (WALKABLE[kopie[idx(x, my)]]) return [x, x - (x0 + bw)]; return null; }],
+        ["l", () => { for (let x = x0 - 1; x > 1; x--)
+                        if (WALKABLE[kopie[idx(x, my)]]) return [x, (x0 - 1) - x]; return null; }],
+      ].map(([r, f]) => { const t = f(); return t ? [r, t[0], t[1]] : null; })
+       .filter(Boolean).sort((a, b) => a[2] - b[2]);
+
+      const weg = richtungen.find(w => w[2] <= 14);
+      if (!weg) { zurueck(kopie); continue; }
+
+      const [richtung, bis] = weg;
+      if (richtung === "u") for (let y = y0 + bh; y <= bis; y++) map.tiles[idx(mx, y)] = FLOOR;
+      else if (richtung === "o") for (let y = y0 - 1; y >= bis; y--) map.tiles[idx(mx, y)] = FLOOR;
+      else if (richtung === "r") for (let x = x0 + bw; x <= bis; x++) map.tiles[idx(x, my)] = FLOOR;
+      else for (let x = x0 - 1; x >= bis; x--) map.tiles[idx(x, my)] = FLOOR;
+
+      // Die Mauer darf die Etage nicht zerschneiden
+      if (!vollVerbunden(map)) { zurueck(kopie); continue; }
+
+      if (bw >= 9 && bh >= 7)
+        for (const [px, py] of [[x0 + 1, y0 + 1], [x0 + bw - 2, y0 + 1],
+                                [x0 + 1, y0 + bh - 2], [x0 + bw - 2, y0 + bh - 2]])
+          if (map.tiles[idx(px, py)] === FLOOR) map.tiles[idx(px, py)] = PILLAR;
+
+      /* Wer beim Mauern eingeschlossen wurde, wird herausgeholt - sonst
+         steckten Gegner, Beute oder Fackelschalen in der neuen Wand. */
+      const frei = tiles.filter(([x, y]) => WALKABLE[map.tiles[idx(x, y)]]);
+      const rette = (ox, oy) => {
+        if (WALKABLE[map.tiles[idx(Math.floor(ox), Math.floor(oy))]]) return null;
+        let best = null, bd = 1e9;
+        for (let y = 1; y < MAP_H - 1; y++)
+          for (let x = 1; x < MAP_W - 1; x++) {
+            if (!WALKABLE[map.tiles[idx(x, y)]]) continue;
+            const d = Math.hypot(x - ox, y - oy);
+            if (d < bd) { bd = d; best = [x, y]; }
+          }
+        return best;
+      };
+      for (const a of G.actors) {
+        if (a.isPlayer) continue;
+        const neu = rette(a.x, a.y);
+        if (neu) { a.x = mitte(neu[0]); a.y = mitte(neu[1]); a.ax = a.x; a.ay = a.y; }
       }
-    // Säulen als Andeutung eines gebauten Ortes mitten im Fels
-    for (const [px, py] of [[x0 + 2, y0 + 2], [x0 + bw - 3, y0 + 2],
-                            [x0 + 2, y0 + bh - 3], [x0 + bw - 3, y0 + bh - 3]])
-      map.tiles[idx(px, py)] = PILLAR;
+      for (const it of G.ground) {
+        const neu = rette(it.x, it.y);
+        if (neu) { it.x = neu[0]; it.y = neu[1]; }
+      }
+      G.braziers = G.braziers.filter(b => WALKABLE[map.tiles[idx(b.x, b.y)]]);
 
-    for (let y = y0 + bh; y <= ziel; y++) map.tiles[idx(mx, y)] = FLOOR;
-    return { tiles: tiles.filter(([x, y]) => map.tiles[idx(x, y)] === FLOOR),
-             center: [mx, y0 + (bh >> 1)] };
+      return { tiles: frei.filter(([x, y]) => !actorAt(x, y) || true), center: [mx, my] };
+    }
   }
   return null;
 }
@@ -2234,9 +2373,9 @@ function erreichbarOhneSchleier(map, sx, sy, ziel) {
   return false;
 }
 
-/* Setzt einen Namentlichen in eine versiegelbare Kammer. */
+/* Setzt einen Namentlichen in eine versiegelbare Kammer.
+   Probiert alle in Frage kommenden Raeume durch und haut zur Not einen aus. */
 function stelleNamentlichen(map, zones, floor, eliteEtage, startX, startY, stairs) {
-  // Kandidaten: nicht die Startzone, nicht die Treppenzone, wenige Zugänge
   const letzte = zones[zones.length - 1];
   const kandidaten = zones.slice(1).filter(z => {
     if (z === letzte) return false;                       // dort liegt die Treppe
@@ -2245,45 +2384,48 @@ function stelleNamentlichen(map, zones, floor, eliteEtage, startX, startY, stair
     return z.tiles.length >= 12;
   });
 
-  let gewaehlt = null, tore = null;
-  for (const z of kandidaten) {
-    const { drin, zugaenge } = versiegelbar(map, z);
-    if (zugaenge.length >= 1 && zugaenge.length <= 3) {
-      gewaehlt = { zone: z, drin }; tore = zugaenge; break;
+  const versuche = kandidaten.slice();
+  let ausgehauen = null;
+
+  for (let runde = 0; runde <= versuche.length; runde++) {
+    let zone;
+    if (runde < versuche.length) zone = versuche[runde];
+    else {
+      // Kein bestehender Raum taugt - einen in den Fels schlagen
+      ausgehauen = hauKammerAus(map);
+      if (!ausgehauen) return null;
+      zone = ausgehauen;
     }
+
+    const { drin, zugaenge } = versiegelbar(map, zone);
+    if (!zugaenge.length || zugaenge.length > 3) continue;
+
+    const platz = zone.tiles.find(([x, y]) =>
+      WALKABLE[map.tiles[idx(x, y)]] && !actorAt(x, y));
+    if (!platz) continue;
+
+    // Probeweise versiegeln
+    const vorher = zugaenge.map(([tx, ty]) => map.tiles[idx(tx, ty)]);
+    for (const [tx, ty] of zugaenge) map.tiles[idx(tx, ty)] = VEIL;
+
+    /* Der Bossraum darf den Weg zur Treppe nicht abschneiden - sonst muesste
+       man hinein, um weiterzukommen, und saesse bis zum Sieg fest. */
+    const taugt = !stairs || erreichbarOhneSchleier(map, startX, startY, stairs);
+    if (!taugt) {
+      zugaenge.forEach(([tx, ty], i) => { map.tiles[idx(tx, ty)] = vorher[i]; });
+      continue;
+    }
+
+    for (const [tx, ty] of zugaenge) drin[idx(tx, ty)] = 1;   // Schwelle zaehlt dazu
+    map.veil = zugaenge;
+    map.veilRoom = drin;
+    map.sealed = false;
+
+    const gegner = makeElite(eliteEtage, platz[0], platz[1]);
+    gegner.sealsRoom = true;
+    return gegner;
   }
-
-  // Nichts Passendes - dann eine Kammer aushauen (Höhlen, offene Etagen)
-  if (!gewaehlt) {
-    const kammer = hauKammerAus(map, true);
-    if (!kammer) return null;
-    const { drin, zugaenge } = versiegelbar(map, kammer);
-    if (zugaenge.length < 1 || zugaenge.length > 3) return null;
-    gewaehlt = { zone: kammer, drin }; tore = zugaenge;
-  }
-
-  const platz = gewaehlt.zone.tiles.find(([x, y]) =>
-    WALKABLE[map.tiles[idx(x, y)]] && !actorAt(x, y));
-  if (!platz) return null;
-
-  const vorher = tore.map(([tx, ty]) => map.tiles[idx(tx, ty)]);
-  for (const [tx, ty] of tore) map.tiles[idx(tx, ty)] = VEIL;
-
-  /* Der Bossraum darf den Weg zur Treppe nicht abschneiden - sonst muesste
-     man hinein, um weiterzukommen, und saesse bis zum Sieg fest. */
-  if (stairs && !erreichbarOhneSchleier(map, startX, startY, stairs)) {
-    tore.forEach(([tx, ty], i) => { map.tiles[idx(tx, ty)] = vorher[i]; });
-    return null;
-  }
-
-  for (const [tx, ty] of tore) gewaehlt.drin[idx(tx, ty)] = 1;   // Schwelle zählt dazu
-  map.veil = tore;
-  map.veilRoom = gewaehlt.drin;
-  map.sealed = false;
-
-  const gegner = makeElite(eliteEtage, platz[0], platz[1]);
-  gegner.sealsRoom = true;
-  return gegner;
+  return null;
 }
 
 function populateFloor(floor) {
@@ -2350,6 +2492,7 @@ function populateFloor(floor) {
     }
   }
   G.decals = [];
+  G.chests = [];
   G.veilWarned = false;
   if (map.arenaSchalen) G.braziers = map.arenaSchalen.map(b => ({ x: b.x, y: b.y }));
   G.hasLava = map.tiles.includes(LAVA);
@@ -2394,6 +2537,8 @@ function populateFloor(floor) {
     map.stairs = [tx, ty];
   }
 
+  stelleKisten(map, zones, floor);
+
   // Namentliche kommen zuletzt: erst wenn Treppe und Boss stehen, laesst sich
   // pruefen, ob ihr Bossraum den Weg dorthin abschneiden wuerde.
   // Im Schlund taucht alle drei Etagen einer der Namentlichen erneut auf
@@ -2402,7 +2547,10 @@ function populateFloor(floor) {
         ? [3, 5, 7, 9][Math.floor(rng() * 4)] : null);
   if (eliteEtage) {
     const gegner = stelleNamentlichen(map, zones, floor, eliteEtage, sx, sy, map.stairs);
-    if (gegner) G.actors.push(gegner);
+    if (gegner) {
+      G.actors.push(gegner);
+      map.gateBoss = true;          // die Treppe bleibt zu, bis er faellt
+    }
   }
 
 
@@ -2625,6 +2773,13 @@ function kill(target, source) {
 
   if (target.elite) {
     if (target.sealsRoom) oeffneKammer();
+    if (G.map.gateBoss && !G.actors.some(a => a.elite && a.alive && a !== target)) {
+      G.map.gateBoss = false;
+      Sfx.spiel("treppe");
+      log("Ein Grollen geht durch die Etage — die Treppe gibt nach.", "alert");
+      banner("Der Weg hinab ist frei", "Die Treppe steht offen", "good");
+      if (G.map.stairs) ring(G.map.stairs[0], G.map.stairs[1], 3, "#E8A94B");
+    }
     log(`${target.spec.name} fällt. ${target.spec.epithet} ist niemand mehr.`, "alert");
     ring(target.x, target.y, 3, target.spec.glow || "#E8A94B");
     burst(target.x, target.y, target.spec.glow || "#E8A94B", 26);
@@ -2641,6 +2796,7 @@ function kill(target, source) {
 
   log(`${target.spec.name} stirbt.`, "good");
   gainXp(target.spec.xp);
+  beuteFallenLassen(target);
   questProgress("slay", target.id);
 }
 
@@ -2798,8 +2954,19 @@ function durchschreite() {
   if (!nah) return;
   const [vx, vy] = nah;
   const p = G.player;
-  p.x = mitte(vx);
-  p.y = vy + 1.5;                 // eine Kachel jenseits des Schleiers
+  // Auf das Innenfeld neben dem Schleier - der kann auf jeder Seite liegen
+  let ziel = null;
+  for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+    const nx = vx + dx, ny = vy + dy;
+    if (!inBounds(nx, ny) || !WALKABLE[G.map.tiles[idx(nx, ny)]]) continue;
+    if (G.map.tiles[idx(nx, ny)] === VEIL) continue;
+    if (!inKammer(nx, ny)) continue;
+    ziel = [nx, ny];
+    break;
+  }
+  if (!ziel) return;
+  p.x = mitte(ziel[0]);
+  p.y = mitte(ziel[1]);
   G.veilHint = false;
   setHint(null);
   versiegle();
@@ -2872,7 +3039,11 @@ function attack(attacker, target) {
 
 function pickUp() {
   const here = itemsAt(kachelX(G.player), kachelY(G.player));
-  if (!here.length) { log("Hier liegt nichts.", "system"); return false; }
+  if (!here.length) {
+    if (oeffneKiste()) return true;      // nichts am Boden, aber eine Kiste daneben
+    log("Hier liegt nichts.", "system");
+    return false;
+  }
   if (G.player.bag.length >= 20) { log("Dein Beutel ist voll.", "system"); return false; }
   const item = here[0];
   G.ground.splice(G.ground.indexOf(item), 1);
@@ -2913,6 +3084,12 @@ function toggleEquip(entry) {
 
 function takeStairs() {
   const s = G.map.stairs;
+  if (s && G.map.gateBoss && G.actors.some(a => a.elite && a.alive)) {
+    const wer = G.actors.find(a => a.elite && a.alive);
+    log(`Die Treppe gibt nicht nach. ${wer.spec.name} lebt noch.`, "bad");
+    Sfx.spiel("nein");
+    return false;
+  }
   if (!s || kachelX(G.player) !== s[0] || kachelY(G.player) !== s[1]) {
     log("Hier führt keine Treppe hinab.", "system");
     return false;
@@ -3573,7 +3750,8 @@ function schritt(dt) {
   }
   const laenge = Math.hypot(rx, ry) || 1;
   const dx = rx / laenge, dy = ry / laenge;
-  p.facing = [dx, dy];
+  // Zeigt die Maus ins Bild, bestimmt sie die Blickrichtung, nicht der Lauf
+  if (!mausWelt) p.facing = [dx, dy];
 
   const weite = SPEED_PLAYER * dt * (p.speedMult || 1);
   const vorher = [Math.floor(p.x), Math.floor(p.y)];
@@ -3833,6 +4011,17 @@ function drawFrame(dt) {
     const x = (b.x - camX) * TILE, y = (b.y - camY) * TILE;
     if (x < -TILE || y < -TILE || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
     drawBrazier(x, y, !!G.map.visible[i], anim.t + (b.x * 7 + b.y * 13) % 10, !!b.used);
+  }
+
+  /* --- Kisten --- */
+  for (const c of (G.chests || [])) {
+    const i = idx(c.x, c.y);
+    if (!G.map.explored[i]) continue;
+    const vis = !!G.map.visible[i];
+    const x = (c.x - camX) * TILE, y = (c.y - camY) * TILE;
+    if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
+    drawChest(x, y, vis, vis ? lightAt(Math.hypot(mitte(c.x) - G.player.x,
+                                                  mitte(c.y) - G.player.y)) : .3, c.opened);
   }
 
   /* --- Gegenstände --- */
@@ -4226,12 +4415,28 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
   if (kind === DOOR) drawDoorway(x, y, mx, my, vis, light, T);
 
   if (kind === STAIRS) {
+    const zu = G.map.gateBoss && G.actors.some(a => a.elite && a.alive);
     ctx.fillStyle = vis ? "rgba(0,0,0,.45)" : "rgba(0,0,0,.35)";
     ctx.fillRect(x + 3, y + 3, TILE - 6, TILE - 6);
-    ctx.fillStyle = vis ? mix("#4A3F2E", C.torch, .3 + light * .6) : C.memTop;
+    ctx.fillStyle = vis
+      ? (zu ? mix("#3A2018", "#B03A2E", .3 + light * .5)
+            : mix("#4A3F2E", C.torch, .3 + light * .6))
+      : C.memTop;
     for (let i = 0; i < 4; i++) {
       const w = TILE - 10 - i * 4;
       ctx.fillRect(x + (TILE - w) / 2, y + 6 + i * 5, w, 3);
+    }
+    // Verriegelt: rote Bannzeichen ueber der Treppe
+    if (zu && vis) {
+      const puls = .55 + Math.sin(anim.t * 2.6) * .45;
+      ctx.save();
+      ctx.strokeStyle = `rgba(216,72,60,${.45 + puls * .4})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 5, y + 5); ctx.lineTo(x + TILE - 5, y + TILE - 5);
+      ctx.moveTo(x + TILE - 5, y + 5); ctx.lineTo(x + 5, y + TILE - 5);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 }
@@ -5186,6 +5391,72 @@ function drawBrazier(x, y, vis, t, used) {
   ctx.restore();
 }
 
+/* Eine Truhe aus Holz mit Eisenbeschlag. Offen steht der Deckel hoch. */
+function drawChest(x, y, vis, light, offen) {
+  const k = TILE / 26;
+  const cx = x + TILE / 2, basis = y + TILE - 4 * k;
+  ctx.save();
+
+  if (!vis) {
+    ctx.strokeStyle = "#3E4E60";
+    ctx.lineWidth = 1.3;
+    ctx.strokeRect(cx - 8 * k, basis - 11 * k, 16 * k, 11 * k);
+    ctx.restore();
+    return;
+  }
+
+  ctx.fillStyle = `rgba(0,0,0,${.30 * light})`;
+  ctx.beginPath();
+  ctx.ellipse(cx, basis + 1, 9 * k, 3 * k, 0, 0, 6.283);
+  ctx.fill();
+
+  const holz = mix("#1A120C", "#7A5230", .3 + light * .7);
+  const eisen = mix("#14100C", "#9A9084", .3 + light * .7);
+
+  // Kasten
+  ctx.fillStyle = holz;
+  ctx.fillRect(cx - 8 * k, basis - 9 * k, 16 * k, 9 * k);
+  ctx.fillStyle = eisen;
+  ctx.fillRect(cx - 8 * k, basis - 3 * k, 16 * k, 1.6 * k);
+  ctx.fillRect(cx - 1.4 * k, basis - 9 * k, 2.8 * k, 9 * k);
+
+  if (offen) {
+    // Deckel aufgeklappt nach hinten, Inhalt leer
+    ctx.fillStyle = mix("#0C0906", "#5A3A20", .3 + light * .7);
+    ctx.fillRect(cx - 8 * k, basis - 9 * k, 16 * k, 3 * k);
+    ctx.fillStyle = holz;
+    ctx.beginPath();
+    ctx.moveTo(cx - 8 * k, basis - 10 * k);
+    ctx.lineTo(cx + 8 * k, basis - 10 * k);
+    ctx.lineTo(cx + 7 * k, basis - 17 * k);
+    ctx.lineTo(cx - 7 * k, basis - 17 * k);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = eisen;
+    ctx.fillRect(cx - 1.4 * k, basis - 17 * k, 2.8 * k, 7 * k);
+  } else {
+    // Gewölbter Deckel mit Schloss
+    ctx.fillStyle = holz;
+    ctx.beginPath();
+    ctx.moveTo(cx - 8 * k, basis - 9 * k);
+    ctx.quadraticCurveTo(cx, basis - 17 * k, cx + 8 * k, basis - 9 * k);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = eisen;
+    ctx.fillRect(cx - 1.4 * k, basis - 14.5 * k, 2.8 * k, 5.5 * k);
+    ctx.fillStyle = mix("#14100C", "#E8C86A", .3 + light * .7);
+    ctx.fillRect(cx - 2.2 * k, basis - 5 * k, 4.4 * k, 3.4 * k);
+    // Leichter Schimmer, damit man sie im Halbdunkel findet
+    const puls = .5 + Math.sin(anim.t * 2 + x) * .5;
+    ctx.globalAlpha = .18 + puls * .16;
+    ctx.fillStyle = "#E8C86A";
+    ctx.beginPath();
+    ctx.ellipse(cx, basis - 8 * k, 11 * k, 9 * k, 0, 0, 6.283);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawItem(ctx, x, y, def, light, t) {
   const k = TILE / 26;                       // Maßstab, damit alles zur Kachel passt
   const cx = x + TILE / 2, cy = y + TILE / 2 + Math.sin(t * 2 + x) * 1.3;
@@ -5455,6 +5726,69 @@ function drawEffects(dt, camX, camY) {
       ctx.restore();
     }
   }
+}
+
+/* ── Übersichtskarte ──────────────────────────────────────────────────────
+   Zeigt nur, was schon erkundet wurde. Wird selten neu gezeichnet, weil sich
+   die Etage kaum ändert. */
+let miniCtx = null, miniAt = 0;
+
+function zeichneKarte(now) {
+  if (!G || !G.map) return;
+  if (now - miniAt < 140) return;
+  miniAt = now;
+  if (!miniCtx) {
+    const c = $("mini");
+    if (!c) return;
+    miniCtx = c.getContext("2d");
+  }
+  const m = miniCtx;
+  const s = 3;                       // Pixel je Kachel
+  m.fillStyle = "#0C0A08";
+  m.fillRect(0, 0, MAP_W * s, MAP_H * s);
+
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const i = idx(x, y);
+      if (!G.map.explored[i]) continue;
+      const sichtbar = G.map.visible[i];
+      const t = G.map.tiles[i];
+      let farbe;
+      if (t === WALL) farbe = sichtbar ? "#4A4236" : "#242A33";
+      else if (t === LAVA) farbe = "#C4501C";
+      else if (t === VEIL) farbe = G.map.sealed ? "#B03A2E" : "#9A7ACC";
+      else if (t === PILLAR) farbe = sichtbar ? "#6A5F4C" : "#2E3640";
+      else if (t === STAIRS) farbe = null;
+      else farbe = sichtbar ? "#6E6350" : "#1C222A";
+      if (farbe) { m.fillStyle = farbe; m.fillRect(x * s, y * s, s, s); }
+    }
+  }
+
+  // Kisten, die noch zu sind
+  for (const c of (G.chests || [])) {
+    if (c.opened || !G.map.explored[idx(c.x, c.y)]) continue;
+    m.fillStyle = "#E8C86A";
+    m.fillRect(c.x * s, c.y * s, s, s);
+  }
+
+  // Treppe - rot solange ein Namentlicher lebt
+  if (G.map.stairs && G.map.explored[idx(G.map.stairs[0], G.map.stairs[1])]) {
+    const zu = G.map.gateBoss && G.actors.some(a => a.elite && a.alive);
+    m.fillStyle = zu ? "#D8483C" : "#E8A94B";
+    m.fillRect(G.map.stairs[0] * s - 1, G.map.stairs[1] * s - 1, s + 2, s + 2);
+  }
+
+  // Gegner in Sicht
+  for (const a of G.actors) {
+    if (a.isPlayer || !a.alive) continue;
+    if (!G.map.visible[idx(kachelX(a), kachelY(a))]) continue;
+    m.fillStyle = (a.elite || a.spec.boss) ? "#FF6A5A" : "#C4564A";
+    m.fillRect(kachelX(a) * s, kachelY(a) * s, s, s);
+  }
+
+  // Der Held zuletzt, damit er obenauf liegt
+  m.fillStyle = "#FFF0C4";
+  m.fillRect(Math.floor(G.player.x) * s - 1, Math.floor(G.player.y) * s - 1, s + 2, s + 2);
 }
 
 /* ═════════════════════════════════════════════════════════ Seitenleiste */
@@ -5748,14 +6082,14 @@ function showHelp() {
   const rows = [
     ["Pfeile · WASD · Ziffernblock", "gehen und angreifen"],
     ["Klick auf ein Feld", "dorthin laufen"],
-    ["Klick auf einen Gegner", "hinlaufen und angreifen"],
-    ["Leertaste", "zuschlagen — trifft drei Felder vor dir"],
-    ["Punkt", "kurz innehalten"],
+    ["Linke Maustaste", "zuschlagen, wohin der Zeiger zeigt"],
+    ["Rechte Maustaste", "dorthin laufen · auf einen Gegner: verfolgen"],
+    ["Leertaste · Punkt", "kurz innehalten"],
     ["F", "Fähigkeit deiner Klasse"],
     ["M", "Ton an oder aus"],
     ["Enter", "vor der Bosskammer: durch den Schleier treten"],
     ["R", "rasten — heilt 1 Leben je 1 Öl"],
-    ["G", "aufheben"],
+    ["G", "aufheben · Kiste öffnen"],
     ["I oder E", "Beutel: benutzen, anlegen, wegwerfen"],
     ["Umschalt + Buchstabe", "im Beutel direkt wegwerfen"],
     ["Q", "Aufträge"],
@@ -6061,10 +6395,11 @@ function serialize() {
     circle: G.map.circle || null,
     veil: G.map.veil || null, sealed: !!G.map.sealed,
     veilRoom: G.map.veilRoom ? Array.from(G.map.veilRoom) : null,
+    gateBoss: !!G.map.gateBoss,
     time: G.time, upkeepAt: G.upkeepAt,
     quest: G.quest, questLog: G.questLog,
     won: G.won, endless: G.endless, siegRunden: G.siegRunden,
-    braziers: G.braziers, decals: G.decals,
+    braziers: G.braziers, decals: G.decals, chests: G.chests,
     player: {
       x: G.player.x, y: G.player.y, hp: G.player.hp, level: G.player.level, xp: G.player.xp,
       baseAtk: G.player.baseAtk, baseDef: G.player.baseDef, baseMaxHp: G.player.baseMaxHp,
@@ -6109,6 +6444,7 @@ function loadGame() {
     G.quest = data.quest || null;
     G.questLog = data.questLog || [];
     G.braziers = data.braziers || [];
+    G.chests = data.chests || [];
     G.decals = data.decals || [];
     G.map = newMap();
     G.map.tiles.set(data.tiles);
@@ -6119,6 +6455,7 @@ function loadGame() {
     G.map.circle = data.circle || null;
     G.map.veil = data.veil || null;
     G.map.sealed = !!data.sealed;
+    G.map.gateBoss = !!data.gateBoss;
     if (data.veilRoom) {
       G.map.veilRoom = new Uint8Array(MAP_W * MAP_H);
       G.map.veilRoom.set(data.veilRoom);
@@ -6194,7 +6531,7 @@ function freshState() {
   };
   return {
     player, actors: [player], ground: [], map: newMap(),
-    braziers: [], decals: [], quest: null, questLog: [],
+    braziers: [], decals: [], chests: [], quest: null, questLog: [],
     time: 0, upkeepAt: 0,
     floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
     logEntries: [],
@@ -6314,9 +6651,7 @@ window.addEventListener("keydown", ev => {
   }
 
   switch (key) {
-    case " ":
-      schwingen(0, 0); ev.preventDefault(); break;
-    case ".": case "5":
+    case " ": case ".": case "5":
       act(() => true); ev.preventDefault(); break;
     case "r": {
       if (G.player.hp >= playerMaxHp()) { log("Du bist bereits ausgeruht.", "system"); break; }
@@ -6350,28 +6685,48 @@ window.addEventListener("keydown", ev => {
 });
 
 /* --- Maus --- */
-function tileFromEvent(ev) {
+// Weltposition des Zeigers in Kachelmassen - daraus kommt die Blickrichtung
+let mausWelt = null;
+
+function weltAusEvent(ev) {
   const rect = canvas.getBoundingClientRect();
+  if (!rect.width) return null;
   const scale = (VIEW_W * TILE) / rect.width;
   const x = (ev.clientX - rect.left) * scale;
   const y = (ev.clientY - rect.top) * scale;
   const [camX, camY] = camera();
-  const tx = Math.floor(x / TILE + camX);
-  const ty = Math.floor(y / TILE + camY);
+  return [x / TILE + camX, y / TILE + camY];
+}
+
+function tileFromEvent(ev) {
+  const w = weltAusEvent(ev);
+  if (!w) return null;
+  const tx = Math.floor(w[0]), ty = Math.floor(w[1]);
   return inBounds(tx, ty) ? [tx, ty] : null;
 }
 
+// Blickrichtung dem Zeiger nachfuehren
+function blickZumZeiger() {
+  if (!mausWelt || !G || !G.player.alive) return;
+  const p = G.player;
+  const dx = mausWelt[0] - p.x, dy = mausWelt[1] - p.y;
+  const l = Math.hypot(dx, dy);
+  if (l < .25) return;
+  p.facing = [dx / l, dy / l];
+}
+
 canvas.addEventListener("mousemove", ev => {
+  mausWelt = weltAusEvent(ev);
   const t = tileFromEvent(ev);
   mouseTile = t;
   if (mode.kind === "target" && t) mode.cursor = [t[0], t[1]];
-  else if (mode.kind === "play" && t && seesTile(t[0], t[1])) {
+  else if (mode.kind === "play" && t && seesTile(t[0], t[1]) && !G.veilHint) {
     const a = actorAt(t[0], t[1]);
     const items = itemsAt(t[0], t[1]);
     if (a && !a.isPlayer) setHint(`${a.spec.name} — ${a.hp}/${a.maxhp} Leben`);
     else if (items.length) setHint(items.map(i => i.def.name).join(" · "));
     else setHint(null);
-  } else if (mode.kind === "play") setHint(null);
+  } else if (mode.kind === "play" && !G.veilHint) setHint(null);
 });
 
 canvas.addEventListener("mouseleave", () => {
@@ -6379,47 +6734,46 @@ canvas.addEventListener("mouseleave", () => {
   if (mode.kind === "play") setHint(null);
 });
 
-canvas.addEventListener("click", ev => {
+canvas.addEventListener("contextmenu", ev => ev.preventDefault());
+
+// Linke Taste schlaegt in Zeigerrichtung
+canvas.addEventListener("mousedown", ev => {
   Sfx.init();
-  const t = tileFromEvent(ev);
-  if (!t) return;
-  if (mode.kind === "target") { mode.cursor = t; confirmTarget(); return; }
-  if (mode.kind === "aim") {
-    const p0 = G.player;
-    const dx = Math.sign(t[0] - p0.x), dy = Math.sign(t[1] - p0.y);
-    if (!dx && !dy) { cancelAim(); return; }
-    mode = { kind: "play" };
-    setHint(null);
-    act(() => useAbility(dx, dy));
+  mausWelt = weltAusEvent(ev);
+  if (mode.kind === "target") {
+    const t = tileFromEvent(ev);
+    if (t && ev.button === 0) { mode.cursor = t; confirmTarget(); }
+    else if (ev.button === 2) cancelTarget();
     return;
   }
-  if (mode.kind !== "play") return;
+  if (mode.kind !== "play" || !G.player.alive) return;
 
-  const p = G.player;
-  const [tx, ty] = t;
-  const dx = Math.sign(tx - p.x), dy = Math.sign(ty - p.y);
-  travel = null; chase = null; resting = 0;
-
-  // Auf einen sichtbaren Gegner geklickt: hinlaufen und zuschlagen
-  const foe = actorAt(tx, ty);
-  if (foe && !foe.isPlayer && seesTile(tx, ty)) {
-    if (Math.max(Math.abs(tx - p.x), Math.abs(ty - p.y)) === 1) schwingen(dx, dy);
-    else chase = foe;
+  if (ev.button === 0) {
+    const p = G.player;
+    if (!mausWelt) return;
+    const dx = mausWelt[0] - p.x, dy = mausWelt[1] - p.y;
+    schlagen = true;
+    schwingen(dx, dy);
+    ev.preventDefault();
     return;
   }
 
-  // Nachbarfeld: ein Schritt
-  if (Math.max(Math.abs(tx - p.x), Math.abs(ty - p.y)) === 1) {
-    act(() => tryMove(dx, dy));
-    return;
+  if (ev.button === 2) {
+    // Rechte Taste: hinlaufen oder einen Gegner verfolgen
+    const t = tileFromEvent(ev);
+    if (!t) return;
+    travel = null; chase = null; resting = 0;
+    const foe = actorAt(t[0], t[1]);
+    if (foe && !foe.isPlayer && seesTile(t[0], t[1])) { chase = foe; return; }
+    const weg = pathTo(t[0], t[1]);
+    if (weg) travel = weg;
+    ev.preventDefault();
   }
-
-  // Sonst: Weg berechnen und Schritt für Schritt abgehen
-  const path = pathTo(tx, ty);
-  if (path) travel = path;
 });
 
-// Laufen und Rasten laufen über dieselbe Uhr - beides bricht bei Gefahr ab.
+canvas.addEventListener("mouseup", ev => { if (ev.button === 0) schlagen = false; });
+canvas.addEventListener("mouseleave", () => { schlagen = false; });
+
 setInterval(() => {
   if (mode.kind !== "play" || modalOpen || !G.player.alive) {
     travel = null; resting = 0; chase = null; return;
@@ -6482,6 +6836,10 @@ function loop(now) {
   lastTime = now;
   if (G) {
     tickWorld(dt);
+    zeichneKarte(now);
+    blickZumZeiger();
+    if (schlagen && mausWelt && mode.kind === "play" && !modalOpen)
+      schwingen(mausWelt[0] - G.player.x, mausWelt[1] - G.player.y);
     schritt(dt);
     drawFrame(dt);
     // Untermalung: die eigene Fackel und, wenn Lava in Sicht ist, ihr Grollen
