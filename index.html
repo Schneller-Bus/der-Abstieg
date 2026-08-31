@@ -1,5 +1,22 @@
+<!doctype html>
+<html lang="de">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Der Abstieg</title>
+<meta name="description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
+<meta name="theme-color" content="#14110E">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314110E'/%3E%3Cpath d='M32 8c6 9 12 13 12 22a12 12 0 0 1-24 0c0-5 3-8 6-12 1 4 3 6 6 7-2-6 0-12 0-17z' fill='%23E8A94B'/%3E%3Cpath d='M32 26c3 4 5 6 5 10a5 5 0 0 1-10 0c0-3 2-5 5-10z' fill='%23FFF0C4'/%3E%3Crect x='29' y='44' width='6' height='14' rx='2' fill='%236B5335'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314110E'/%3E%3Cpath d='M32 8c6 9 12 13 12 22a12 12 0 0 1-24 0c0-5 3-8 6-12 1 4 3 6 6 7-2-6 0-12 0-17z' fill='%23E8A94B'/%3E%3Cpath d='M32 26c3 4 5 6 5 10a5 5 0 0 1-10 0c0-3 2-5 5-10z' fill='%23FFF0C4'/%3E%3Crect x='29' y='44' width='6' height='14' rx='2' fill='%236B5335'/%3E%3C/svg%3E">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Der Abstieg">
+<meta property="og:description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Der Abstieg">
+<meta name="twitter:description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Grenze+Gotisch:wght@400;600;800&family=Spectral:ital,wght@0,300;0,400;0,600;1,400&display=swap">
@@ -686,7 +703,8 @@ body {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 </style>
-
+</head>
+<body>
 <div class="frame">
   <header class="masthead">
     <h1>Der <span class="drop">Abstieg</span></h1>
@@ -1496,6 +1514,7 @@ function newMap() {
     stairs: null,
     circle: null,   // Ritualkreis der Endkammer
     veil: null,     // Felder des Bossschleiers
+    veilRoom: null, // welche Felder liegen innerhalb der Kammer
     sealed: false,  // steht der Spieler schon drinnen?
   };
 }
@@ -1544,11 +1563,11 @@ function bewege(a, dx, dy) {
   let bewegt = false;
   if (dx) {
     const nx = a.x + dx;
-    if (!blockiert(nx, a.y, r)) { a.x = nx; bewegt = true; }
+    if (!blockiert(nx, a.y, r) && !schleierSperrt(nx, a.y)) { a.x = nx; bewegt = true; }
   }
   if (dy) {
     const ny = a.y + dy;
-    if (!blockiert(a.x, ny, r) && !schleierSperrt(ny)) { a.y = ny; bewegt = true; }
+    if (!blockiert(a.x, ny, r) && !schleierSperrt(a.x, ny)) { a.y = ny; bewegt = true; }
   }
   return bewegt;
 }
@@ -1556,9 +1575,9 @@ function bewege(a, dx, dy) {
 /* Ist die Kammer versiegelt, darf kein Mittelpunkt über die Schleierzeile
    zurück. Geprüft wird der Mittelpunkt, nicht die Ecken - sonst sperrt der
    Schleier den Helden genau auf der Schwelle vollständig fest. */
-function schleierSperrt(ny) {
-  if (!G.map || !G.map.sealed || !G.map.veil || !G.map.veil.length) return false;
-  return ny < G.map.veil[0][1];
+function schleierSperrt(nx, ny) {
+  if (!G.map || !G.map.sealed) return false;
+  return !inKammer(nx, ny);
 }
 
 /* Wesen sollen nicht ineinanderstehen - sanft auseinanderdrücken. */
@@ -2131,6 +2150,142 @@ function markDoorways(map) {
   }
 }
 
+/* ── Bossräume der Namentlichen ───────────────────────────────────────────
+   Ein Raum lässt sich versiegeln, wenn er wenige Zugänge hat. Die Zugänge
+   werden zu Schleierfeldern, die Innenfelder gemerkt. */
+function versiegelbar(map, zone) {
+  const drin = new Uint8Array(MAP_W * MAP_H);
+  for (const [x, y] of zone.tiles) drin[idx(x, y)] = 1;
+
+  const zugaenge = [];
+  const gesehen = new Set();
+  for (const [x, y] of zone.tiles) {
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (!inBounds(nx, ny)) continue;
+      const k = idx(nx, ny);
+      if (drin[k] || gesehen.has(k)) continue;
+      if (!WALKABLE[map.tiles[k]]) continue;
+      gesehen.add(k);
+      zugaenge.push([nx, ny]);
+    }
+  }
+  return { drin, zugaenge };
+}
+
+/* Höhlen haben keine Räume - für den Namentlichen wird einer ausgehauen. */
+function hauKammerAus(map, cave) {
+  const bw = 11, bh = 8;
+  for (let versuch = 0; versuch < 500; versuch++) {
+    const x0 = ri(2, MAP_W - bw - 3), y0 = ri(2, MAP_H - bh - 3);
+    // Der Platz muss vollständig im Fels liegen
+    let frei = true;
+    for (let y = y0 - 1; y <= y0 + bh && frei; y++)
+      for (let x = x0 - 1; x <= x0 + bw && frei; x++)
+        if (map.tiles[idx(x, y)] !== WALL) frei = false;
+    if (!frei) continue;
+
+    // Ein Gang zur nächsten Höhlenfläche
+    let ziel = null, best = 1e9;
+    const mx = x0 + (bw >> 1);
+    for (let y = y0 + bh; y < MAP_H - 2; y++) {
+      if (WALKABLE[map.tiles[idx(mx, y)]]) { ziel = y; break; }
+    }
+    if (ziel === null || ziel - (y0 + bh) > 9) continue;
+
+    const tiles = [];
+    for (let y = y0; y < y0 + bh; y++)
+      for (let x = x0; x < x0 + bw; x++) {
+        map.tiles[idx(x, y)] = FLOOR;
+        map.room[idx(x, y)] = 1;
+        tiles.push([x, y]);
+      }
+    // Säulen als Andeutung eines gebauten Ortes mitten im Fels
+    for (const [px, py] of [[x0 + 2, y0 + 2], [x0 + bw - 3, y0 + 2],
+                            [x0 + 2, y0 + bh - 3], [x0 + bw - 3, y0 + bh - 3]])
+      map.tiles[idx(px, py)] = PILLAR;
+
+    for (let y = y0 + bh; y <= ziel; y++) map.tiles[idx(mx, y)] = FLOOR;
+    return { tiles: tiles.filter(([x, y]) => map.tiles[idx(x, y)] === FLOOR),
+             center: [mx, y0 + (bh >> 1)] };
+  }
+  return null;
+}
+
+/* Kommt man von start zum Ziel, ohne einen Schleier zu durchqueren? */
+function erreichbarOhneSchleier(map, sx, sy, ziel) {
+  const gesehen = new Uint8Array(MAP_W * MAP_H);
+  const stapel = [[sx, sy]];
+  gesehen[idx(sx, sy)] = 1;
+  while (stapel.length) {
+    const [x, y] = stapel.pop();
+    if (x === ziel[0] && y === ziel[1]) return true;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy;
+        if (!inBounds(nx, ny)) continue;
+        const k = idx(nx, ny);
+        if (gesehen[k] || !WALKABLE[map.tiles[k]]) continue;
+        gesehen[k] = 1;
+        stapel.push([nx, ny]);
+      }
+  }
+  return false;
+}
+
+/* Setzt einen Namentlichen in eine versiegelbare Kammer. */
+function stelleNamentlichen(map, zones, floor, eliteEtage, startX, startY, stairs) {
+  // Kandidaten: nicht die Startzone, nicht die Treppenzone, wenige Zugänge
+  const letzte = zones[zones.length - 1];
+  const kandidaten = zones.slice(1).filter(z => {
+    if (z === letzte) return false;                       // dort liegt die Treppe
+    if (z.center[0] === startX && z.center[1] === startY) return false;
+    if (stairs && z.tiles.some(([x, y]) => x === stairs[0] && y === stairs[1])) return false;
+    return z.tiles.length >= 12;
+  });
+
+  let gewaehlt = null, tore = null;
+  for (const z of kandidaten) {
+    const { drin, zugaenge } = versiegelbar(map, z);
+    if (zugaenge.length >= 1 && zugaenge.length <= 3) {
+      gewaehlt = { zone: z, drin }; tore = zugaenge; break;
+    }
+  }
+
+  // Nichts Passendes - dann eine Kammer aushauen (Höhlen, offene Etagen)
+  if (!gewaehlt) {
+    const kammer = hauKammerAus(map, true);
+    if (!kammer) return null;
+    const { drin, zugaenge } = versiegelbar(map, kammer);
+    if (zugaenge.length < 1 || zugaenge.length > 3) return null;
+    gewaehlt = { zone: kammer, drin }; tore = zugaenge;
+  }
+
+  const platz = gewaehlt.zone.tiles.find(([x, y]) =>
+    WALKABLE[map.tiles[idx(x, y)]] && !actorAt(x, y));
+  if (!platz) return null;
+
+  const vorher = tore.map(([tx, ty]) => map.tiles[idx(tx, ty)]);
+  for (const [tx, ty] of tore) map.tiles[idx(tx, ty)] = VEIL;
+
+  /* Der Bossraum darf den Weg zur Treppe nicht abschneiden - sonst muesste
+     man hinein, um weiterzukommen, und saesse bis zum Sieg fest. */
+  if (stairs && !erreichbarOhneSchleier(map, startX, startY, stairs)) {
+    tore.forEach(([tx, ty], i) => { map.tiles[idx(tx, ty)] = vorher[i]; });
+    return null;
+  }
+
+  for (const [tx, ty] of tore) gewaehlt.drin[idx(tx, ty)] = 1;   // Schwelle zählt dazu
+  map.veil = tore;
+  map.veilRoom = gewaehlt.drin;
+  map.sealed = false;
+
+  const gegner = makeElite(eliteEtage, platz[0], platz[1]);
+  gegner.sealsRoom = true;
+  return gegner;
+}
+
 function populateFloor(floor) {
   const { map, zones, arena } = generateFloor(floor);
   G.map = map;
@@ -2203,17 +2358,6 @@ function populateFloor(floor) {
   const eliteZone = zones.length > 3
     ? zones[Math.max(1, Math.floor(zones.length * .55))]
     : zones[zones.length - 1];
-  // Im Schlund taucht alle drei Etagen einer der Namentlichen erneut auf
-  const eliteEtage = ELITES[floor] ? floor
-    : (floor > MAX_FLOOR && (floor - MAX_FLOOR) % 3 === 0
-        ? [3, 5, 7, 9][Math.floor(rng() * 4)] : null);
-  if (eliteEtage && eliteZone !== zones[0]) {
-    const spot = eliteZone.tiles.find(([x, y]) =>
-      isWalkable(x, y) && !actorAt(x, y) &&
-      !G.braziers.some(b => b.x === x && b.y === y));
-    if (spot) G.actors.push(makeElite(eliteEtage, spot[0], spot[1]));
-  }
-
   // Auftragsgegenstand, falls die Etage einen verlangt
   const questDef = QUESTS[floor];
   if (questDef && questDef.type === "collect") {
@@ -2249,6 +2393,18 @@ function populateFloor(floor) {
     map.tiles[idx(tx, ty)] = STAIRS;
     map.stairs = [tx, ty];
   }
+
+  // Namentliche kommen zuletzt: erst wenn Treppe und Boss stehen, laesst sich
+  // pruefen, ob ihr Bossraum den Weg dorthin abschneiden wuerde.
+  // Im Schlund taucht alle drei Etagen einer der Namentlichen erneut auf
+  const eliteEtage = ELITES[floor] ? floor
+    : (floor > MAX_FLOOR && (floor - MAX_FLOOR) % 3 === 0
+        ? [3, 5, 7, 9][Math.floor(rng() * 4)] : null);
+  if (eliteEtage) {
+    const gegner = stelleNamentlichen(map, zones, floor, eliteEtage, sx, sy, map.stairs);
+    if (gegner) G.actors.push(gegner);
+  }
+
 
   updateFov();
 }
@@ -2468,6 +2624,7 @@ function kill(target, source) {
   }
 
   if (target.elite) {
+    if (target.sealsRoom) oeffneKammer();
     log(`${target.spec.name} fällt. ${target.spec.epithet} ist niemand mehr.`, "alert");
     ring(target.x, target.y, 3, target.spec.glow || "#E8A94B");
     burst(target.x, target.y, target.spec.glow || "#E8A94B", 26);
@@ -2599,12 +2756,12 @@ function tryMove(dx, dy) {
 }
 
 // Liegt das Feld jenseits des Schleiers, also außerhalb der Bosskammer?
-function istAusserhalbDerKammer(x, y) {
-  const v = G.map.veil;
-  if (!v || !v.length) return false;
-  // Die Schleierzeile selbst zählt als Schwelle, sonst sperrt sie den Helden
-  // auf genau dem Feld ein, auf dem er gerade steht.
-  return y < v[0][1];
+// Liegt das Feld innerhalb der versiegelten Kammer?
+function inKammer(x, y) {
+  const r = G.map.veilRoom;
+  if (!r) return true;
+  const tx = Math.floor(x), ty = Math.floor(y);
+  return inBounds(tx, ty) && r[idx(tx, ty)] === 1;
 }
 
 /* Steht der Held dicht vor dem Schleier? Liefert das Feld, sonst null. */
@@ -2668,7 +2825,8 @@ function oeffneKammer() {
     ring(vx, vy, 2, "#E8A94B");
   }
   G.map.veil = null;
-  log("Der Schleier zerfällt. Der Weg nach oben steht offen.", "good");
+  G.map.veilRoom = null;
+  log("Der Schleier zerfällt. Der Weg steht wieder offen.", "good");
 }
 
 // Der Späher weicht aus, statt Schläge nur abzufedern.
@@ -4117,7 +4275,7 @@ function drawLava(x, y, mx, my, vis, light) {
    Ist die Kammer versiegelt, wird sie dichter und rot. */
 function drawVeil(x, y, mx, my, vis, light) {
   const zu = G.map.sealed;
-  ctx.fillStyle = vis ? "#1A1216" : "#141A22";
+  ctx.fillStyle = vis ? "#150E14" : "#141A22";
   ctx.fillRect(x, y, TILE, TILE);
   if (!vis) {
     ctx.strokeStyle = "#3E4E60";
@@ -4127,30 +4285,44 @@ function drawVeil(x, y, mx, my, vis, light) {
   }
 
   const t = anim.t;
+  const puls = .78 + Math.sin(t * 1.9 + mx) * .22;
+  const kern = zu ? "232,72,60" : "188,150,255";
   ctx.save();
+
+  // Dichter Nebelkörper mit weichen Rändern
   const grad = ctx.createLinearGradient(x, y, x, y + TILE);
-  const kern = zu ? "216,64,56" : "196,168,232";
-  grad.addColorStop(0, `rgba(${kern},.06)`);
-  grad.addColorStop(.5, `rgba(${kern},${zu ? .34 : .22})`);
-  grad.addColorStop(1, `rgba(${kern},.06)`);
+  grad.addColorStop(0, `rgba(${kern},${(zu ? .34 : .26) * puls})`);
+  grad.addColorStop(.5, `rgba(${kern},${(zu ? .62 : .50) * puls})`);
+  grad.addColorStop(1, `rgba(${kern},${(zu ? .34 : .26) * puls})`);
   ctx.fillStyle = grad;
   ctx.fillRect(x, y, TILE, TILE);
 
   // Aufsteigende Schlieren
   ctx.globalCompositeOperation = "lighter";
-  for (let k = 0; k < 4; k++) {
-    const ph = (t * (.22 + k * .05) + hash2(mx * 7 + k, my * 11)) % 1;
+  for (let k = 0; k < 6; k++) {
+    const ph = (t * (.30 + k * .06) + hash2(mx * 7 + k, my * 11)) % 1;
     const sy = y + TILE - ph * TILE;
-    const br = 2 + hash2(mx + k, my + k) * 4;
-    ctx.fillStyle = `rgba(${kern},${(1 - Math.abs(ph - .5) * 2) * (zu ? .30 : .20)})`;
-    ctx.fillRect(x + hash2(my + k, mx) * (TILE - br), sy, br, 2.5);
+    const br = 2 + hash2(mx + k, my + k) * 5;
+    ctx.fillStyle = `rgba(${kern},${(1 - Math.abs(ph - .5) * 2) * (zu ? .42 : .34)})`;
+    ctx.fillRect(x + hash2(my + k, mx) * (TILE - br), sy, br, 3);
   }
+
+  // Heller Kern in der Mitte der Wand
+  const mitteGrad = ctx.createLinearGradient(x, y + TILE * .35, x, y + TILE * .65);
+  mitteGrad.addColorStop(0, `rgba(255,255,255,0)`);
+  mitteGrad.addColorStop(.5, `rgba(255,240,255,${.22 * puls})`);
+  mitteGrad.addColorStop(1, `rgba(255,255,255,0)`);
+  ctx.fillStyle = mitteGrad;
+  ctx.fillRect(x, y + TILE * .35, TILE, TILE * .3);
   ctx.globalCompositeOperation = "source-over";
 
-  // Pfosten links und rechts, damit es als Durchgang lesbar bleibt
-  ctx.fillStyle = mix("#2A2018", "#7A6248", .3 + light * .5);
-  ctx.fillRect(x, y, 3, TILE);
-  ctx.fillRect(x + TILE - 3, y, 3, TILE);
+  // Steinerne Pfosten links und rechts, damit es als Tor lesbar bleibt
+  ctx.fillStyle = mix("#2A2018", "#8A7052", .3 + light * .5);
+  ctx.fillRect(x - 1, y, 4, TILE);
+  ctx.fillRect(x + TILE - 3, y, 4, TILE);
+  ctx.fillStyle = `rgba(255,226,180,${.16 * light})`;
+  ctx.fillRect(x - 1, y, 4, 2);
+  ctx.fillRect(x + TILE - 3, y, 4, 2);
   ctx.restore();
 }
 
@@ -5888,6 +6060,7 @@ function serialize() {
     stairs: G.map.stairs,
     circle: G.map.circle || null,
     veil: G.map.veil || null, sealed: !!G.map.sealed,
+    veilRoom: G.map.veilRoom ? Array.from(G.map.veilRoom) : null,
     time: G.time, upkeepAt: G.upkeepAt,
     quest: G.quest, questLog: G.questLog,
     won: G.won, endless: G.endless, siegRunden: G.siegRunden,
@@ -5946,6 +6119,10 @@ function loadGame() {
     G.map.circle = data.circle || null;
     G.map.veil = data.veil || null;
     G.map.sealed = !!data.sealed;
+    if (data.veilRoom) {
+      G.map.veilRoom = new Uint8Array(MAP_W * MAP_H);
+      G.map.veilRoom.set(data.veilRoom);
+    }
 
     const p = G.player;
     Object.assign(p, {
@@ -6345,3 +6522,6 @@ refreshUI();
 requestAnimationFrame(loop);
 showTitle();
 </script>
+
+</body>
+</html>
