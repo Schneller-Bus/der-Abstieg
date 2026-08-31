@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Der Abstieg</title>
-<meta name="description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
+<meta name="description" content="Ein Echtzeit-Roguelike in zehn Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und hinter jedem Nebeltor wartet ein Namentlicher.">
 <meta name="theme-color" content="#14110E">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314110E'/%3E%3Cpath d='M32 8c6 9 12 13 12 22a12 12 0 0 1-24 0c0-5 3-8 6-12 1 4 3 6 6 7-2-6 0-12 0-17z' fill='%23E8A94B'/%3E%3Cpath d='M32 26c3 4 5 6 5 10a5 5 0 0 1-10 0c0-3 2-5 5-10z' fill='%23FFF0C4'/%3E%3Crect x='29' y='44' width='6' height='14' rx='2' fill='%236B5335'/%3E%3C/svg%3E">
@@ -12,10 +12,10 @@
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Der Abstieg">
-<meta property="og:description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
+<meta property="og:description" content="Ein Echtzeit-Roguelike in zehn Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und hinter jedem Nebeltor wartet ein Namentlicher.">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Der Abstieg">
-<meta name="twitter:description" content="Ein rundenbasiertes Roguelike in fünf Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und ganz unten wartet Der Namenlose.">
+<meta name="twitter:description" content="Ein Echtzeit-Roguelike in zehn Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und hinter jedem Nebeltor wartet ein Namentlicher.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -514,6 +514,56 @@ body {
   border-radius: var(--radius);
   box-shadow: 0 24px 70px rgba(0,0,0,.7), inset 0 0 0 1px rgba(232,169,75,.06);
   padding: 26px 28px 22px;
+}
+
+.sheet { position: relative; }
+
+.stapel {
+  font-size: 12px;
+  color: var(--torch);
+  letter-spacing: .04em;
+}
+
+.talente {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 14px;
+}
+
+.talent {
+  padding: 4px 9px;
+  border: 1px solid var(--stone-700);
+  border-radius: 3px;
+  background: var(--stone-850);
+  font-size: 12.5px;
+  color: var(--vellum-dim);
+}
+
+.talent b {
+  color: var(--torch);
+  font-weight: 600;
+}
+
+.sheet-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  line-height: 1;
+  font-size: 22px;
+  color: var(--vellum-faint);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.sheet-close:hover, .sheet-close:focus-visible {
+  color: var(--vellum);
+  background: var(--stone-850);
+  outline: none;
 }
 
 .sheet h2 {
@@ -1271,8 +1321,9 @@ function rollItem(id, floor, boost) {
   if (!base.slot) return { id, def: base };
   const chance = boost === true
     ? 1
-    : Math.min(.75, .08 + floor * .055 + (typeof boost === "number" ? boost : 0)
-                    + metaBonus("affix") * .08);
+    : Math.min(.85, .08 + floor * .055 + (typeof boost === "number" ? boost : 0)
+                    + metaBonus("affix") * .08
+                    + ((G.player && G.player.lootLuck) || 0));
   if (rng() > chance) return { id, def: base };
   const avoid = base.avoid || [];
   const pool = AFFIXES.filter(a => (a.minFloor || 1) <= floor && !avoid.includes(a.key));
@@ -1578,6 +1629,7 @@ function blockiert(x, y, r) {
 /* Bewegung achsenweise, damit man an Wänden entlanggleitet statt hängenzubleiben. */
 function bewege(a, dx, dy) {
   const r = a.radius || R_MONSTER;
+  const vx = a.x, vy = a.y;
   let bewegt = false;
   if (dx) {
     const nx = a.x + dx;
@@ -1587,7 +1639,25 @@ function bewege(a, dx, dy) {
     const ny = a.y + dy;
     if (!blockiert(a.x, ny, r) && !schleierSperrt(a.x, ny)) { a.y = ny; bewegt = true; }
   }
+  // Der Schrittzyklus haengt an der wirklich zurueckgelegten Strecke. Wer gegen
+  // eine Wand drueckt, kommt nicht voran - und rudert dann auch nicht mit den
+  // Beinen. Die Zeit des letzten Schritts sagt spaeter, ob die Figur laeuft.
+  if (bewegt) {
+    const weit = Math.hypot(a.x - vx, a.y - vy);
+    a.gang = (a.gang || 0) + weit * 6.4;
+    a.schrittZeit = G.time;
+    if (weit > 1e-4) { a.gehX = (a.x - vx) / weit; a.gehY = (a.y - vy) / weit; }
+  }
   return bewegt;
+}
+
+/* 1, solange sich das Wesen bewegt, 0 im Stand - weich ueberblendet, damit
+   Beine und Neigung nicht springen, wenn kurz eine Wand bremst. */
+function gehAnteil(a, dt) {
+  const geht = G.time - (a.schrittZeit || -9) < .11 ? 1 : 0;
+  const k = Math.min(1, dt * 12);
+  a.gehGlatt = (a.gehGlatt || 0) + (geht - a.gehGlatt) * k;
+  return a.gehGlatt;
 }
 
 /* Ist die Kammer versiegelt, darf kein Mittelpunkt über die Schleierzeile
@@ -2170,9 +2240,10 @@ function markDoorways(map) {
 
 /* ── Kisten ───────────────────────────────────────────────────────────────
    Stehen in Räumen herum und geben beim Öffnen mehrere Stücke auf einmal. */
-function stelleKisten(map, zones, floor) {
+function stelleKisten(map, zones, floor, extra) {
   G.chests = [];
-  const anzahl = 1 + (rng() < .55 ? 1 : 0) + (floor >= 5 && rng() < .4 ? 1 : 0);
+  // Kisten sind die Hauptquelle fuer Nachschub, entsprechend mehr davon
+  const anzahl = 3 + (rng() < .6 ? 1 : 0) + (floor >= 5 ? 1 : 0) + (extra || 0);
   const chancen = chancesFor(ITEM_TABLE, floor);
   if (!chancen.length) return;
 
@@ -2192,7 +2263,7 @@ function stelleKisten(map, zones, floor) {
 
       // Kisten sind ergiebiger als loser Boden - zwei bis drei Stücke
       const beute = [];
-      const stueck = 2 + (rng() < .45 ? 1 : 0);
+      const stueck = 2 + (rng() < .5 ? 1 : 0);
       for (let i = 0; i < stueck; i++) {
         const gebaut = rollItem(weighted(chancen), floor, .25);
         beute.push({ id: gebaut.id, ax: gebaut.ax || null });
@@ -2203,24 +2274,23 @@ function stelleKisten(map, zones, floor) {
   }
 }
 
-/* Öffnet eine Kiste in Reichweite. Der Inhalt fällt vor die Füße. */
-function oeffneKiste() {
+/* Findet eine Kiste in Reichweite. */
+function kisteInReichweite() {
   const p = G.player;
-  const nah = (G.chests || []).find(c =>
-    !c.opened && Math.hypot(mitte(c.x) - p.x, mitte(c.y) - p.y) < 1.6);
-  if (!nah) return false;
-  nah.opened = true;
-  Sfx.spiel("ausruesten");
-  const namen = [];
-  for (const eintrag of nah.loot) {
-    const gebaut = buildItem(eintrag.id, eintrag.ax);
-    G.ground.push(Object.assign({}, gebaut, { x: nah.x, y: nah.y }));
-    namen.push(gebaut.def.name);
+  return (G.chests || []).find(c =>
+    c.loot.length && Math.hypot(mitte(c.x) - p.x, mitte(c.y) - p.y) < 1.6) || null;
+}
+
+/* Öffnet eine Kiste - der Inhalt wird gezeigt, nicht ausgekippt. */
+function oeffneKiste() {
+  const kiste = kisteInReichweite();
+  if (!kiste) return false;
+  if (!kiste.opened) {
+    kiste.opened = true;
+    Sfx.spiel("ausruesten");
+    burst(mitte(kiste.x), mitte(kiste.y), "#E8C86A", 14);
   }
-  burst(mitte(nah.x), mitte(nah.y), "#E8C86A", 18);
-  ring(mitte(nah.x), mitte(nah.y), 1.4, "#E8C86A");
-  log(`Die Kiste gibt nach: ${namen.join(", ")}.`, "good");
-  floatText(mitte(nah.x), mitte(nah.y), "geöffnet", "#E8C86A");
+  showChest(kiste);
   return true;
 }
 
@@ -2373,48 +2443,58 @@ function erreichbarOhneSchleier(map, sx, sy, ziel) {
   return false;
 }
 
-/* Setzt einen Namentlichen in eine versiegelbare Kammer.
-   Probiert alle in Frage kommenden Raeume durch und haut zur Not einen aus. */
-function stelleNamentlichen(map, zones, floor, eliteEtage, startX, startY, stairs) {
-  const letzte = zones[zones.length - 1];
+/* Setzt einen Namentlichen in eine versiegelbare Kammer und legt die Treppe
+   hinter ihn. Wer weiter hinab will, muss durch ihn hindurch - und steht nach
+   dem Kampf direkt am Abstieg statt quer ueber der Etage. */
+function stelleNamentlichen(map, zones, floor, eliteEtage, startX, startY) {
   const kandidaten = zones.slice(1).filter(z => {
-    if (z === letzte) return false;                       // dort liegt die Treppe
     if (z.center[0] === startX && z.center[1] === startY) return false;
-    if (stairs && z.tiles.some(([x, y]) => x === stairs[0] && y === stairs[1])) return false;
-    return z.tiles.length >= 12;
+    return z.tiles.length >= 14;
   });
 
   const versuche = kandidaten.slice();
-  let ausgehauen = null;
 
   for (let runde = 0; runde <= versuche.length; runde++) {
     let zone;
     if (runde < versuche.length) zone = versuche[runde];
     else {
-      // Kein bestehender Raum taugt - einen in den Fels schlagen
-      ausgehauen = hauKammerAus(map);
-      if (!ausgehauen) return null;
-      zone = ausgehauen;
+      zone = hauKammerAus(map);          // Kein Raum taugt - einen schlagen
+      if (!zone) return null;
     }
 
     const { drin, zugaenge } = versiegelbar(map, zone);
     if (!zugaenge.length || zugaenge.length > 3) continue;
 
-    const platz = zone.tiles.find(([x, y]) =>
+    const frei = zone.tiles.filter(([x, y]) =>
       WALKABLE[map.tiles[idx(x, y)]] && !actorAt(x, y));
-    if (!platz) continue;
+    if (frei.length < 3) continue;
+
+    // Treppe moeglichst weit weg vom Eingang, der Boss davor
+    const [ex, ey] = zugaenge[0];
+    const sortiert = frei.slice().sort((a, b) =>
+      Math.hypot(b[0] - ex, b[1] - ey) - Math.hypot(a[0] - ex, a[1] - ey));
+    const treppe = sortiert[0];
+    const platz = sortiert[Math.min(sortiert.length - 1, Math.floor(sortiert.length * .35))];
+    if (treppe[0] === platz[0] && treppe[1] === platz[1]) continue;
 
     // Probeweise versiegeln
     const vorher = zugaenge.map(([tx, ty]) => map.tiles[idx(tx, ty)]);
     for (const [tx, ty] of zugaenge) map.tiles[idx(tx, ty)] = VEIL;
 
-    /* Der Bossraum darf den Weg zur Treppe nicht abschneiden - sonst muesste
-       man hinein, um weiterzukommen, und saesse bis zum Sieg fest. */
-    const taugt = !stairs || erreichbarOhneSchleier(map, startX, startY, stairs);
-    if (!taugt) {
+    /* Der Schleier selbst muss vom Start aus erreichbar sein - sonst kaeme man
+       gar nicht erst an den Bossraum heran. */
+    const nebenTor = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
+      .map(([dx, dy]) => [ex + dx, ey + dy])
+      .find(([x, y]) => inBounds(x, y) && WALKABLE[map.tiles[idx(x, y)]] && !drin[idx(x, y)]);
+    if (!nebenTor || !erreichbarOhneSchleier(map, startX, startY, nebenTor)) {
       zugaenge.forEach(([tx, ty], i) => { map.tiles[idx(tx, ty)] = vorher[i]; });
       continue;
     }
+
+    // Alte Treppe entfernen, neue hinter den Boss legen
+    if (map.stairs) map.tiles[idx(map.stairs[0], map.stairs[1])] = FLOOR;
+    map.tiles[idx(treppe[0], treppe[1])] = STAIRS;
+    map.stairs = [treppe[0], treppe[1]];
 
     for (const [tx, ty] of zugaenge) drin[idx(tx, ty)] = 1;   // Schwelle zaehlt dazu
     map.veil = zugaenge;
@@ -2448,6 +2528,7 @@ function populateFloor(floor) {
   const last = zones[zones.length - 1];
   const monsterChances = chancesFor(MONSTER_TABLE, floor);
   const itemChances = chancesFor(ITEM_TABLE, floor);
+  let kistenExtra = 0;
 
   for (const zone of zones.slice(1)) {
     const vault = zone !== last && rng() < .15;
@@ -2465,12 +2546,9 @@ function populateFloor(floor) {
       const aff = rollMonsterAffix(vault ? floor + 3 : floor);
       G.actors.push(makeMonster(weighted(monsterChances), x, y, aff));
     }
-    let m = ri(0, fromTable(MAX_ITEMS, floor)) + (vault ? 2 : 0);
-    while (m-- > 0 && spots.length && itemChances.length) {
-      const [x, y] = spots.pop();
-      // In Schatzkammern liegt häufiger Verzaubertes - garantiert ist es nicht.
-      G.ground.push(makeLoot(weighted(itemChances), x, y, floor, vault ? .3 : 0));
-    }
+    // Beute liegt nicht mehr herum - sie steckt in Kisten oder faellt von
+    // Erschlagenen. Schatzkammern zaehlen dafuer als zusaetzliche Kiste.
+    if (vault) kistenExtra++;
   }
 
   // Fackelschalen geben den Räumen eigenes Licht statt nur Spielerfackel
@@ -2537,7 +2615,7 @@ function populateFloor(floor) {
     map.stairs = [tx, ty];
   }
 
-  stelleKisten(map, zones, floor);
+  stelleKisten(map, zones, floor, kistenExtra);
 
   // Namentliche kommen zuletzt: erst wenn Treppe und Boss stehen, laesst sich
   // pruefen, ob ihr Bossraum den Weg dorthin abschneiden wuerde.
@@ -2546,15 +2624,43 @@ function populateFloor(floor) {
     : (floor > MAX_FLOOR && (floor - MAX_FLOOR) % 3 === 0
         ? [3, 5, 7, 9][Math.floor(rng() * 4)] : null);
   if (eliteEtage) {
-    const gegner = stelleNamentlichen(map, zones, floor, eliteEtage, sx, sy, map.stairs);
+    const gegner = stelleNamentlichen(map, zones, floor, eliteEtage, sx, sy);
     if (gegner) {
       G.actors.push(gegner);
       map.gateBoss = true;          // die Treppe bleibt zu, bis er faellt
     }
   }
 
+  // Die Bosskammer wird zuletzt gebaut und mauert oder verschleiert dabei
+  // gelegentlich eine Kiste ein. Die kommt hier wieder ans Licht.
+  rettteKisten(map);
 
   updateFov();
+}
+
+/* Kisten, die eine spaeter gebaute Wand oder ein Schleier erwischt hat, auf
+   das naechste brauchbare Feld ruecken. Ohne das steckt Beute in der Mauer. */
+function rettteKisten(map) {
+  const belegt = (x, y, ausser) =>
+    G.chests.some(k => k !== ausser && k.x === x && k.y === y) ||
+    G.braziers.some(b => b.x === x && b.y === y) ||
+    G.ground.some(i => i.x === x && i.y === y);
+
+  for (const kiste of G.chests) {
+    const t = map.tiles[idx(kiste.x, kiste.y)];
+    if (WALKABLE[t] && t !== STAIRS && !belegt(kiste.x, kiste.y, kiste)) continue;
+
+    let best = null, bd = 1e9;
+    for (let y = 1; y < MAP_H - 1; y++)
+      for (let x = 1; x < MAP_W - 1; x++) {
+        const kachel = map.tiles[idx(x, y)];
+        if (!WALKABLE[kachel] || kachel === STAIRS) continue;
+        if (belegt(x, y, kiste)) continue;
+        const d = Math.hypot(x - kiste.x, y - kiste.y);
+        if (d < bd) { bd = d; best = [x, y]; }
+      }
+    if (best) { kiste.x = best[0]; kiste.y = best[1]; }
+  }
 }
 
 /* ═══════════════════════════════════════════ Sichtfeld (Shadowcasting) */
@@ -2707,7 +2813,12 @@ function equipBonus(kind) {
 }
 const statusMag = (a, name) => (a.statuses && a.statuses[name]) ? a.statuses[name].mag : 0;
 
-function playerAtk() { return G.player.baseAtk + equipBonus("atk") + statusMag(G.player, "Stärke"); }
+function playerAtk() {
+  const p = G.player;
+  // Trotz greift erst, wenn unter einem Drittel Leben uebrig ist.
+  const trotz = p.trotz && p.hp <= playerMaxHp() / 3 ? p.trotz : 0;
+  return p.baseAtk + equipBonus("atk") + statusMag(p, "Stärke") + trotz;
+}
 function playerDef() { return G.player.baseDef + equipBonus("def") + statusMag(G.player, "Schutz"); }
 function playerMaxHp() { return G.player.baseMaxHp + equipBonus("maxhp"); }
 
@@ -2756,6 +2867,13 @@ function kill(target, source) {
     clearSave();
     setTimeout(() => showDeath(), 700);
     return;
+  }
+
+  // Aasfresser - jeder Erschlagene gibt etwas zurueck.
+  const p = G.player;
+  if (p.killHeal && p.alive && (!source || source.isPlayer)) {
+    const zurueck = healActor(p, p.killHeal);
+    if (zurueck) { floatText(p.x, p.y, "+" + zurueck, "rgba(124,180,150,.85)"); refreshUI(); }
   }
 
   if (target.spec.boss) {
@@ -2825,7 +2943,7 @@ function refillFromBrazier() {
     if (b.used) continue;
     if (Math.hypot(mitte(b.x) - p.x, mitte(b.y) - p.y) > 1.5) continue;
     const before = p.oil;
-    p.oil = Math.min(oilCap(), p.oil + BRAZIER_REFILL);
+    p.oil = Math.min(oilCap(), p.oil + BRAZIER_REFILL * (p.brazierBonus || 1));
     b.used = true;
     Sfx.spiel("schale");
     log(`Du hältst die Fackel in die Schale: +${p.oil - before} Öl.`, "good");
@@ -2942,6 +3060,9 @@ function schleierWarnung() {
     }
     setHint("⏎ Enter — durch den Schleier treten · es gibt kein Zurück");
     G.veilHint = true;
+  } else if (G.chests && kisteInReichweite() && !modalOpen) {
+    setHint("G — Kiste öffnen");
+    G.veilHint = true;
   } else if (G.veilHint) {
     G.veilHint = false;
     setHint(null);
@@ -3040,7 +3161,7 @@ function attack(attacker, target) {
 function pickUp() {
   const here = itemsAt(kachelX(G.player), kachelY(G.player));
   if (!here.length) {
-    if (oeffneKiste()) return true;      // nichts am Boden, aber eine Kiste daneben
+    if (oeffneKiste()) return false;     // Kiste oeffnen kostet keine Runde
     log("Hier liegt nichts.", "system");
     return false;
   }
@@ -3279,7 +3400,7 @@ function useAbility(dx, dy) {
     }
     Sfx.spiel("stoss");
     anim.shake = 8;
-    p.abilityCd = ab.cd;
+    p.abilityCd = ab.cd * (p.abilityHaste || 1);
     return true;
   }
 
@@ -3296,7 +3417,7 @@ function useAbility(dx, dy) {
     Sfx.spiel("sprung");
     log("Du rollst zur Seite.", "you");
     refillFromBrazier();
-    p.abilityCd = ab.cd;
+    p.abilityCd = ab.cd * (p.abilityHaste || 1);
     return true;
   }
 
@@ -3313,7 +3434,7 @@ function useAbility(dx, dy) {
     bolt(p.x, p.y, best.x, best.y, "#BCA8FF");
     log(`Ein Funke springt auf ${best.spec.name} über — ${dmg} Schaden.`, "alert");
     damage(best, dmg, p);
-    p.abilityCd = ab.cd;
+    p.abilityCd = ab.cd * (p.abilityHaste || 1);
     return true;
   }
 
@@ -3536,8 +3657,8 @@ function upkeep() {
     p.oilTick = 0;
     if (p.oil > 0) {
       burnOil(1);
-      const healed = healActor(p, 1);
-      if (healed) floatText(p.x, p.y, "+1", "rgba(124,180,150,.75)");
+      const healed = healActor(p, 1 + (p.restHeal || 0));
+      if (healed) floatText(p.x, p.y, "+" + healed, "rgba(124,180,150,.75)");
     }
   } else {
     if (p.oilTick >= (p.oilSteps || OIL_PER_STEPS)) { p.oilTick = 0; burnOil(1); }
@@ -3705,6 +3826,9 @@ function schwingen(dx, dy) {
   }
 
   anim.swing = { x: p.x, y: p.y, fx, fy, life: 1 };
+  // Der Koerper selbst holt aus, stoesst durch und faengt sich wieder.
+  // Die Dauer folgt dem Schlagtakt, damit Bild und Regel zusammenpassen.
+  p.hieb = { fx, fy, life: 1, dauer: SWING_TIME * (p.swingHaste || 1) };
 
   if (!getroffen.length) {
     Sfx.spiel("abgeprallt");
@@ -4021,7 +4145,8 @@ function drawFrame(dt) {
     const x = (c.x - camX) * TILE, y = (c.y - camY) * TILE;
     if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
     drawChest(x, y, vis, vis ? lightAt(Math.hypot(mitte(c.x) - G.player.x,
-                                                  mitte(c.y) - G.player.y)) : .3, c.opened);
+                                                  mitte(c.y) - G.player.y)) : .3,
+              c.opened, c.loot.length > 0);
   }
 
   /* --- Gegenstände --- */
@@ -4058,15 +4183,34 @@ function drawFrame(dt) {
 
     let ox = 0, oy = 0;
     if (a.lunge) {
-      a.lunge.life -= dt * 6;
+      a.lunge.life -= dt * 5;
       if (a.lunge.life <= 0) a.lunge = null;
       else {
-        const k = Math.sin(a.lunge.life * Math.PI) * .34;
-        ox = a.lunge.dx * k * TILE;
-        oy = a.lunge.dy * k * TILE;
+        // Ein Schlag ist kein Wippen: erst kurz zurueck (das Ausholen), dann
+        // schnell durch, dann langsam zurueck in den Stand.
+        const f = 1 - a.lunge.life;
+        const k = f < .30 ? -.20 * (f / .30)
+                : f < .48 ? -.20 + .68 * ((f - .30) / .18)
+                : .48 * (1 - (f - .48) / .52);
+        const l = Math.hypot(a.lunge.dx, a.lunge.dy) || 1;
+        ox = (a.lunge.dx / l) * k * TILE * .55;
+        oy = (a.lunge.dy / l) * k * TILE * .55;
+        a.holt = f < .48 ? 1 - Math.abs(f - .30) / .30 : 0;   // Anspannung 0..1
       }
+    } else a.holt = 0;
+
+    // Eigener Hieb des Helden laeuft im Takt seiner Waffe ab.
+    if (a.hieb) {
+      a.hieb.life -= dt / a.hieb.dauer;
+      if (a.hieb.life <= 0) a.hieb = null;
     }
-    if (a.flash > 0) a.flash = Math.max(0, a.flash - dt * 4.5);
+
+    a.gehen = gehAnteil(a, dt);
+    if (a.flash > 0) {
+      a.flash = Math.max(0, a.flash - dt * 4.5);
+      a.zucken = Math.max(a.zucken || 0, a.flash);
+    }
+    if (a.zucken > 0) a.zucken = Math.max(0, a.zucken - dt * 3.4);
 
     const x = (a.x - .5 - camX) * TILE + ox, y = (a.y - .5 - camY) * TILE + oy;
     if (x < -TILE * 2 || y < -TILE * 2) continue;
@@ -5166,7 +5310,12 @@ function drawCreature(ctx, x, y, spec, light, t, actor) {
   const cx = x + TILE / 2;
   const s = TILE * spec.size;
   const float = spec.float ? Math.sin(t * 1.9) * s * .06 - s * .06 : 0;
-  const bob = spec.float ? 0 : Math.sin(t * 2.4) * s * .018;
+  // Im Lauf federt der Koerper zweimal je Schritt, im Stand atmet er nur.
+  const geht = actor ? (actor.gehen || 0) : 0;
+  const gang = actor ? (actor.gang || 0) : 0;
+  const bob = spec.float
+    ? 0
+    : -Math.abs(Math.sin(gang)) * geht * s * .05 + Math.sin(t * 2.4) * s * .018 * (1 - geht);
   const g = y + TILE - 2 + float + bob;   // Standlinie des Wesens
 
   const P = {
@@ -5194,6 +5343,16 @@ function drawCreature(ctx, x, y, spec, light, t, actor) {
   }
 
   shadowBlob(cx, y + TILE - 2, s * (spec.float ? .24 : .30), .34 * light * (spec.float ? .55 : 1));
+
+  /* Ausholen und Einstecken verformen den Koerper kurz: wer zum Schlag ansetzt,
+     duckt sich und wird breiter, wer getroffen wird, faehrt zusammen und
+     streckt sich. Gestaucht wird um die Standlinie, damit die Fuesse bleiben. */
+  const anspannung = actor ? (actor.holt || 0) : 0;
+  const zuck = actor ? (actor.zucken || 0) : 0;
+  ctx.save();
+  ctx.translate(cx, g);
+  ctx.scale(1 + anspannung * .10 - zuck * .08, 1 - anspannung * .12 + zuck * .10);
+  ctx.translate(-cx, -g);
 
   // Dunkler Umriss: sonst verschwimmen dicht stehende Wesen ineinander.
   ctx.save();
@@ -5227,31 +5386,102 @@ function drawCreature(ctx, x, y, spec, light, t, actor) {
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
   }
+  ctx.restore();   // Stauchung
   ctx.restore();
 }
 
 function drawHero(ctx, x, y, light, t, actor) {
   const cx = x + TILE / 2;
   const s = TILE * 1.04;
-  const g = y + TILE - 2 + Math.sin(t * 2.2) * s * .015;
+
+  /* --- Was der Koerper gerade tut ------------------------------------
+     Zwei Bewegungen liegen uebereinander: der Schrittzyklus, der an der
+     zurueckgelegten Strecke haengt, und der Hieb, der am Schlagtakt haengt.
+     Beide werden hier in Winkel und Versatz uebersetzt, gezeichnet wird
+     danach nur noch. */
+  const geht = actor ? (actor.gehen || 0) : 0;
+  const gang = actor ? (actor.gang || 0) : 0;
+  const schritt = Math.sin(gang) * geht;
+  const wippen = Math.abs(Math.sin(gang)) * geht * s * .075
+               + Math.sin(t * 2.2) * s * .015 * (1 - geht);
+  const g = y + TILE - 2 - wippen;
+
+  // Gespiegelt wird erst ab deutlichem Ausschlag - sonst kippt die Figur hin
+  // und her, wenn der Zeiger genau ueber ihr steht.
+  if (actor && actor.facing && Math.abs(actor.facing[0]) > .30)
+    actor.blick = actor.facing[0] < 0 ? -1 : 1;
+  const blick = (actor && actor.blick) || 1;
+
+  // Hiebphase: ausholen (Arm nach hinten), durchziehen, sich wieder fangen.
+  const h = actor && actor.hieb ? 1 - actor.hieb.life : -1;
+  let armWinkel = 0, neigung = 0, stoss = 0;
+  if (h >= 0) {
+    if (h < .26) {
+      const k = h / .26;
+      armWinkel = -1.15 * k * k;
+      neigung = -.11 * k;
+      stoss = -.12 * k;
+    } else if (h < .46) {
+      const k = (h - .26) / .20;
+      const e = k * k * (3 - 2 * k);
+      armWinkel = -1.15 + 2.55 * e;
+      neigung = -.11 + .36 * e;
+      stoss = -.12 + .62 * e;
+    } else {
+      const k = 1 - (h - .46) / .54;
+      armWinkel = 1.40 * k * k;
+      neigung = .25 * k * k;
+      stoss = .50 * k * k;
+    }
+  }
+  // Ohne Hieb pendeln die Arme im Schritt gegeneinander.
+  const pendel = h >= 0 ? 0 : schritt * .34;
 
   ctx.save();
   shadowBlob(cx, y + TILE - 2, s * .30, .38);
 
-  // Beine
-  limb(cx - s * .09, g - s * .30, cx - s * .12, g - s * .01, s * .10, "#4A382A");
-  limb(cx + s * .09, g - s * .30, cx + s * .12, g - s * .01, s * .10, "#4A382A");
+  // Der ganze Koerper stoesst in Schlagrichtung vor ...
+  if (h >= 0 && actor.hieb) {
+    ctx.translate(actor.hieb.fx * stoss * s * .34, actor.hieb.fy * stoss * s * .34);
+  }
+  // ... und wird zur Blickseite gespiegelt.
+  ctx.translate(cx, 0);
+  ctx.scale(blick, 1);
+  ctx.translate(-cx, 0);
 
-  // Umhang: fällt hinter der Figur bis zum Boden
+  // Beine: eines vor, eines zurueck, das vordere hebt sich leicht
+  const aus = schritt * s * .26;
+  const hebL = Math.max(0, schritt) * s * .13;
+  const hebR = Math.max(0, -schritt) * s * .13;
+  const fussL = [cx - s * .12 + aus, g - s * .01 - hebL];
+  const fussR = [cx + s * .12 - aus, g - s * .01 - hebR];
+  limb(cx - s * .09, g - s * .32, fussL[0], fussL[1], s * .095, "#5C4636");
+  limb(cx + s * .09, g - s * .32, fussR[0], fussR[1], s * .095, "#5C4636");
+  // Stiefel heller als das Bein, sonst verschwindet der Schritt im Umhang
+  ctx.fillStyle = "#8A6E4A";
+  for (const [fx2, fy2] of [fussL, fussR]) {
+    ctx.beginPath();
+    ctx.ellipse(fx2 + s * .02, fy2, s * .085, s * .052, 0, 0, 6.283);
+    ctx.fill();
+  }
+
+  // Alles ueber der Hüfte lehnt sich in den Schlag
+  ctx.save();
+  ctx.translate(cx, g - s * .28);
+  ctx.rotate(neigung);
+  ctx.translate(-cx, -(g - s * .28));
+
+  // Umhang: fällt hinter der Figur bis zum Boden und schwingt im Lauf nach
+  const flug = -schritt * s * .12 - stoss * s * .14;
   ctx.fillStyle = "#7A2E26";
   ctx.beginPath();
   ctx.moveTo(cx, g - s * .78);
-  ctx.quadraticCurveTo(cx - s * .40, g - s * .48, cx - s * .30, g - s * .04);
-  ctx.lineTo(cx - s * .16, g - s * .10);
-  ctx.lineTo(cx, g - s * .04);
-  ctx.lineTo(cx + s * .16, g - s * .10);
-  ctx.lineTo(cx + s * .30, g - s * .04);
-  ctx.quadraticCurveTo(cx + s * .40, g - s * .48, cx, g - s * .78);
+  ctx.quadraticCurveTo(cx - s * .40 + flug, g - s * .50, cx - s * .30 + flug, g - s * .18);
+  ctx.lineTo(cx - s * .16, g - s * .26);
+  ctx.lineTo(cx, g - s * .19);
+  ctx.lineTo(cx + s * .16, g - s * .26);
+  ctx.lineTo(cx + s * .30 + flug, g - s * .18);
+  ctx.quadraticCurveTo(cx + s * .40 + flug, g - s * .48, cx, g - s * .78);
   ctx.closePath();
   ctx.fill();
 
@@ -5267,9 +5497,14 @@ function drawHero(ctx, x, y, light, t, actor) {
   ctx.fillStyle = "#8A6E4A";
   ctx.fillRect(cx - s * .17, g - s * .38, s * .34, s * .06);
 
-  // Waffenarm
+  // Waffenarm: dreht um die Schulter durch den ganzen Hieb
   const weapon = G.player.equipped["Waffe"];
-  limb(cx + s * .17, g - s * .56, cx + s * .30, g - s * .34, s * .10, "#C9BCA0");
+  const schX = cx + s * .17, schY = g - s * .56;
+  ctx.save();
+  ctx.translate(schX, schY);
+  ctx.rotate(armWinkel - pendel);
+  ctx.translate(-schX, -schY);
+  limb(schX, schY, cx + s * .30, g - s * .34, s * .10, "#C9BCA0");
   if (weapon) {
     ctx.save();
     if (weapon.def.glow) { ctx.shadowColor = weapon.def.tint; ctx.shadowBlur = 12; }
@@ -5277,10 +5512,17 @@ function drawHero(ctx, x, y, light, t, actor) {
     ctx.restore();
     limb(cx + s * .24, g - s * .40, cx + s * .36, g - s * .30, s * .05, "#6B5335");
   }
+  ctx.restore();
 
-  // Fackelarm
-  limb(cx - s * .17, g - s * .56, cx - s * .32, g - s * .62, s * .10, "#C9BCA0");
+  // Fackelarm: pendelt gegen den Waffenarm, weicht dem Hieb ein Stück aus
+  const facX = cx - s * .17, facY = g - s * .56;
+  ctx.save();
+  ctx.translate(facX, facY);
+  ctx.rotate(pendel - armWinkel * .18);
+  ctx.translate(-facX, -facY);
+  limb(facX, facY, cx - s * .32, g - s * .62, s * .10, "#C9BCA0");
   limb(cx - s * .32, g - s * .62, cx - s * .36, g - s * .78, s * .055, "#6B5335");
+  ctx.restore();
 
   // Kapuze und Gesicht im Schatten
   ctx.fillStyle = "#8E3A2E";
@@ -5298,28 +5540,35 @@ function drawHero(ctx, x, y, light, t, actor) {
 
   // Die Fackel selbst - Quelle allen Lichts hier unten, und sie zehrt sich auf
   const oilFrac = Math.max(0, Math.min(1, G.player.oil / 55));
+  // Die Flamme sitzt an der Fackelspitze und dreht mit dem Arm mit.
+  const drehung = pendel - armWinkel * .18;
+  const rx = cx - s * .38 - facX, ry = g - s * .90 - facY;
+  const co = Math.cos(drehung), si = Math.sin(drehung);
+  const flX = facX + rx * co - ry * si, flY = facY + rx * si + ry * co;
   if (oilFrac > 0) {
     const fl = (.78 + Math.sin(t * 11) * .14 + Math.sin(t * 23) * .08) * (.42 + .58 * oilFrac);
     ctx.save();
     ctx.shadowColor = "#E8A94B";
     ctx.shadowBlur = 22 * fl;
     const grad = ctx.createRadialGradient(
-      cx - s * .38, g - s * .90, 0, cx - s * .38, g - s * .90, s * .22 * fl);
+      flX, flY, 0, flX, flY, s * .22 * fl);
     grad.addColorStop(0, "#FFF0C4");
     grad.addColorStop(.45, "#E8A94B");
     grad.addColorStop(1, "rgba(200,110,40,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.ellipse(cx - s * .38, g - s * .90, s * .17 * fl, s * .23 * fl, 0, 0, 6.283);
+    ctx.ellipse(flX, flY, s * .17 * fl, s * .23 * fl, 0, 0, 6.283);
     ctx.fill();
     ctx.restore();
   } else {
     // Erloschen: nur noch der verkohlte Kopf der Fackel
     ctx.fillStyle = "#2E2620";
     ctx.beginPath();
-    ctx.ellipse(cx - s * .38, g - s * .88, s * .07, s * .09, 0, 0, 6.283);
+    ctx.ellipse(flX, flY + s * .02, s * .07, s * .09, 0, 0, 6.283);
     ctx.fill();
   }
+
+  ctx.restore();   // Neigung des Oberkoerpers
 
   if (actor && actor.flash > 0) {
     ctx.globalAlpha = actor.flash * .8;
@@ -5392,7 +5641,7 @@ function drawBrazier(x, y, vis, t, used) {
 }
 
 /* Eine Truhe aus Holz mit Eisenbeschlag. Offen steht der Deckel hoch. */
-function drawChest(x, y, vis, light, offen) {
+function drawChest(x, y, vis, light, offen, hatInhalt) {
   const k = TILE / 26;
   const cx = x + TILE / 2, basis = y + TILE - 4 * k;
   ctx.save();
@@ -5448,7 +5697,7 @@ function drawChest(x, y, vis, light, offen) {
     ctx.fillRect(cx - 2.2 * k, basis - 5 * k, 4.4 * k, 3.4 * k);
     // Leichter Schimmer, damit man sie im Halbdunkel findet
     const puls = .5 + Math.sin(anim.t * 2 + x) * .5;
-    ctx.globalAlpha = .18 + puls * .16;
+    ctx.globalAlpha = (hatInhalt ? .18 : 0) + puls * (hatInhalt ? .16 : 0);
     ctx.fillStyle = "#E8C86A";
     ctx.beginPath();
     ctx.ellipse(cx, basis - 8 * k, 11 * k, 9 * k, 0, 0, 6.283);
@@ -5766,7 +6015,7 @@ function zeichneKarte(now) {
 
   // Kisten, die noch zu sind
   for (const c of (G.chests || [])) {
-    if (c.opened || !G.map.explored[idx(c.x, c.y)]) continue;
+    if (!c.loot.length || !G.map.explored[idx(c.x, c.y)]) continue;
     m.fillStyle = "#E8C86A";
     m.fillRect(c.x * s, c.y * s, s, s);
   }
@@ -5905,11 +6154,29 @@ let modalOpen = false;
 
 function openModal(html, onKey) {
   modalOpen = true;
-  overlay.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  // Jedes Fenster startet schliessbar - wer das nicht will, setzt es danach.
+  overlay._noEscape = false;
+  overlay.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><button class="sheet-close" aria-label="Schließen">×</button>${html}</div>`;
+  const kreuz = overlay.querySelector(".sheet-close");
+  if (kreuz) kreuz.onclick = () => { if (!overlay._noEscape) closeModal(); };
   overlay.hidden = false;
   overlay._onKey = onKey || null;
   const first = overlay.querySelector("button:not([disabled])");
   if (first) first.focus();
+}
+
+/* Klick auf den dunklen Rand schliesst - damit man nie festsitzt. */
+overlay.addEventListener("mousedown", ev => {
+  if (ev.target === overlay && !overlay._noEscape) closeModal();
+});
+
+/* Fenster, die eine Entscheidung erzwingen (Titel, Aufstieg, Tod, Sieg,
+   Lager): kein Escape, kein Klick daneben - und auch kein Kreuz, das dann
+   nur nach einem Ausweg aussaehe, der keiner ist. */
+function zwingend() {
+  overlay._noEscape = true;
+  const kreuz = overlay.querySelector(".sheet-close");
+  if (kreuz) kreuz.remove();
 }
 
 function closeModal() {
@@ -5989,6 +6256,83 @@ function showBag(focus) {
     const btn = overlay.querySelector(`.bag-main[data-i="${at}"]`);
     if (btn) btn.focus();
   }
+}
+
+/* Der Inhalt einer Kiste - man nimmt einzeln oder alles. */
+function showChest(kiste) {
+  const p = G.player;
+  const platz = 20 - p.bag.length;
+
+  const zeilen = kiste.loot.length ? kiste.loot.map((eintrag, i) => {
+    const d = buildItem(eintrag.id, eintrag.ax).def;
+    const notiz = d.slot ? bonusText(d) : (d.note || "");
+    return `<div class="bag-row">
+      <button class="choice bag-main" data-i="${i}">
+        <span class="key">${LETTERS[i]}</span>
+        <span style="color:${d.tint}">${escapeHtml(d.name)}</span>
+        <span class="note">${escapeHtml(notiz)}</span>
+      </button>
+      <button class="bag-act" data-i="${i}">Nehmen</button>
+    </div>`;
+  }).join("") : '<p class="quiet" style="padding:14px 0">Die Kiste ist leer.</p>';
+
+  openModal(`<h2>Kiste</h2>
+    <p class="sub">${kiste.loot.length} ${kiste.loot.length === 1 ? "Stück" : "Stücke"} darin ·
+      ${platz} ${platz === 1 ? "Platz" : "Plätze"} in deinem Beutel frei.
+      Was du liegen lässt, bleibt in der Kiste.</p>
+    ${zeilen}
+    ${kiste.loot.length ? `<button class="choice" id="allesBtn" style="margin-top:12px">
+      <span class="key">↵</span><span>Alles nehmen</span><span class="note"></span></button>` : ""}
+    <div class="foot">Buchstabe nimmt · Enter nimmt alles · Esc schließt</div>`,
+    key => {
+      if (key === "enter") { nimmAllesAusKiste(kiste); return true; }
+      const i = LETTERS.indexOf(key);
+      if (i >= 0 && i < kiste.loot.length) { nimmAusKiste(kiste, i); return true; }
+      return false;
+    });
+
+  overlay.querySelectorAll("[data-i]").forEach(btn => {
+    btn.onclick = () => nimmAusKiste(kiste, +btn.dataset.i);
+  });
+  const alles = $("allesBtn");
+  if (alles) alles.onclick = () => nimmAllesAusKiste(kiste);
+}
+
+function nimmAusKiste(kiste, i) {
+  const p = G.player;
+  if (p.bag.length >= 20) {
+    log("Dein Beutel ist voll.", "system");
+    Sfx.spiel("nein");
+    return;
+  }
+  const eintrag = kiste.loot[i];
+  if (!eintrag) return;
+  const gebaut = buildItem(eintrag.id, eintrag.ax);
+  p.bag.push(gebaut);
+  kiste.loot.splice(i, 1);
+  Sfx.spiel("aufheben");
+  log(`Du nimmst ${gebaut.def.name} aus der Kiste.`, "you");
+  refreshUI();
+  if (!kiste.loot.length) { closeModal(); log("Die Kiste ist leer.", "system"); }
+  else showChest(kiste);
+}
+
+function nimmAllesAusKiste(kiste) {
+  const p = G.player;
+  let genommen = 0;
+  while (kiste.loot.length && p.bag.length < 20) {
+    const gebaut = buildItem(kiste.loot[0].id, kiste.loot[0].ax);
+    p.bag.push(gebaut);
+    kiste.loot.shift();
+    genommen++;
+  }
+  if (genommen) {
+    Sfx.spiel("aufheben");
+    log(`Du leerst die Kiste: ${genommen} ${genommen === 1 ? "Stück" : "Stücke"}.`, "good");
+  }
+  refreshUI();
+  if (!kiste.loot.length) closeModal();
+  else { log("Dein Beutel ist voll — der Rest bleibt liegen.", "system"); showChest(kiste); }
 }
 
 function showQuestLog() {
@@ -6072,9 +6416,17 @@ function showCharacter() {
     ["Rüstung", p.equipped["Rüstung"] ? p.equipped["Rüstung"].def.name : "nichts"],
     ["Amulett", p.equipped["Amulett"] ? p.equipped["Amulett"].def.name : "nichts"],
   ];
+  // Talente in der Reihenfolge des Beutels, damit die Liste ruhig bleibt.
+  const meine = PERKS.filter(t => perkAnzahl(t.key) > 0);
+  const talente = meine.length
+    ? `<p class="sub" style="margin-top:14px">Talente</p><div class="talente">${meine.map(t =>
+        `<span class="talent" title="${escapeHtml(t.text)}">${escapeHtml(t.name)}${
+          perkAnzahl(t.key) > 1 ? ` <b>×${perkAnzahl(t.key)}</b>` : ""}</span>`).join("")}</div>`
+    : "";
   openModal(`<h2>Der Held</h2><p class="sub">Wer hier unten steht, und womit.</p>
     <div class="grid2">${rows.map(([a, b]) =>
       `<div class="line"><span>${a}</span><span>${escapeHtml(String(b))}</span></div>`).join("")}</div>
+    ${talente}
     <div class="foot">Esc schließt</div>`);
 }
 
@@ -6103,37 +6455,158 @@ function showHelp() {
     <div class="foot">Esc schließt</div>`);
 }
 
+/* ---- Talente ---------------------------------------------------------
+   Beim Aufstieg werden drei Talente aus einem Beutel gezogen statt immer
+   derselben drei Knoepfe anzubieten. Ein Teil ist reiner Zugewinn, der Rest
+   ist ein Handel: wer Angriff will, zahlt mit Leben, Tempo oder Licht.
+   max  - wie oft dasselbe Talent hoechstens kommen darf
+   gewicht - wie haeufig es ueberhaupt in die Auswahl geraet
+   wenn - zusaetzliche Bedingung, damit kein sinnloser Handel angeboten wird */
+const PERKS = [
+  { key: "balg", name: "Zäher Balg", text: "+25 Leben, sofort aufgefüllt",
+    max: 99, gewicht: 10,
+    wirk: p => { p.baseMaxHp += 25; healActor(p, 25); } },
+
+  { key: "staerke", name: "Rohe Stärke", text: "+2 Angriff",
+    max: 99, gewicht: 10,
+    wirk: p => { p.baseAtk += 2; } },
+
+  { key: "fell", name: "Dickes Fell", text: "+1 Schutz",
+    max: 99, gewicht: 9,
+    wirk: p => { p.baseDef += 1; } },
+
+  { key: "schnitt", name: "Windschnitt", text: "+10 % kritische Treffer",
+    max: 4, gewicht: 7,
+    wirk: p => { p.crit = (p.crit || 0) + .10; } },
+
+  { key: "katze", name: "Katzenhaft", text: "+8 % Ausweichen",
+    max: 4, gewicht: 7,
+    wirk: p => { p.evade = (p.evade || 0) + .08; } },
+
+  { key: "aas", name: "Aasfresser", text: "Jeder Erschlagene gibt dir 4 Leben zurück",
+    max: 3, gewicht: 7,
+    wirk: p => { p.killHeal = (p.killHeal || 0) + 4; } },
+
+  { key: "zorn", name: "Zorn", text: "Deine Schläge kommen ein Fünftel schneller",
+    max: 3, gewicht: 6,
+    wirk: p => { p.swingHaste = (p.swingHaste || 1) * .82; } },
+
+  { key: "schritt", name: "Leichter Schritt", text: "+12 % Tempo",
+    max: 3, gewicht: 6,
+    wirk: p => { p.speedMult = (p.speedMult || 1) * 1.12; } },
+
+  { key: "hand", name: "Schnelle Hand", text: "Deine Fähigkeit ist ein Viertel früher bereit",
+    max: 3, gewicht: 6,
+    wirk: p => { p.abilityHaste = (p.abilityHaste || 1) * .75; } },
+
+  { key: "genesung", name: "Genesung", text: "Rasten heilt 2 Leben je Öl statt 1",
+    max: 2, gewicht: 6,
+    wirk: p => { p.restHeal = (p.restHeal || 0) + 1; } },
+
+  { key: "falke", name: "Falkenauge", text: "+1,5 Sichtweite",
+    max: 2, gewicht: 6,
+    wirk: p => { p.fovBonus = (p.fovBonus || 0) + 1.5; } },
+
+  { key: "sparsam", name: "Sparsame Flamme", text: "Dein Öl brennt halb so schnell herunter",
+    max: 2, gewicht: 6,
+    wirk: p => { p.oilSteps = Math.round((p.oilSteps || OIL_PER_STEPS) * 1.5); } },
+
+  { key: "gelehrt", name: "Gelehrig", text: "Rollen und der Funke wirken 40 % stärker",
+    max: 2, gewicht: 5,
+    wirk: p => { p.scrollPower = (p.scrollPower || 1) * 1.4; } },
+
+  { key: "pluender", name: "Plünderer", text: "Verzaubertes findet sich deutlich häufiger",
+    max: 2, gewicht: 5,
+    wirk: p => { p.lootLuck = (p.lootLuck || 0) + .15; } },
+
+  { key: "glut", name: "Innere Glut", text: "Fackelschalen geben doppelt, +15 Ölvorrat",
+    max: 2, gewicht: 5,
+    wirk: p => { p.brazierBonus = (p.brazierBonus || 1) * 2; p.oilMax += 15; p.oil += 15; } },
+
+  { key: "wucht", name: "Wuchtschlag", text: "Ein Drittel mehr Reichweite, dafür 15 % langsamer",
+    max: 2, gewicht: 5,
+    wirk: p => { p.reachMult = (p.reachMult || 1) * 1.33; p.swingHaste = (p.swingHaste || 1) * 1.15; } },
+
+  { key: "trotz", name: "Trotz", text: "Unter einem Drittel Leben: +6 Angriff",
+    max: 2, gewicht: 5,
+    wirk: p => { p.trotz = (p.trotz || 0) + 6; } },
+
+  { key: "brand", name: "Brandzeichen", text: "+5 Angriff, dafür brennt dein Öl ein Drittel schneller",
+    max: 2, gewicht: 5,
+    wenn: p => (p.oilSteps || OIL_PER_STEPS) > 2,
+    wirk: p => { p.baseAtk += 5; p.oilSteps = Math.max(2, Math.round((p.oilSteps || OIL_PER_STEPS) * .67)); } },
+
+  { key: "ader", name: "Aderlass", text: "+7 Angriff, dafür 20 Leben weniger",
+    max: 2, gewicht: 4,
+    wenn: p => p.baseMaxHp > 55,
+    wirk: p => { p.baseAtk += 7; p.baseMaxHp -= 20; p.hp = Math.min(p.hp, playerMaxHp()); } },
+
+  { key: "stein", name: "Steinhaut", text: "+4 Schutz, dafür 12 % langsamer",
+    max: 2, gewicht: 4,
+    wirk: p => { p.baseDef += 4; p.speedMult = (p.speedMult || 1) * .88; } },
+];
+
+const PERK_VON = Object.fromEntries(PERKS.map(t => [t.key, t]));
+
+/* Wie oft der Held ein Talent schon genommen hat. */
+function perkAnzahl(key) { return (G.player.perks && G.player.perks[key]) || 0; }
+
+/* Drei verschiedene Talente ziehen, gewichtet und ohne Zuruecklegen.
+   Gezogen wird aus allem, was noch unter seiner Obergrenze liegt und dessen
+   Bedingung erfuellt ist - notfalls bleiben weniger als drei uebrig. */
+function ziehePerks(anzahl) {
+  const p = G.player;
+  const beutel = PERKS.filter(t =>
+    perkAnzahl(t.key) < t.max && (!t.wenn || t.wenn(p)));
+  const gezogen = [];
+  while (gezogen.length < anzahl && beutel.length) {
+    let summe = 0;
+    for (const t of beutel) summe += t.gewicht;
+    let wurf = rng() * summe;
+    let i = 0;
+    while (i < beutel.length - 1 && (wurf -= beutel[i].gewicht) > 0) i++;
+    gezogen.push(beutel.splice(i, 1)[0]);
+  }
+  return gezogen;
+}
+
 function showLevelUp() {
   if (mode.kind !== "play") return;
-  const options = [
-    ["1", "Konstitution", "+20 Leben", () => { G.player.baseMaxHp += 20; G.player.hp += 20; }],
-    ["2", "Stärke", "+1 Angriff", () => { G.player.baseAtk += 1; }],
-    ["3", "Gewandtheit", "+1 Schutz", () => { G.player.baseDef += 1; }],
-  ];
-  openModal(`<h2>Du wächst</h2><p class="sub">Die Tiefe hat dich etwas gelehrt. Woran?</p>
-    ${options.map(([k, name, note], i) =>
-      `<button class="choice" data-i="${i}"><span class="key">${k}</span>
-        <span>${name}</span><span class="note">${note}</span></button>`).join("")}
-    <div class="foot">Ziffer wählen</div>`, key => {
+  const gewaehlt = ziehePerks(3);
+  if (!gewaehlt.length) {           // alles ausgereizt - dann eben Leben
+    applyLevelUp(PERK_VON.balg);
+    return;
+  }
+  const stufe = ROMAN[G.player.level + 1] || (G.player.level + 1);
+  openModal(`<h2>Du wächst</h2><p class="sub">Stufe ${stufe}. Die Tiefe hat dich etwas gelehrt — was?</p>
+    ${gewaehlt.map((t, i) => {
+      const hat = perkAnzahl(t.key);
+      return `<button class="choice" data-i="${i}"><span class="key">${i + 1}</span>
+        <span>${escapeHtml(t.name)}${hat ? ` <span class="stapel">×${hat + 1}</span>` : ""}</span>
+        <span class="note">${escapeHtml(t.text)}</span></button>`;
+    }).join("")}
+    <div class="foot">Ziffer wählen · jedes Mal eine neue Auswahl</div>`, key => {
     const i = ["1", "2", "3"].indexOf(key);
-    if (i >= 0) { applyLevelUp(options[i][3]); return true; }
+    if (i >= 0 && i < gewaehlt.length) { applyLevelUp(gewaehlt[i]); return true; }
     return false;
   });
-  overlay._noEscape = true;
+  zwingend();
   overlay.querySelectorAll(".choice").forEach(btn => {
-    btn.onclick = () => applyLevelUp(options[+btn.dataset.i][3]);
+    btn.onclick = () => applyLevelUp(gewaehlt[+btn.dataset.i]);
   });
 }
 
-function applyLevelUp(fn) {
+function applyLevelUp(talent) {
   overlay._noEscape = false;
   closeModal();
-  G.player.xp -= xpNeeded();
-  G.player.level++;
-  fn();
-  log(`Aufstieg auf Stufe ${G.player.level}.`, "alert");
+  const p = G.player;
+  p.xp -= xpNeeded();
+  p.level++;
+  talent.wirk(p);
+  p.perks[talent.key] = perkAnzahl(talent.key) + 1;
+  log(`Aufstieg auf Stufe ${p.level}: ${talent.name}.`, "alert");
   Sfx.spiel("stufe");
-  banner(`Stufe ${ROMAN[G.player.level] || G.player.level}`, "Die Tiefe hat dich etwas gelehrt", "good");
+  banner(`Stufe ${ROMAN[p.level] || p.level}`, talent.name, "good");
   ring(G.player.x, G.player.y, 2, C.torch);
   burst(G.player.x, G.player.y, C.torch, 20);
   refreshUI();
@@ -6165,7 +6638,7 @@ function showDeath() {
       if (key === "l") { showCamp(); return true; }
       return false;
     });
-  overlay._noEscape = true;
+  zwingend();
   $("againBtn").onclick = () => showTitle();
   const lager = $("lagerBtn");
   if (lager) lager.onclick = () => showCamp();
@@ -6193,7 +6666,7 @@ function showVictory() {
       if (key === "t") { steigeTiefer(); return true; }
       return false;
     });
-  overlay._noEscape = true;
+  zwingend();
   $("lichtBtn").onclick = beendeLauf;
   $("tieferBtn").onclick = steigeTiefer;
 }
@@ -6221,7 +6694,7 @@ function beendeLauf() {
       if (key === "l") { showCamp(); return true; }
       return false;
     });
-  overlay._noEscape = true;
+  zwingend();
   Sfx.spiel("asche");
   $("againBtn").onclick = () => showTitle();
   $("lagerBtn").onclick = () => showCamp();
@@ -6279,8 +6752,8 @@ function showCamp() {
     ${zeilen}
     <button class="choice" id="zurueckBtn" style="margin-top:14px">
       <span class="key">Esc</span><span>Zurück zur Klassenwahl</span><span class="note"></span></button>`,
-    key => { if (key === "escape") { showTitle(); return true; } return false; });
-  overlay._noEscape = true;
+    key => { if (key === "Escape") { showTitle(); return true; } return false; });
+  zwingend();
   $("zurueckBtn").onclick = () => showTitle();
   overlay.querySelectorAll("[data-up]").forEach(btn => {
     btn.onclick = () => kaufe(btn.dataset.up);
@@ -6333,7 +6806,7 @@ function showTitle() {
     if (key === "l") { showCamp(); return true; }
     return false;
   });
-  overlay._noEscape = true;
+  zwingend();
   $("lagerBtn2").onclick = () => showCamp();
   overlay.querySelectorAll("[data-cls]").forEach(btn => {
     btn.onclick = () => startNewGame(btn.dataset.cls);
@@ -6408,6 +6881,11 @@ function serialize() {
       cls: G.player.cls, ability: G.player.ability, abilityCd: G.player.abilityCd,
       oilSteps: G.player.oilSteps, fovBonus: G.player.fovBonus,
       scrollPower: G.player.scrollPower, crit: G.player.crit, evade: G.player.evade,
+      speedMult: G.player.speedMult, swingHaste: G.player.swingHaste,
+      reachMult: G.player.reachMult, abilityHaste: G.player.abilityHaste,
+      killHeal: G.player.killHeal, restHeal: G.player.restHeal,
+      lootLuck: G.player.lootLuck, brazierBonus: G.player.brazierBonus,
+      trotz: G.player.trotz, perks: G.player.perks,
       statuses: G.player.statuses,
       // ax = Affix, q = Name eines Auftragsgegenstands (der hat keine feste Vorlage)
       bag: G.player.bag.map(e => ({ id: e.id, ax: e.ax || null, q: e.def.quest ? e.def.name : null })),
@@ -6479,6 +6957,16 @@ function loadGame() {
       scrollPower: data.player.scrollPower || 1,
       crit: data.player.crit || 0,
       evade: data.player.evade || 0,
+      speedMult: data.player.speedMult || 1,
+      swingHaste: data.player.swingHaste || 1,
+      reachMult: data.player.reachMult || 1,
+      abilityHaste: data.player.abilityHaste || 1,
+      killHeal: data.player.killHeal || 0,
+      restHeal: data.player.restHeal || 0,
+      lootLuck: data.player.lootLuck || 0,
+      brazierBonus: data.player.brazierBonus || 1,
+      trotz: data.player.trotz || 0,
+      perks: data.player.perks || {},
     });
     p.bag = data.player.bag.map(e => e.q
       ? { id: "relic", def: Object.assign({}, RELIC, { name: e.q }) }
@@ -6526,6 +7014,9 @@ function freshState() {
     facing: [0, 1], nextSwing: 0, radius: R_PLAYER,
     cls: "krieger", ability: "bash", abilityCd: 0,
     oilSteps: 4, fovBonus: 0, scrollPower: 1, crit: 0, evade: 0,
+    speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
+    killHeal: 0, restHeal: 0, lootLuck: 0, brazierBonus: 1, trotz: 0,
+    perks: {},
     bag: [], equipped: { "Waffe": null, "Rüstung": null, "Amulett": null },
     statuses: {}, flash: 0,
   };
@@ -6556,6 +7047,9 @@ function startNewGame(clsId) {
     baseAtk: cls.atk, baseDef: cls.def,
     oilSteps: cls.oilSteps, fovBonus: cls.fovBonus, scrollPower: cls.scrollPower,
     crit: cls.crit || 0, evade: cls.evade || 0,
+    speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
+    killHeal: 0, restHeal: 0, lootLuck: 0, brazierBonus: 1, trotz: 0,
+    perks: {},
   });
 
   // Was du dir in früheren Läufen erarbeitet hast, kommt obendrauf.
