@@ -626,6 +626,31 @@ body {
   color: var(--vellum-faint);
 }
 
+.codefeld {
+  width: 100%;
+  min-height: 62px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--stone-950);
+  border: 1px solid var(--stone-700);
+  border-radius: 3px;
+  color: var(--vellum-dim);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  resize: vertical;
+  word-break: break-all;
+}
+
+.codefeld:focus { outline: none; border-color: var(--torch-deep); }
+
+.codeleiste {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
 .stapel {
   font-size: 12px;
   color: var(--torch);
@@ -1064,7 +1089,8 @@ const Sfx = {
     this.an = an;
     try { localStorage.setItem("der-abstieg-ton", an ? "1" : "0"); } catch (e) {}
     if (this.master) this.master.gain.value = an ? this.laut : 0;
-    if (an && this.bettWunsch && !this.bett) this.kulisse(this.bettWunsch);
+    if (an && this.musikWunsch && !this.musik) this.kulisse(this.musikWunsch);
+    if (!an) this.stoppeKulisse();
   },
 
   ladeEinstellung() {
@@ -1113,184 +1139,280 @@ const Sfx = {
   },
 
 
-  /* == Klangteppich ======================================================
-     Jede Tiefe bekommt ein eigenes Grundrauschen: ein paar tiefe Toene, eine
-     Rauschschicht und gelegentliche Einzelgeraeusche. Alles zur Laufzeit
-     erzeugt, keine Datei. Haengt am selben Regler wie der Rest, verstummt
-     also mit M. */
-  bett: null, bettWunsch: null, bettName: null,
+  /* == Musik ==============================================================
+     Kein Abspielen einer Datei, sondern ein Stueck, das sich selbst schreibt:
+     je Tiefe eine eigene Tonleiter, ein eigenes Tempo und eine eigene
+     Besetzung. Ueber vier Takte laeuft eine Akkordfolge, darueber legt sich
+     eine sparsame Melodie aus den Toenen des gerade klingenden Akkords.
+     Geplant wird mit Vorlauf: ein Zeitgeber schaut 1,5 Sekunden voraus und
+     traegt die Noten mit genauer Uhrzeit ein, damit nichts eiert. */
+  musik: null, musikWunsch: null, musikName: null, musikLaut: .78,
+
+  /* Halbtonschritte einer Tonleiter, jeweils ab dem Grundton */
+  LEITERN: {
+    built: [0, 2, 3, 5, 7, 8, 10],   // aeolisch - streng, aber noch warm
+    cave:  [0, 2, 3, 5, 7, 9, 10],   // dorisch - offener, atmender
+    forge: [0, 1, 3, 5, 7, 8, 10],   // phrygisch - die Halbtonsekunde drueckt
+    arena: [0, 1, 3, 5, 6, 8, 10],   // lokrisch - nichts steht mehr fest
+    cycle: [0, 1, 3, 5, 6, 8, 10],
+  },
+
+  /* Grundton, Schlagdauer und Stimmung je Tiefe */
+  TIEFEN: {
+    built: { wurzel: 45, schlag: .58, farbe: 900,  puls: 1, glocke: 0 },
+    cave:  { wurzel: 43, schlag: .66, farbe: 700,  puls: 0, glocke: 0 },
+    forge: { wurzel: 41, schlag: .50, farbe: 1200, puls: 1, glocke: 0 },
+    arena: { wurzel: 39, schlag: .74, farbe: 620,  puls: 0, glocke: 1 },
+    cycle: { wurzel: 38, schlag: .70, farbe: 640,  puls: 1, glocke: 1 },
+  },
+
+  /* Vier Stufen der Tonleiter als Akkordfolge - i, VI, iv, v */
+  FOLGE: [0, 5, 3, 4],
+
+  hz(n) { return 440 * Math.pow(2, (n - 69) / 12); },
 
   kulisse(name) {
-    this.bettWunsch = name;
+    this.musikWunsch = this.TIEFEN[name] ? name : "built";
     this.init();
     if (!this.ctx) return;
-    if (this.bettName === name && this.bett) return;
+    if (this.musikName === this.musikWunsch && this.musik) return;
     this.stoppeKulisse();
     if (this.ctx.state === "suspended") this.ctx.resume();
     this.starteKulisse();
   },
 
   stoppeKulisse() {
-    if (!this.bett) return;
-    const b = this.bett;
-    this.bett = null;
-    this.bettName = null;
+    if (!this.musik) return;
+    const m = this.musik;
+    this.musik = null;
+    this.musikName = null;
     try {
-      clearInterval(b.uhr);
+      clearInterval(m.uhr);
       const t = this.jetzt();
-      b.gain.gain.cancelScheduledValues(t);
-      b.gain.gain.setValueAtTime(b.gain.gain.value, t);
-      b.gain.gain.linearRampToValueAtTime(0, t + 1.2);
-      for (const k of b.knoten) { try { k.stop(t + 1.3); } catch (e) {} }
-      setTimeout(() => { try { b.gain.disconnect(); } catch (e) {} }, 1600);
+      m.gain.gain.cancelScheduledValues(t);
+      m.gain.gain.setValueAtTime(m.gain.gain.value, t);
+      m.gain.gain.linearRampToValueAtTime(0, t + 1.4);
+      for (const k of m.dauernd) { try { k.stop(t + 1.5); } catch (e) {} }
+      setTimeout(() => { try { m.gain.disconnect(); } catch (e) {} }, 1900);
     } catch (e) {}
   },
 
   starteKulisse() {
-    const name = this.bettWunsch;
-    if (!this.ctx || !name) return;
-    const t = this.jetzt();
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0, t);
-    gain.connect(this.master);
-    const knoten = [];
+    const name = this.musikWunsch;
+    if (!this.ctx || !name || this.musik) return;
+    const T = this.TIEFEN[name];
+    const t0 = this.jetzt() + .15;
 
-    // Ein tiefer Ton mit eigenem Filter
-    const brummen = (f, form, pegel, filter) => {
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(this.musikLaut, t0 + 3.0);
+    gain.connect(this.master);
+
+    // Ein weiches Echo dahinter, damit die Tiefe Raum bekommt
+    const hall = this.ctx.createDelay(1.0);
+    hall.delayTime.value = T.schlag * .75;
+    const hallGain = this.ctx.createGain();
+    hallGain.gain.value = .30;
+    const hallFilter = this.ctx.createBiquadFilter();
+    hallFilter.type = "lowpass";
+    hallFilter.frequency.value = 1800;
+    hall.connect(hallFilter); hallFilter.connect(hallGain);
+    hallGain.connect(hall);                 // Rueckkopplung: mehrfaches Echo
+    hallGain.connect(gain);
+
+    // Grundschwebung: zwei tiefe Toene dicht nebeneinander
+    const dauernd = [];
+    for (const [f, pegel] of [[this.hz(T.wurzel - 12), .12], [this.hz(T.wurzel - 12) * 1.004, .09]]) {
       const o = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       const lp = this.ctx.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.value = filter;
-      o.type = form;
-      o.frequency.value = f;
-      g.gain.value = pegel;
+      lp.type = "lowpass"; lp.frequency.value = 220;
+      o.type = "sine"; o.frequency.value = f; g.gain.value = pegel;
       o.connect(lp); lp.connect(g); g.connect(gain);
-      o.start(t); knoten.push(o);
-      return o;
-    };
-
-    // Eine Rauschschicht, endlos geschleift
-    const wehen = (mitte, güte, pegel) => {
-      const q = this.ctx.createBufferSource();
-      q.buffer = this.rausch;
-      q.loop = true;
-      const bp = this.ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = mitte;
-      bp.Q.value = güte;
-      const g = this.ctx.createGain();
-      g.gain.value = pegel;
-      q.connect(bp); bp.connect(g); g.connect(gain);
-      q.start(t); knoten.push(q);
-      return bp;
-    };
-
-    // Ein langsames Atmen auf einem Wert
-    const pendeln = (ziel, tempo, tiefe) => {
-      const l = this.ctx.createOscillator();
-      const lg = this.ctx.createGain();
-      l.frequency.value = tempo;
-      lg.gain.value = tiefe;
-      l.connect(lg); lg.connect(ziel);
-      l.start(t); knoten.push(l);
-    };
-
-    let stimme, laut = .13;
-    if (name === "cave") {
-      brummen(41, "sine", .50, 160);
-      brummen(61.5, "sine", .22, 220);
-      const bp = wehen(420, .8, .16);
-      pendeln(bp.frequency, .07, 190);
-      stimme = ["tropfen", "atem"];
-      laut = .15;
-    } else if (name === "forge") {
-      brummen(34, "sawtooth", .30, 90);
-      brummen(51, "sine", .28, 130);
-      const bp = wehen(210, .5, .26);
-      pendeln(bp.frequency, .11, 120);
-      stimme = ["knistern", "grollen"];
-      laut = .16;
-    } else if (name === "arena" || name === "cycle") {
-      // Zwei Toene dicht beieinander - sie schweben gegeneinander
-      brummen(55, "sine", .42, 150);
-      brummen(58.3, "sine", .34, 150);
-      brummen(110, "triangle", .10, 300);
-      wehen(900, 1.6, .05);
-      stimme = ["glocke", "atem"];
-      laut = .17;
-    } else {
-      brummen(48, "sine", .44, 170);
-      brummen(72, "sine", .18, 240);
-      const bp = wehen(650, 1.2, .09);
-      pendeln(bp.frequency, .05, 260);
-      stimme = ["tropfen", "hall"];
-      laut = .13;
+      o.start(t0); dauernd.push(o);
     }
 
-    gain.gain.linearRampToValueAtTime(laut, t + 2.4);
-
-    // Einzelgeraeusche in unregelmaessigen Abstaenden
-    const uhr = setInterval(() => {
-      if (!this.an || !this.bett || this.ctx.state === "suspended") return;
-      if (Math.random() > .34) return;
-      this.einwurf(stimme[Math.floor(Math.random() * stimme.length)], gain);
-    }, 2600);
-
-    this.bett = { gain, knoten, uhr };
-    this.bettName = name;
+    this.musik = {
+      gain, hall, dauernd, T,
+      leiter: this.LEITERN[name] || this.LEITERN.built,
+      naechster: t0 + .3,
+      schlag: 0,
+      uhr: null,
+    };
+    this.musikName = name;
+    this.musik.uhr = setInterval(() => this.plane(), 220);
+    this.plane();
   },
 
-  /* Ein einzelnes Geraeusch aus der Kulisse - leiser als alles im Vordergrund. */
-  einwurf(art, ziel) {
-    const t = this.jetzt() + Math.random() * 1.4;
+  /* Vorlauf-Zeitgeber: traegt alles ein, was in den naechsten 1,5 s klingt. */
+  plane() {
+    const m = this.musik;
+    if (!m || !this.ctx || !this.an) return;
+    if (this.ctx.state === "suspended") return;
+    let schutz = 0;
+    while (m.naechster < this.ctx.currentTime + 1.5 && schutz++ < 64) {
+      this.setzeSchlag(m.naechster, m.schlag);
+      m.naechster += m.T.schlag;
+      m.schlag++;
+    }
+  },
+
+  /* Ein einzelner Schlag. Acht Schlaege ergeben einen Takt, vier Takte die Folge. */
+  setzeSchlag(t, n) {
+    const m = this.musik;
+    const T = m.T, leiter = m.leiter;
+    const imTakt = n % 8;
+    const takt = Math.floor(n / 8) % 4;
+    const stufe = this.FOLGE[takt];
+    const ton = i => T.wurzel + leiter[((i % 7) + 7) % 7] + 12 * Math.floor(i / 7);
+
+    // Bass auf der Eins, ein Gegenton auf der Fuenf
+    if (imTakt === 0) this.bass(this.hz(ton(stufe) - 12), t, T.schlag * 4.4);
+    else if (imTakt === 4) this.bass(this.hz(ton(stufe + 4) - 12), t, T.schlag * 2.4);
+
+    // Flaeche: der Dreiklang der Stufe, ueber den halben Takt gehalten
+    if (imTakt === 0 || imTakt === 4) {
+      this.flaeche([ton(stufe), ton(stufe + 2), ton(stufe + 4)].map(x => this.hz(x)),
+                   t, T.schlag * 4.2, T.farbe);
+    }
+
+    // Melodie: sparsam, und nie auf jedem Schlag
+    const muster = [1, 0, 1, 0, 0, 1, 0, 1];
+    if (muster[imTakt] && Math.random() < .62) {
+      const wahl = [stufe, stufe + 2, stufe + 4, stufe + 7][Math.floor(Math.random() * 4)];
+      this.zupf(this.hz(ton(wahl) + 12), t + (Math.random() * .02), m.hall);
+    }
+
+    // Herzschlag
+    if (T.puls && (imTakt === 0 || imTakt === 3)) this.puls(t, imTakt === 0 ? .5 : .3);
+
+    // Ferne Glocke, ganz selten
+    if (T.glocke && imTakt === 0 && takt === 2 && Math.random() < .5)
+      this.glocke(this.hz(ton(stufe) - 5), t, m.hall);
+
+    // Die alten Einzelgeraeusche bleiben als Farbe darueber
+    if (imTakt === 6 && Math.random() < .22)
+      this.einwurf(this.musikName === "forge" ? "knistern"
+                 : this.musikName === "cave" ? "atem" : "tropfen", m.gain);
+  },
+
+  bass(f, t, dauer) {
+    const m = this.musik; if (!m) return;
+    const o = this.ctx.createOscillator();
+    const o2 = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.setValueAtTime(320, t);
+    lp.frequency.exponentialRampToValueAtTime(120, t + dauer);
+    o.type = "triangle"; o.frequency.value = f;
+    o2.type = "sine"; o2.frequency.value = f / 2;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.34, t + .05);
+    g.gain.exponentialRampToValueAtTime(.001, t + dauer);
+    o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(m.gain);
+    o.start(t); o2.start(t); o.stop(t + dauer + .05); o2.stop(t + dauer + .05);
+  },
+
+  flaeche(freqs, t, dauer, farbe) {
+    const m = this.musik; if (!m) return;
+    const g = this.ctx.createGain();
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(farbe * .5, t);
+    lp.frequency.linearRampToValueAtTime(farbe, t + dauer * .5);
+    lp.frequency.linearRampToValueAtTime(farbe * .45, t + dauer);
+    lp.Q.value = .8;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.105, t + dauer * .35);
+    g.gain.linearRampToValueAtTime(0, t + dauer);
+    lp.connect(g); g.connect(m.gain);
+    for (const f of freqs)
+      for (const verstimmt of [1, 1.006]) {
+        const o = this.ctx.createOscillator();
+        o.type = "sawtooth";
+        o.frequency.value = f * verstimmt;
+        o.connect(lp);
+        o.start(t); o.stop(t + dauer + .05);
+      }
+  },
+
+  zupf(f, t, hall) {
+    const m = this.musik; if (!m) return;
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
-    const f = this.ctx.createBiquadFilter();
-    f.type = "lowpass";
-    f.frequency.value = 3000;
-    o.connect(f); f.connect(g); g.connect(ziel);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(f * 5, t);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(200, f), t + .5);
+    o.type = "triangle"; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.20, t + .012);
+    g.gain.exponentialRampToValueAtTime(.001, t + .85);
+    o.connect(lp); lp.connect(g);
+    g.connect(m.gain);
+    if (hall) g.connect(hall);
+    o.start(t); o.stop(t + .9);
+  },
 
+  glocke(f, t, hall) {
+    const m = this.musik; if (!m) return;
+    for (const [teil, pegel] of [[1, .13], [2.76, .05], [5.4, .025]]) {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = "sine"; o.frequency.value = f * teil;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(pegel, t + .02);
+      g.gain.exponentialRampToValueAtTime(.0006, t + 4.5);
+      o.connect(g); g.connect(m.gain);
+      if (hall) g.connect(hall);
+      o.start(t); o.stop(t + 4.6);
+    }
+  },
+
+  puls(t, pegel) {
+    const m = this.musik; if (!m) return;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(90, t);
+    o.frequency.exponentialRampToValueAtTime(34, t + .16);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(pegel * .5, t + .008);
+    g.gain.exponentialRampToValueAtTime(.001, t + .30);
+    o.connect(g); g.connect(m.gain);
+    o.start(t); o.stop(t + .32);
+  },
+
+  /* Ein einzelnes Umgebungsgeraeusch - Farbe ueber der Musik. */
+  einwurf(art, ziel) {
+    if (!this.ctx) return;
+    const t = this.jetzt() + Math.random() * .8;
     if (art === "tropfen") {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
       o.type = "sine";
       o.frequency.setValueAtTime(1400 + Math.random() * 700, t);
       o.frequency.exponentialRampToValueAtTime(420, t + .13);
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(.35, t + .006);
+      g.gain.linearRampToValueAtTime(.16, t + .006);
       g.gain.exponentialRampToValueAtTime(.0008, t + .30);
+      o.connect(g); g.connect(ziel);
       o.start(t); o.stop(t + .34);
-    } else if (art === "glocke") {
-      o.type = "sine";
-      o.frequency.value = 146 + Math.random() * 8;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(.30, t + .04);
-      g.gain.exponentialRampToValueAtTime(.0008, t + 3.4);
-      o.start(t); o.stop(t + 3.6);
-    } else if (art === "grollen") {
-      o.type = "sine";
-      o.frequency.setValueAtTime(70, t);
-      o.frequency.exponentialRampToValueAtTime(28, t + 1.9);
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(.42, t + .5);
-      g.gain.exponentialRampToValueAtTime(.0008, t + 2.2);
-      o.start(t); o.stop(t + 2.4);
-    } else {
-      // atem, hall, knistern: gefiltertes Rauschen statt eines Tons
-      try { o.stop(t); } catch (e) {}
-      const q = this.ctx.createBufferSource();
-      q.buffer = this.rausch;
-      const bp = this.ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = art === "knistern" ? 2600 : 520;
-      bp.Q.value = art === "knistern" ? 3 : 1.1;
-      const gg = this.ctx.createGain();
-      const dauer = art === "knistern" ? .22 : 2.1;
-      gg.gain.setValueAtTime(0, t);
-      gg.gain.linearRampToValueAtTime(art === "knistern" ? .30 : .17, t + dauer * .35);
-      gg.gain.exponentialRampToValueAtTime(.0008, t + dauer);
-      q.connect(bp); bp.connect(gg); gg.connect(ziel);
-      q.start(t); q.stop(t + dauer + .05);
+      return;
     }
+    const q = this.ctx.createBufferSource();
+    q.buffer = this.rausch;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = art === "knistern" ? 2600 : 520;
+    bp.Q.value = art === "knistern" ? 3 : 1.1;
+    const g = this.ctx.createGain();
+    const dauer = art === "knistern" ? .22 : 2.1;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(art === "knistern" ? .16 : .09, t + dauer * .35);
+    g.gain.exponentialRampToValueAtTime(.0008, t + dauer);
+    q.connect(bp); bp.connect(g); g.connect(ziel);
+    q.start(t); q.stop(t + dauer + .05);
   },
 
   spiel(name) {
@@ -1298,8 +1420,8 @@ const Sfx = {
     this.init();
     if (!this.ctx) return;
     if (this.ctx.state === "suspended") this.ctx.resume();
-    // Der Klangteppich braucht eine Nutzergeste - hier ist sie
-    if (this.bettWunsch && !this.bett) this.starteKulisse();
+    // Die Musik braucht eine Nutzergeste - hier ist sie
+    if (this.musikWunsch && !this.musik) this.starteKulisse();
     // Gleiches Geräusch nicht mehrfach im selben Augenblick
     const t = this.ctx.currentTime;
     if (this.letzte[name] && t - this.letzte[name] < .035) return;
@@ -1583,7 +1705,40 @@ const ITEMS = {
                  avoid: ["zorn"] },
   guard:       { name: "Wachtkette",    g: "f", kind: "amulet", tint: "#78B4E2", slot: "Amulett", def: 2,
                  avoid: ["wacht"] },
+
+  /* Legendaere Stuecke. Sie tragen keinen Affix - ihr Name steht schon fest -
+     und haben neben den Grundwerten eine eigene Wirkung. Die Zusatzfelder
+     werden ueber equipBonus() gelesen, genau wie Angriff und Schutz, und
+     greifen an denselben Stellen wie die Talente. */
+  schattenzahn: { name: "Schattenzahn", g: "m", kind: "weapon", tint: "#9C7FE0", slot: "Waffe",
+                  atk: 9, crit: .18, hast: .28, legendaer: true, glow: true,
+                  sage: "Drei Stiche, ehe der erste Schrei kommt." },
+  aschebringer: { name: "Aschebringer", g: "m", kind: "weapon", tint: "#E8763A", slot: "Waffe",
+                  atk: 17, reach: .45, hast: -.22, legendaer: true, glow: true,
+                  sage: "Schwer wie ein Urteil, und ebenso endgültig." },
+  koenigsmoerder: { name: "Königsmörder", g: "m", kind: "weapon", tint: "#D8C070", slot: "Waffe",
+                  atk: 12, killHeal: 6, legendaer: true, glow: true,
+                  sage: "Sie trinkt, was sie vergießt." },
+  nachtmantel:  { name: "Nachtmantel", g: "m", kind: "armor", tint: "#5A5470", slot: "Rüstung",
+                  def: 5, evade: .16, fovBonus: -1, legendaer: true,
+                  sage: "Wer nichts sieht, wird auch nicht gesehen." },
+  bollwerk:     { name: "Bollwerk", g: "n", kind: "armor", tint: "#C8CEDA", slot: "Rüstung",
+                  def: 12, maxhp: 20, tempo: -.16, legendaer: true,
+                  sage: "Es ging nie darum, schnell zu sein." },
+  bergherz:     { name: "Herz des Bergs", g: "n", kind: "amulet", tint: "#E2608C", slot: "Amulett",
+                  maxhp: 70, def: 2, legendaer: true,
+                  sage: "Es schlägt langsamer als deines. Es schlägt länger." },
+  namenlosauge: { name: "Auge des Namenlosen", g: "n", kind: "amulet", tint: "#B47ADE", slot: "Amulett",
+                  fovBonus: 3, crit: .12, lootLuck: .20, legendaer: true, glow: true,
+                  sage: "Es sieht, was du noch nicht gefunden hast." },
+  ewiglicht:    { name: "Ewiglicht", g: "n", kind: "amulet", tint: "#F0D080", slot: "Amulett",
+                  oilSteps: 6, fovBonus: 1.5, legendaer: true, glow: true,
+                  sage: "Die Flamme zehrt nicht mehr an sich selbst." },
 };
+
+/* Nur aus Geheimkammern und von Namentlichen - nie aus einer gewoehnlichen Kiste. */
+const LEGENDEN = ["schattenzahn", "aschebringer", "koenigsmoerder", "nachtmantel",
+                  "bollwerk", "bergherz", "namenlosauge", "ewiglicht"];
 
 /* Affixe. Nachgestellte sind Genitivfügungen und passen zu jedem Geschlecht;
    vorangestellte sind Adjektive und müssen gebeugt werden. */
@@ -1612,7 +1767,8 @@ const AFFIX_BY_KEY = Object.fromEntries(AFFIXES.map(a => [a.key, a]));
 function buildItem(id, affixKey) {
   const base = ITEMS[id];
   const a = affixKey ? AFFIX_BY_KEY[affixKey] : null;
-  if (!a || !base.slot) return { id, def: base };
+  // Legendaere tragen ihren Namen selbst - kein Affix kommt daran
+  if (!a || !base.slot || base.legendaer) return { id, def: base };
 
   const def = Object.assign({}, base);
   def.atk = (base.atk || 0) + (a.atk || 0);
@@ -1631,12 +1787,13 @@ function buildItem(id, affixKey) {
 // eine Zahl erhöht nur die Chance (Schatzkammern).
 function rollItem(id, floor, boost) {
   const base = ITEMS[id];
-  if (!base.slot) return { id, def: base };
+  if (!base.slot || base.legendaer) return { id, def: base };
   const chance = boost === true
     ? 1
     : Math.min(.85, .08 + floor * .055 + (typeof boost === "number" ? boost : 0)
                     + metaBonus("affix") * .08
-                    + ((G.player && G.player.lootLuck) || 0));
+                    + ((G.player && G.player.lootLuck) || 0)
+                    + (G.player && G.player.equipped ? equipBonus("lootLuck") : 0));
   if (rng() > chance) return { id, def: base };
   const avoid = base.avoid || [];
   const pool = AFFIXES.filter(a => (a.minFloor || 1) <= floor && !avoid.includes(a.key));
@@ -2612,6 +2769,18 @@ function oeffneKiste() {
 /* Erschlagene Gegner lassen gelegentlich etwas fallen. */
 function beuteFallenLassen(gegner) {
   const floor = G.floor;
+  // Namentliche tragen manchmal selbst etwas Legendaeres bei sich
+  if (gegner.elite && rng() < .35) {
+    const id = LEGENDEN[Math.floor(rng() * LEGENDEN.length)];
+    const tx0 = Math.floor(gegner.x), ty0 = Math.floor(gegner.y);
+    if (WALKABLE[G.map.tiles[idx(tx0, ty0)]]) {
+      const st = { id, def: ITEMS[id], x: tx0, y: ty0 };
+      G.ground.push(st);
+      floatText(gegner.x, gegner.y, ITEMS[id].name, ITEMS[id].tint);
+      log(`${gegner.spec.name} lässt ${ITEMS[id].name} fallen.`, "alert");
+      return;
+    }
+  }
   const chance = Math.min(.20, .07 + floor * .011) * (gegner.maff ? 1.6 : 1);
   if (rng() > chance) return;
   const chancen = chancesFor(ITEM_TABLE, floor);
@@ -2828,12 +2997,16 @@ function stelleNamentlichen(map, zones, floor, eliteEtage, startX, startY) {
    nicht zwischen Freund und Feind - wer einen Gegner darueber lockt, hat sie
    fuer sich arbeiten lassen. Ausgeloest wird beim Betreten der Kachel. */
 const FALLEN = {
-  dorn:  { name: "Dornenfalle", farbe: "#B9A277", radius: 0,
-           text: "Eiserne Zähne schnappen aus dem Boden." },
-  gas:   { name: "Gasfalle", farbe: "#7CB868", radius: 1.6,
-           text: "Ein grüner Schwaden zischt aus den Fugen." },
-  sturz: { name: "Steinschlag", farbe: "#968B7A", radius: 1.9,
-           text: "Die Decke gibt nach und begräbt alles darunter." },
+  bolzen: { name: "Bolzenwerk", farbe: "#B9A277",
+            text: "Eine Salve Bolzen fährt durch den Gang." },
+  gas:    { name: "Giftschwaden", farbe: "#7CB868",
+            text: "Ein grüner Schwaden zischt aus den Fugen." },
+  alarm:  { name: "Alarmglyphe", farbe: "#E8A94B",
+            text: "Ein Ton wie ein Gong läuft durch die Etage." },
+  grube:  { name: "Fallgrube", farbe: "#7A6A55",
+            text: "Der Boden gibt nach." },
+  feuer:  { name: "Feuerspeier", farbe: "#E8703A",
+            text: "Eine Stichflamme schlägt aus dem Stein." },
 };
 
 function stelleFallen(map, zones, floor) {
@@ -2898,23 +3071,80 @@ function loeseFalleAus(f, ausloeser) {
   const def = FALLEN[f.art];
   const wucht = 4 + Math.floor(G.floor * .8);
   const mx = mitte(f.x), my = mitte(f.y);
+  const sichtbar = ausloeser.isPlayer || G.map.visible[idx(f.x, f.y)];
 
-  Sfx.spiel(f.art === "gas" ? "gift" : "falle");
-  anim.shake = f.art === "sturz" ? 14 : 7;
-  burst(mx, my, def.farbe, f.art === "dorn" ? 16 : 26);
-  if (def.radius) ring(mx, my, def.radius, def.farbe);
-
-  if (ausloeser.isPlayer || G.map.visible[idx(f.x, f.y)])
+  anim.shake = f.art === "grube" ? 12 : 7;
+  if (sichtbar)
     log(`${def.text}${ausloeser.isPlayer ? "" : ` ${nameOf(ausloeser)} tritt hinein.`}`,
         ausloeser.isPlayer ? "bad" : "good");
 
-  // Flaechige Fallen erwischen alles im Umkreis, auch den Ausloeser
-  const opfer = def.radius
-    ? G.actors.filter(z => z.alive && Math.hypot(z.x - mx, z.y - my) <= def.radius)
-    : [ausloeser];
-  for (const z of opfer) {
-    if (f.art === "gas") { addStatus(z, "Gift", 5, 2); z.flash = 1; }
-    else damage(z, f.art === "sturz" ? wucht + 3 : wucht, null);
+  if (f.art === "bolzen") {
+    /* Eine Salve quer durch den Gang: getroffen wird, wer in derselben Reihe
+       steht und freie Bahn zur Falle hat - auf beiden Seiten. */
+    Sfx.spiel("falle");
+    for (const richtung of [-1, 1]) {
+      let ende = f.x;
+      for (let k = 1; k <= 8; k++) {
+        const px = f.x + richtung * k;
+        if (!inBounds(px, f.y) || !isTransparent(px, f.y)) break;
+        ende = px;
+      }
+      bolt(mx, my, mitte(ende), my, "#D8C89A");
+    }
+    for (const z of G.actors) {
+      if (!z.alive || kachelY(z) !== f.y) continue;
+      if (Math.abs(kachelX(z) - f.x) > 8) continue;
+      if (!lineOfSight(f.x, f.y, kachelX(z), kachelY(z))) continue;
+      damage(z, wucht + 2, null);
+      z.flash = 1;
+    }
+
+  } else if (f.art === "gas") {
+    Sfx.spiel("gift");
+    ring(mx, my, 1.8, def.farbe);
+    burst(mx, my, def.farbe, 26);
+    for (const z of G.actors) {
+      if (!z.alive || Math.hypot(z.x - mx, z.y - my) > 1.8) continue;
+      addStatus(z, "Gift", 5, 2);
+      z.flash = 1;
+    }
+
+  } else if (f.art === "alarm") {
+    /* Kein Schaden - dafuer weiss ab jetzt die ganze Etage, wo du bist. */
+    Sfx.spiel("elite");
+    ring(mx, my, 3.2, def.farbe);
+    let geweckt = 0;
+    for (const z of G.actors) {
+      if (z.isPlayer || !z.alive || z.wach) continue;
+      z.wach = true;
+      z.kite = KITE_BUDGET;
+      geweckt++;
+    }
+    if (ausloeser.isPlayer) {
+      banner("Die Etage ist wach", `${geweckt} ${geweckt === 1 ? "Wesen weiß" : "Wesen wissen"}, wo du bist`, "bad");
+      log(`${geweckt} Wesen setzen sich in Bewegung.`, "bad");
+    }
+
+  } else if (f.art === "grube") {
+    Sfx.spiel("saeule");
+    burst(mx, my, def.farbe, 22);
+    damage(ausloeser, wucht, null);
+    if (ausloeser.alive) {
+      if (ausloeser.isPlayer) {
+        ausloeser.gefesselt = 2.6;
+        floatText(mx, my, "festgesetzt", "#E0A060");
+        log("Du steckst in der Grube und musst dich herausarbeiten.", "bad");
+      } else ausloeser.stunned = 3.2;
+    }
+
+  } else {
+    /* Feuerspeier: die Kachel brennt weiter und versperrt sie fuer eine Weile. */
+    Sfx.spiel("feuer");
+    f.brenntBis = G.time + 5.5;
+    f.entdeckt = true;
+    burst(mx, my, "#FF9A40", 30);
+    ring(mx, my, 1.2, "#E8703A");
+    damage(ausloeser, wucht + 1, null);
   }
   refreshUI();
 }
@@ -2972,15 +3202,15 @@ function stelleGeheimkammern(map, zones, floor) {
 
       // Der Lohn: eine gut gefuellte Kiste, tief im Fels
       const [bx, by] = kammer[kammer.length - 2] || kammer[0];
+      /* Der eigentliche Lohn ist das legendaere Stueck - sonst lohnte die
+         ganze Sucherei nicht. Dazu zwei gewoehnliche Fundstuecke. */
+      const beute = [{ id: LEGENDEN[Math.floor(rng() * LEGENDEN.length)], ax: null }];
       const chancen = chancesFor(ITEM_TABLE, floor);
-      if (chancen.length) {
-        const beute = [];
-        for (let i = 0; i < 3; i++) {
-          const gebaut = rollItem(weighted(chancen), floor, .45);
-          beute.push({ id: gebaut.id, ax: gebaut.ax || null });
-        }
-        G.chests.push({ x: bx, y: by, opened: false, loot: beute, geheim: true });
+      for (let i = 0; i < 2 && chancen.length; i++) {
+        const gebaut = rollItem(weighted(chancen), floor, .5);
+        beute.push({ id: gebaut.id, ax: gebaut.ax || null });
       }
+      G.chests.push({ x: bx, y: by, opened: false, loot: beute, geheim: true });
       return;
     }
   }
@@ -3251,7 +3481,7 @@ function castLight(cx, cy, row, start, end, radius, xx, xy, yx, yy) {
 function updateFov() {
   G.map.visible.fill(0);
   const p = G.player;
-  fovR = fovFromOil(p.oil) + (p.oil > 0 ? (p.fovBonus || 0) : 0);
+  fovR = fovFromOil(p.oil) + (p.oil > 0 ? (p.fovBonus || 0) + equipBonus("fovBonus") : 0);
   const px = kachelX(p), py = kachelY(p);
   G.map.visible[idx(px, py)] = 1;
   for (const [xx, xy, yx, yy] of OCTANTS)
@@ -3421,8 +3651,9 @@ function kill(target, source) {
 
   // Aasfresser - jeder Erschlagene gibt etwas zurueck.
   const p = G.player;
-  if (p.killHeal && p.alive && (!source || source.isPlayer)) {
-    const zurueck = healActor(p, p.killHeal);
+  const zurueckGabe = (p.killHeal || 0) + equipBonus("killHeal");
+  if (zurueckGabe && p.alive && (!source || source.isPlayer)) {
+    const zurueck = healActor(p, zurueckGabe);
     if (zurueck) { floatText(p.x, p.y, "+" + zurueck, "rgba(124,180,150,.85)"); refreshUI(); }
   }
 
@@ -3673,7 +3904,8 @@ function oeffneKammer() {
 // Der Späher weicht aus, statt Schläge nur abzufedern.
 function playerDodges(attacker, target) {
   if (!target.isPlayer || attacker.isPlayer) return false;
-  if (!target.evade || rng() >= target.evade) return false;
+  const weichen = (target.evade || 0) + (target.isPlayer ? equipBonus("evade") : 0);
+  if (weichen <= 0 || rng() >= weichen) return false;
   attacker.lunge = { dx: target.x - attacker.x, dy: target.y - attacker.y, life: 1 };
   Sfx.spiel("ausgewichen");
   log(`Du weichst ${attacker.spec.name} aus.`, "you");
@@ -3684,7 +3916,7 @@ function playerDodges(attacker, target) {
 function attack(attacker, target) {
   if (playerDodges(attacker, target)) return;
   const [dmg, crit] = resolveDamage(atkOf(attacker), defOf(target),
-    attacker.isPlayer ? .1 + (attacker.crit || 0) : .1);
+    attacker.isPlayer ? .1 + (attacker.crit || 0) + equipBonus("crit") : .1);
   attacker.lunge = { dx: target.x - attacker.x, dy: target.y - attacker.y, life: 1 };
   if (dmg > 0) {
     const aff = attacker.maff ? MAFF_BY_KEY[attacker.maff] : null;
@@ -3789,6 +4021,33 @@ function takeStairs() {
 }
 
 /* --- Gegenstände benutzen --- */
+/* == Was darf ueberhaupt getroffen werden? ================================
+   Sichtbarkeit allein genuegt nicht. Der Schleier ist durchsichtig - man soll
+   ja sehen, was einen erwartet - also liesse sich der Boss sonst bequem von
+   draussen erschiessen. Und ein Flaechenzauber pruefte bisher nur sein
+   Zielfeld, nicht jedes getroffene Wesen: wer hinter der Wand danebenstand,
+   bekam den vollen Schaden ab. */
+
+/* Trennt der Schleier diese beiden Kacheln? Drinnen und draussen sind zwei
+   Welten, solange die Kammer besteht. */
+function schleierTrennt(ax, ay, bx, by) {
+  const r = G.map && G.map.veilRoom;
+  if (!r) return false;
+  if (!inBounds(ax, ay) || !inBounds(bx, by)) return false;
+  return (r[idx(ax, ay)] === 1) !== (r[idx(bx, by)] === 1);
+}
+
+/* Kann von (x0,y0) aus auf dieses Wesen gewirkt werden? */
+function trefferbar(a, x0, y0) {
+  const p = G.player;
+  const qx = x0 === undefined ? kachelX(p) : x0;
+  const qy = y0 === undefined ? kachelY(p) : y0;
+  const ax = kachelX(a), ay = kachelY(a);
+  if (schleierTrennt(qx, qy, ax, ay)) return false;
+  if (qx === ax && qy === ay) return true;
+  return lineOfSight(qx, qy, ax, ay);
+}
+
 function useItem(entry, targetXY) {
   const d = entry.def;
   const p = G.player;
@@ -3826,6 +4085,7 @@ function useItem(entry, targetXY) {
       let best = null, bestDist = d.range + 1;
       for (const a of G.actors) {
         if (a.isPlayer || !a.alive || !seesTile(kachelX(a), kachelY(a))) continue;
+        if (!trefferbar(a)) continue;
         const dist = Math.hypot(a.x - p.x, a.y - p.y);
         if (dist < bestDist) { best = a; bestDist = dist; }
       }
@@ -3840,7 +4100,11 @@ function useItem(entry, targetXY) {
     case "fireball": {
       const [tx, ty] = targetXY;
       if (!seesTile(tx, ty)) { log("Du kannst dieses Feld nicht sehen.", "system"); return false; }
-      const hit = G.actors.filter(a => a.alive && Math.hypot(a.x - tx, a.y - ty) <= d.radius);
+      // Die Druckwelle geht nicht um die Ecke: freie Bahn vom Einschlag zum Opfer
+      const hit = G.actors.filter(a => a.alive &&
+        Math.hypot(a.x - tx, a.y - ty) <= d.radius &&
+        trefferbar(a, Math.floor(tx), Math.floor(ty)) &&
+        !schleierTrennt(kachelX(p), kachelY(p), kachelX(a), kachelY(a)));
       if (!hit.length) { log("Dort gibt es nichts zu verbrennen.", "system"); return false; }
       Sfx.spiel("feuer");
       ring(tx, ty, d.radius, "#E8703A");
@@ -3923,7 +4187,8 @@ function useAbility(dx, dy) {
   if (p.ability === "bash") {
     const target = actorNear(p.x + dx * .9, p.y + dy * .9, 1.15);
     if (!target) { log("Dort steht niemand.", "system"); return false; }
-    const [dmg] = resolveDamage(playerAtk(), defOf(target), .1 + (p.crit || 0));
+    const [dmg] = resolveDamage(playerAtk(), defOf(target),
+                                .1 + (p.crit || 0) + equipBonus("crit"));
     p.lunge = { dx, dy, life: 1 };
     log(`Du rammst ${target.spec.name} für ${dmg} Schaden zurück.`, "you");
     if (dmg > 0) damage(target, dmg, p);
@@ -3980,6 +4245,7 @@ function useAbility(dx, dy) {
     let best = null, bestDist = Infinity;
     for (const a of G.actors) {
       if (a.isPlayer || !a.alive || !seesTile(kachelX(a), kachelY(a))) continue;
+      if (!trefferbar(a)) continue;
       const d = Math.hypot(a.x - p.x, a.y - p.y);
       if (d < bestDist) { best = a; bestDist = d; }
     }
@@ -4100,6 +4366,7 @@ function actorTurn(a) {
     a.nachlad = Math.max(0, (a.nachlad || 0) - takt);
 
     const bahn = dist <= a.spec.range &&
+                 !schleierTrennt(kachelX(a), kachelY(a), kachelX(p), kachelY(p)) &&
                  lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
 
     // Legt an: steht still, und die Deckung des Spielers zaehlt wirklich
@@ -4224,6 +4491,16 @@ function upkeep() {
   tickStatuses(p);
   if (!p.alive) return;
 
+  // Ausgeloeste Feuerspeier brennen ein paar Sekunden nach
+  for (const f of (G.traps || [])) {
+    if (!f.brenntBis || f.brenntBis <= G.time) continue;
+    for (const z of G.actors) {
+      if (!z.alive || Math.hypot(z.x - mitte(f.x), z.y - mitte(f.y)) > 1.0) continue;
+      damage(z, 3 + Math.floor(G.floor * .4), null);
+      z.flash = 1;
+    }
+  }
+
   // Öl brennt weiter, ob du dich bewegst oder ausruhst.
   p.oilTick++;
   if (resting > 0) {
@@ -4236,7 +4513,9 @@ function upkeep() {
       if (healed) floatText(p.x, p.y, "+" + healed, "rgba(124,180,150,.75)");
     }
   } else {
-    if (p.oilTick >= (p.oilSteps || OIL_PER_STEPS)) { p.oilTick = 0; burnOil(1); }
+    if (p.oilTick >= (p.oilSteps || OIL_PER_STEPS) + equipBonus("oilSteps")) {
+      p.oilTick = 0; burnOil(1);
+    }
     // Ohne Licht erholst du dich nur halb so schnell.
     const interval = p.oil > 0 ? REGEN_INTERVAL : REGEN_INTERVAL * 2;
     if (G.turns % interval === 0) {
@@ -4386,12 +4665,13 @@ function schwingen(dx, dy) {
   const [fx, fy] = p.facing;
   if (!fx && !fy) return;
 
-  p.nextSwing = G.time + SWING_TIME * (p.swingHaste || 1);
+  p.nextSwing = G.time + SWING_TIME * (p.swingHaste || 1) *
+                Math.max(.45, 1 - equipBonus("hast"));
   travel = null; chase = null; resting = 0;
 
   // Getroffen wird, wer im Bogen vor dir steht - nicht wer auf einem Nachbarfeld sitzt
   const winkel = Math.atan2(fy, fx);
-  const reichweite = REACH * (p.reachMult || 1);
+  const reichweite = (REACH + equipBonus("reach")) * (p.reachMult || 1);
   const getroffen = [];
   for (const z of G.actors) {
     if (z.isPlayer || !z.alive) continue;
@@ -4400,7 +4680,9 @@ function schwingen(dx, dy) {
     if (d > reichweite + (z.radius || R_MONSTER)) continue;
     let ab = Math.abs(Math.atan2(dy, dx) - winkel);
     if (ab > Math.PI) ab = Math.PI * 2 - ab;
-    if (ab <= ARC / 2 || d < .75) getroffen.push(z);   // ganz nah trifft immer
+    if (!(ab <= ARC / 2 || d < .75)) continue;
+    if (!trefferbar(z)) continue;          // nicht durch die Wand oder den Schleier
+    getroffen.push(z);
   }
 
   anim.swing = { x: p.x, y: p.y, fx, fy, life: 1 };
@@ -4453,6 +4735,14 @@ function haltungAusTasten() {
 function schritt(dt) {
   if (!G || mode.kind !== "play" || modalOpen || !G.player.alive) return;
   const p = G.player;
+
+  // In der Grube: du kannst dich drehen und schlagen, aber nicht weggehen
+  if (p.gefesselt > 0) {
+    p.gefesselt -= dt;
+    if (p.gefesselt <= 0) { p.gefesselt = 0; log("Du bist wieder frei.", "good"); }
+    travel = null; chase = null;
+    return;
+  }
   let [rx, ry] = haltungAusTasten();
 
   if (rx || ry) {
@@ -4469,7 +4759,8 @@ function schritt(dt) {
   // Zeigt die Maus ins Bild, bestimmt sie die Blickrichtung, nicht der Lauf
   if (!mausWelt) p.facing = [dx, dy];
 
-  const weite = SPEED_PLAYER * dt * (p.speedMult || 1);
+  const weite = SPEED_PLAYER * dt * (p.speedMult || 1) *
+                Math.max(.55, 1 + equipBonus("tempo"));
   const vorher = [Math.floor(p.x), Math.floor(p.y)];
   bewege(p, dx * weite, dy * weite);
 
@@ -4731,7 +5022,7 @@ function drawFrame(dt) {
 
   /* --- Entdeckte Fallen und Risse im Mauerwerk --- */
   for (const f of (G.traps || [])) {
-    if (!f.entdeckt || !G.map.explored[idx(f.x, f.y)]) continue;
+    if ((!f.entdeckt && !f.brenntBis) || !G.map.explored[idx(f.x, f.y)]) continue;
     const x = (f.x - camX) * TILE, y = (f.y - camY) * TILE;
     if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
     drawFalle(x, y, f, !!G.map.visible[idx(f.x, f.y)]);
@@ -6281,34 +6572,32 @@ function drawFalle(x, y, f, sichtbar) {
   const def = FALLEN[f.art];
   const cx = x + TILE / 2, cy = y + TILE / 2;
   const r = TILE * .34;
+  const brennt = f.brenntBis && f.brenntBis > G.time;
   ctx.save();
-  ctx.globalAlpha = (sichtbar ? 1 : .45) * (f.scharf ? 1 : .40);
+  ctx.globalAlpha = (sichtbar ? 1 : .45) * (f.scharf || brennt ? 1 : .40);
+  ctx.strokeStyle = def.farbe;
+  ctx.fillStyle = def.farbe;
+  ctx.lineWidth = 1.4;
 
-  if (f.art === "dorn") {
-    // Ein Ring aus Zaehnen, der sich beim Auslosen geschlossen hat
-    ctx.strokeStyle = def.farbe;
-    ctx.lineWidth = 1.4;
-    for (let i = 0; i < 8; i++) {
-      const w = (i / 8) * 6.283;
-      const innen = f.scharf ? r * .55 : r * .18;
+  if (f.art === "bolzen") {
+    // Ein Schlitz mit zwei Pfeilspitzen - die Salve laeuft quer
+    ctx.fillStyle = "#100D0A";
+    ctx.fillRect(cx - r, cy - r * .28, r * 2, r * .56);
+    ctx.strokeRect(cx - r, cy - r * .28, r * 2, r * .56);
+    ctx.fillStyle = def.farbe;
+    for (const s2 of [-1, 1]) {
       ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(w) * r, cy + Math.sin(w) * r);
-      ctx.lineTo(cx + Math.cos(w) * innen, cy + Math.sin(w) * innen);
-      ctx.stroke();
+      ctx.moveTo(cx + s2 * r * .78, cy);
+      ctx.lineTo(cx + s2 * r * .40, cy - r * .20);
+      ctx.lineTo(cx + s2 * r * .40, cy + r * .20);
+      ctx.closePath();
+      ctx.fill();
     }
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, 6.283);
-    ctx.globalAlpha *= .5;
-    ctx.stroke();
   } else if (f.art === "gas") {
-    // Eine Platte mit Loechern
     ctx.fillStyle = "#0C120E";
-    ctx.strokeStyle = def.farbe;
-    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.rect(cx - r, cy - r * .8, r * 2, r * 1.6);
-    ctx.fill();
-    ctx.stroke();
+    ctx.fill(); ctx.stroke();
     ctx.fillStyle = def.farbe;
     for (let a = -1; a <= 1; a++)
       for (let b = -1; b <= 1; b++) {
@@ -6316,24 +6605,57 @@ function drawFalle(x, y, f, sichtbar) {
         ctx.arc(cx + a * r * .55, cy + b * r * .45, 1.5, 0, 6.283);
         ctx.fill();
       }
+  } else if (f.art === "alarm") {
+    // Ein Glyphenkreis mit Strahlen nach aussen
+    ctx.beginPath(); ctx.arc(cx, cy, r * .78, 0, 6.283); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, r * .40, 0, 6.283); ctx.stroke();
+    for (let k = 0; k < 6; k++) {
+      const w = (k / 6) * 6.283 + anim.t * .3;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(w) * r * .80, cy + Math.sin(w) * r * .80);
+      ctx.lineTo(cx + Math.cos(w) * r * 1.05, cy + Math.sin(w) * r * 1.05);
+      ctx.stroke();
+    }
+  } else if (f.art === "grube") {
+    // Bretter ueber einem Loch - offen, wenn sie gebrochen sind
+    ctx.fillStyle = "#080706";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, r, r * .78, 0, 0, 6.283);
+    ctx.fill();
+    ctx.stroke();
+    if (f.scharf) {
+      ctx.strokeStyle = def.farbe;
+      for (const dxp of [-.5, 0, .5]) {
+        ctx.beginPath();
+        ctx.moveTo(cx + dxp * r, cy - r * .7);
+        ctx.lineTo(cx + dxp * r, cy + r * .7);
+        ctx.stroke();
+      }
+    }
   } else {
-    // Risse im Boden, unter denen die Decke haengt
-    ctx.strokeStyle = def.farbe;
-    ctx.lineWidth = 1.5;
+    // Feuerspeier: eine Duese, die brennt, solange sie brennt
     ctx.beginPath();
-    ctx.moveTo(cx - r, cy - r * .6);
-    ctx.lineTo(cx - r * .2, cy + r * .1);
-    ctx.lineTo(cx + r * .3, cy - r * .35);
-    ctx.lineTo(cx + r, cy + r * .5);
+    ctx.arc(cx, cy, r * .55, 0, 6.283);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(cx - r * .5, cy + r * .7);
-    ctx.lineTo(cx - r * .1, cy + r * .05);
-    ctx.stroke();
+    ctx.arc(cx, cy, r * .22, 0, 6.283);
+    ctx.fill();
+    if (brennt) {
+      const h = .6 + Math.sin(anim.t * 17) * .22 + Math.sin(anim.t * 31) * .12;
+      ctx.globalAlpha = .85;
+      const fl = ctx.createRadialGradient(cx, cy, 0, cx, cy, TILE * .62 * h);
+      fl.addColorStop(0, "#FFE0A0");
+      fl.addColorStop(.45, "#E8703A");
+      fl.addColorStop(1, "rgba(180,60,20,0)");
+      ctx.fillStyle = fl;
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE * .62 * h, 0, 6.283);
+      ctx.fill();
+    }
   }
 
   // Scharfe Fallen glimmen ganz leicht - genug, um sie zu sehen, wenn man hinsieht
-  if (f.scharf && sichtbar) {
+  if (f.scharf && sichtbar && !brennt) {
     ctx.globalAlpha = .12 + Math.sin(anim.t * 2.4) * .05;
     const gl = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 1.6);
     gl.addColorStop(0, def.farbe);
@@ -7135,6 +7457,16 @@ function bonusText(d) {
   if (d.atk) parts.push(`Angriff ${signed(d.atk)}`);
   if (d.def) parts.push(`Schutz ${signed(d.def)}`);
   if (d.maxhp) parts.push(`Leben ${signed(d.maxhp)}`);
+  const proz = v => `${v > 0 ? "+" : "−"}${Math.round(Math.abs(v) * 100)} %`;
+  if (d.crit) parts.push(`kritisch ${proz(d.crit)}`);
+  if (d.evade) parts.push(`Ausweichen ${proz(d.evade)}`);
+  if (d.hast) parts.push(d.hast > 0 ? `${proz(d.hast)} schneller` : `${proz(-d.hast)} langsamer`);
+  if (d.reach) parts.push(`Reichweite ${signed(d.reach)}`);
+  if (d.tempo) parts.push(`Tempo ${proz(d.tempo)}`);
+  if (d.killHeal) parts.push(`${d.killHeal} Leben je Kill`);
+  if (d.fovBonus) parts.push(`Sicht ${signed(d.fovBonus)}`);
+  if (d.oilSteps) parts.push(`Öl hält ${signed(d.oilSteps)}`);
+  if (d.lootLuck) parts.push(`Fundglück ${proz(d.lootLuck)}`);
   return parts.join(", ") || "keine Boni";
 }
 
@@ -7192,6 +7524,198 @@ function showCharacter() {
       `<div class="line"><span>${a}</span><span>${escapeHtml(String(b))}</span></div>`).join("")}</div>
     ${talente}
     <div class="foot">Esc schließt</div>`);
+}
+
+/* == Speichern ============================================================
+   Das Spiel sichert ohnehin nach jedem Ereignis von selbst - aber nur einen
+   einzigen Stand, und der wird beim Tod geloescht. Hier kommen drei feste
+   Plaetze dazu, die nur auf Knopfdruck ueberschrieben werden, und ein
+   Uebertragungscode: der ganze Fortschritt als Text, den man in einem anderen
+   Browser oder auf einem anderen Rechner wieder einfuegen kann. Ohne Server -
+   es gibt keinen, und ein Passwortfeld waere hier nur Kulisse. */
+const PLATZ_KEY = i => `der-abstieg-platz-${i}`;
+
+function platzInfo(i) {
+  try {
+    const roh = localStorage.getItem(PLATZ_KEY(i));
+    if (!roh) return null;
+    const d = JSON.parse(roh);
+    return {
+      etage: d.floor || 1,
+      stufe: d.player ? d.player.level : 1,
+      klasse: d.player && CLASSES[d.player.cls] ? CLASSES[d.player.cls].name : "—",
+      zeit: d.gespeichertAm || null,
+    };
+  } catch (e) { return null; }
+}
+
+function speichereAufPlatz(i) {
+  if (!G || !G.player.alive) { log("Jetzt gerade lässt sich nichts sichern.", "system"); return false; }
+  try {
+    const d = serialize();
+    d.gespeichertAm = Date.now();
+    localStorage.setItem(PLATZ_KEY(i), JSON.stringify(d));
+    Sfx.spiel("auftrag");
+    log(`Auf Platz ${i} gesichert.`, "good");
+    return true;
+  } catch (e) {
+    log("Der Browser lässt kein Speichern zu.", "bad");
+    return false;
+  }
+}
+
+function ladeVonPlatz(i) {
+  try {
+    const roh = localStorage.getItem(PLATZ_KEY(i));
+    if (!roh) return false;
+    localStorage.setItem(SAVE_KEY, roh);       // der normale Ladeweg macht den Rest
+    overlay._noEscape = false;
+    closeModal();
+    if (loadGame()) {
+      Sfx.spiel("treppe");
+      banner(`Platz ${i}`, "Der Stand ist geladen", "good");
+      return true;
+    }
+  } catch (e) {}
+  log("Dieser Platz lässt sich nicht laden.", "bad");
+  return false;
+}
+
+/* Die vier grossen Kachelfelder sind fast durchgehend gleiche Werte -
+   als Lauflaengen geschrieben schrumpft der Code von rund 31 auf 3 KB. */
+const KARTENFELDER = ["tiles", "room", "explored", "veilRoom"];
+
+function packe(arr) {
+  const out = [];
+  let letzt = arr[0], n = 0;
+  for (const v of arr) { if (v === letzt) n++; else { out.push(letzt, n); letzt = v; n = 1; } }
+  if (n) out.push(letzt, n);
+  return out;
+}
+
+function entpacke(paare) {
+  const out = [];
+  for (let i = 0; i < paare.length; i += 2)
+    for (let k = 0; k < paare[i + 1]; k++) out.push(paare[i]);
+  return out;
+}
+
+/* Der ganze Fortschritt als Text: Spielstand und Asche zusammen, damit
+   wirklich alles mitkommt. Base64, damit kein Zeilenumbruch etwas zerreisst. */
+function baueCode() {
+  try {
+    const d = serialize();
+    d.gespeichertAm = Date.now();
+    for (const feld of KARTENFELDER)
+      if (Array.isArray(d[feld])) d[feld] = packe(d[feld]);
+    // Blutflecken und Nachrichtenprotokoll sind Kosmetik und muessen nicht mitreisen
+    d.decals = [];
+    d.logEntries = [];
+    const paket = JSON.stringify({ v: 2, gepackt: true, s: d, m: META });
+    return "ABSTIEG:" + btoa(unescape(encodeURIComponent(paket)));
+  } catch (e) { return null; }
+}
+
+function lieCode(text) {
+  try {
+    const roh = String(text).trim().replace(/\s+/g, "");
+    if (!roh.startsWith("ABSTIEG:")) return "Das sieht nicht nach einem Abstieg-Code aus.";
+    const paket = JSON.parse(decodeURIComponent(escape(atob(roh.slice(8)))));
+    if (!paket || !paket.s || !paket.s.player) return "Der Code ist unvollständig.";
+    if (paket.gepackt)
+      for (const feld of KARTENFELDER)
+        if (Array.isArray(paket.s[feld])) paket.s[feld] = entpacke(paket.s[feld]);
+    localStorage.setItem(SAVE_KEY, JSON.stringify(paket.s));
+    if (paket.m) { META = paket.m; speichereMeta(META); }
+    overlay._noEscape = false;
+    closeModal();
+    if (!loadGame()) return "Der Stand ließ sich nicht öffnen.";
+    Sfx.spiel("treppe");
+    banner("Übernommen", "Der Fortschritt ist wieder da", "good");
+    return null;
+  } catch (e) { return "Der Code ist beschädigt."; }
+}
+
+function showMenu() {
+  if (mode.kind !== "play") return;
+  const p = G.player;
+  const plaetze = [1, 2, 3].map(i => {
+    const info = platzInfo(i);
+    const wann = info && info.zeit
+      ? new Date(info.zeit).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })
+      : "";
+    return `<div class="bag-row">
+      <button class="choice bag-main" data-platz="${i}" data-tun="speichern">
+        <span class="key" aria-hidden="true">${i}</span>
+        <span>${info ? `Etage ${info.etage} · Stufe ${ROMAN[info.stufe] || info.stufe} · ${escapeHtml(info.klasse)}`
+                     : "<em>leerer Platz</em>"}</span>
+        <span class="note">${escapeHtml(wann)}</span>
+      </button>
+      <button class="bag-act" data-platz="${i}" data-tun="speichern">Sichern</button>
+      <button class="bag-act" data-platz="${i}" data-tun="laden" ${info ? "" : "disabled"}>Laden</button>
+    </div>`;
+  }).join("");
+
+  openModal(`<h2>Menü</h2>
+    <p class="sub">Etage ${G.floor} · Stufe ${ROMAN[p.level] || p.level} ·
+      ${p.hp}/${playerMaxHp()} Leben. Solange dieses Fenster offen ist, steht die Welt still.</p>
+
+    <p class="sub" style="margin-top:16px">Speicherplätze</p>
+    ${plaetze}
+
+    <p class="sub" style="margin-top:18px">Fortschritt mitnehmen</p>
+    <div class="bag-row">
+      <button class="choice bag-main" id="codeAus">
+        <span class="key" aria-hidden="true">·</span>
+        <span>Code erzeugen</span>
+        <span class="note">Spielstand und Asche als Text</span>
+      </button>
+      <button class="bag-act" id="codeEin">Code einfügen</button>
+    </div>
+    <textarea id="codeFeld" class="codefeld" spellcheck="false"
+      placeholder="Hier erscheint dein Code — oder füge einen ein und drücke Übernehmen."></textarea>
+    <div class="codeleiste">
+      <button class="bag-act" id="codeUebernehmen">Übernehmen</button>
+      <span class="note" id="codeHinweis"></span>
+    </div>
+
+    <button class="choice" id="titelBtn" style="margin-top:16px">
+      <span class="key" aria-hidden="true">·</span><span>Zum Titelbild</span>
+      <span class="note">der laufende Abstieg bleibt gesichert</span></button>
+    <div class="foot">Esc schließt · das Spiel sichert außerdem von selbst</div>`);
+
+  const blatt = overlay.querySelector(".sheet");
+  if (blatt) blatt.classList.add("weit");
+
+  overlay.querySelectorAll("[data-platz]").forEach(btn => {
+    btn.onclick = () => {
+      const i = +btn.dataset.platz;
+      if (btn.dataset.tun === "laden") ladeVonPlatz(i);
+      else if (speichereAufPlatz(i)) showMenu();
+    };
+  });
+
+  const feld = $("codeFeld");
+  const hinweis = $("codeHinweis");
+  $("codeAus").onclick = () => {
+    const code = baueCode();
+    if (!code) { hinweis.textContent = "Der Code ließ sich nicht bauen."; return; }
+    feld.value = code;
+    feld.focus();
+    feld.select();
+    let kopiert = false;
+    try { kopiert = document.execCommand("copy"); } catch (e) {}
+    hinweis.textContent = kopiert
+      ? "Kopiert — bewahre ihn auf."
+      : "Markiert — jetzt mit Strg+C kopieren.";
+  };
+  $("codeEin").onclick = () => { feld.value = ""; feld.focus(); hinweis.textContent = "Code einfügen, dann Übernehmen."; };
+  $("codeUebernehmen").onclick = () => {
+    if (!feld.value.trim()) { hinweis.textContent = "Da steht noch nichts."; return; }
+    const fehler = lieCode(feld.value);
+    if (fehler) hinweis.textContent = fehler;
+  };
+  $("titelBtn").onclick = () => { saveGame(); showTitle(); };
 }
 
 function showHelp() {
@@ -7942,7 +8466,7 @@ window.addEventListener("keydown", ev => {
     case "c": showCharacter(); break;
     case ">": act(() => takeStairs()); break;
     case "?": showHelp(); break;
-    case "Escape": showTitle(); break;
+    case "Escape": showMenu(); break;
   }
 });
 
