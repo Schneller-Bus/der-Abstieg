@@ -626,6 +626,14 @@ body {
   color: var(--vellum-faint);
 }
 
+.tastenknopf { min-width: 92px; text-align: center; }
+
+.tastenknopf.wartet {
+  color: var(--torch);
+  border-color: var(--torch-deep);
+  background: var(--stone-850);
+}
+
 .codefeld {
   width: 100%;
   min-height: 62px;
@@ -1634,30 +1642,30 @@ const theme = () => themeFor(G ? G.floor : 1);
 /* ═══════════════════════════════════════════════════════════ Vorlagen */
 // Kreaturen werden prozedural gezeichnet: Koerperform plus Merkmale.
 const MONSTERS = {
-  rat:     { name: "Riesenratte", g: "f",     hp: 6,  def: 0, atk: 3,  xp: 18,  ai: "melee",
+  rat:     { name: "Riesenratte", g: "f",     hp: 28, def: 0, atk: 5,  xp: 28,  ai: "melee", hieb: .75,
              art: "rat",      body: "#A88863", dark: "#66513A", size: 1.02, eye: "#FFD08A" },
-  goblin:  { name: "Goblin", g: "m",          hp: 10, def: 0, atk: 4,  xp: 32,  ai: "melee",
+  goblin:  { name: "Goblin", g: "m",          hp: 48, def: 1, atk: 7,  xp: 50,  ai: "melee", hieb: .95,
              art: "goblin",   body: "#7CB868", dark: "#3E6636", size: 1.02, eye: "#FFE9A0" },
-  archer:  { name: "Skelettschütze", g: "m",  hp: 12, def: 0, atk: 3,  xp: 55,  ai: "ranged",
-             ratk: 4, range: 5.5, keep: 3.5, nachladen: 1.1,
+  archer:  { name: "Skelettschütze", g: "m",  hp: 40, def: 1, atk: 5,  xp: 70,  ai: "ranged", hieb: 1.0,
+             ratk: 7, range: 5.5, keep: 3.5, nachladen: 1.1,
              art: "skeleton", body: "#E8E2CC", dark: "#8B8574", size: 1.04, eye: "#FF9A5A" },
-  orc:     { name: "Ork", g: "m",             hp: 16, def: 0, atk: 5,  xp: 55,  ai: "melee",
+  orc:     { name: "Ork", g: "m",             hp: 66, def: 2, atk: 9,  xp: 72,  ai: "melee", hieb: 1.15,
              art: "orc",      body: "#5E9A56", dark: "#2F5A2C", size: 1.10, eye: "#FFD07A" },
-  spawn:   { name: "Schattenbrut", g: "f",    hp: 9,  def: 0, atk: 5,  xp: 25,  ai: "melee",
+  spawn:   { name: "Schattenbrut", g: "f",    hp: 30, def: 0, atk: 8,  xp: 32,  ai: "melee", hieb: .85,
              art: "wisp",     body: "#8A61C4", dark: "#3A2560", size: 1.00, eye: "#E4BCFF",
              glow: "#8A5ECC", float: true },
-  cultist: { name: "Kultist", g: "m",         hp: 14, def: 1, atk: 4,  xp: 80,  ai: "ranged",
-             ratk: 6, range: 6, keep: 4, nachladen: 1.5,
+  cultist: { name: "Kultist", g: "m",         hp: 50, def: 2, atk: 7,  xp: 100,  ai: "ranged", hieb: 1.1,
+             ratk: 10, range: 6, keep: 4, nachladen: 1.5,
              art: "robe",     body: "#A8446A", dark: "#48182B", size: 1.12, eye: "#FF8AA6" },
-  troll:   { name: "Höhlentroll", g: "m",     hp: 26, def: 1, atk: 7,  xp: 130, ai: "melee",
+  troll:   { name: "Höhlentroll", g: "m",     hp: 135, def: 3, atk: 13, xp: 170, ai: "melee", hieb: 1.5,
              art: "troll",    body: "#548A4C", dark: "#26401F", size: 1.26, eye: "#FFD07A" },
-  golem:   { name: "Steingolem", g: "m",      hp: 30, def: 3, atk: 9,  xp: 190, ai: "melee",
+  golem:   { name: "Steingolem", g: "m",      hp: 180, def: 6, atk: 16, xp: 250, ai: "melee", hieb: 1.8,
              art: "golem",    body: "#968B7A", dark: "#463F36", size: 1.24, eye: "#FFB454",
              glow: "#E8A94B" },
-  wraith:  { name: "Grabwicht", g: "m",       hp: 24, def: 2, atk: 9,  xp: 210, ai: "melee",
+  wraith:  { name: "Grabwicht", g: "m",       hp: 180, def: 4, atk: 15, xp: 300, ai: "melee", hieb: 1.05,
              art: "wraith",   body: "#8AA8CE", dark: "#33455C", size: 1.14, eye: "#BFE4FF",
              glow: "#7FB0DE", float: true },
-  boss:    { name: "Der Namenlose", g: "m",   hp: 75, def: 3, atk: 11, xp: 1200, ai: "boss",
+  boss:    { name: "Der Namenlose", g: "m",   hp: 950, def: 7, atk: 21, xp: 1800, ai: "boss", hieb: 1.25,
              art: "boss",     body: "#A83430", dark: "#3F100F", size: 1.52, eye: "#FF7A50",
              glow: "#E8503C", boss: true },
 };
@@ -1848,17 +1856,17 @@ const MAFF_BY_KEY = Object.fromEntries(MONSTER_AFFIXES.map(a => [a.key, a]));
 
 /* Namentliche Zwischenbosse. Jeder hat eine eigene Fähigkeit und lässt Beute fallen. */
 const ELITES = {
-  3: { base: "orc", name: "Grimmzahn", epithet: "der Rudelführer", power: "rage",
-       hp: 44, atk: 8, def: 1, xp: 260, size: 1.34,
+  3: { base: "orc", name: "Grimmzahn", epithet: "der Rudelführer", power: "sturm",
+       hp: 290, atk: 11, def: 3, xp: 420, size: 1.34,
        body: "#96742E", dark: "#43330F", eye: "#FFE07A", glow: "#D8A83A", drop: "sword" },
-  5: { base: "cultist", name: "Mutter der Brut", epithet: "Wirtin der Schatten", power: "spawn",
-       hp: 58, atk: 7, def: 2, xp: 380, size: 1.36,
+  5: { base: "cultist", name: "Mutter der Brut", epithet: "Wirtin der Schatten", power: "brut",
+       hp: 500, atk: 14, def: 4, xp: 620, size: 1.36,
        body: "#7A3C9E", dark: "#2E1546", eye: "#E4B4FF", glow: "#9A5ECC", drop: "chain" },
-  7: { base: "golem", name: "Der Steinerne Wächter", epithet: "Hüter der Schwelle", power: "quake",
-       hp: 82, atk: 11, def: 5, xp: 520, size: 1.44,
+  7: { base: "golem", name: "Der Steinerne Wächter", epithet: "Hüter der Schwelle", power: "waechter",
+       hp: 760, atk: 16, def: 8, xp: 900, size: 1.44,
        body: "#93A0B0", dark: "#3C4552", eye: "#9AE0FF", glow: "#7ABEE8", drop: "axe" },
-  9: { base: "wraith", name: "Der Bleiche Chor", epithet: "vielstimmig", power: "blink",
-       hp: 74, atk: 12, def: 3, xp: 700, size: 1.42,
+  9: { base: "wraith", name: "Der Bleiche Chor", epithet: "vielstimmig", power: "chor",
+       hp: 820, atk: 17, def: 6, xp: 1150, size: 1.42,
        body: "#D2DEEA", dark: "#4A5A6E", eye: "#FFFFFF", glow: "#C8DCF0", drop: "plate" },
 };
 
@@ -1895,21 +1903,47 @@ const RELIC = { kind: "relic", tint: "#F0D27A", note: "Auftragsgegenstand", ques
 /* Fähigkeiten: eine pro Klasse, mit Abklingzeit statt Verbrauch.
    Damit hat jeder Kampf eine Wahl, die nicht aus dem Beutel kommt. */
 const ABILITIES = {
-  bash: {
-    name: "Schildstoß", cd: 7, aim: true,
-    desc: "Stößt einen angrenzenden Gegner zwei Felder zurück und betäubt ihn eine Runde.",
-    hint: "Richtung wählen — Pfeile, WASD oder Klick",
+  wall: {
+    name: "Schildwall", cd: 11, aim: false, dauer: 2.8,
+    desc: "Du gehst 2,8 Sekunden in Deckung: drei Viertel weniger Schaden, " +
+          "und wer dich im Nahkampf trifft, prallt betäubt zurück.",
   },
-  dash: {
-    name: "Ausweichrolle", cd: 5, aim: true,
-    desc: "Drei Felder weit in eine Richtung, an Gegnern vorbei.",
-    hint: "Richtung wählen — Pfeile, WASD oder Klick",
+  schatten: {
+    name: "Schattenschritt", cd: 8, aim: true, weite: 5.2,
+    desc: "Ein Satz durch alles hindurch. Währenddessen bist du unverwundbar, " +
+          "und wen du durchquerst, den lässt du blutend zurück.",
+    hint: "Richtung wählen — Maus, Pfeile oder WASD",
   },
-  spark: {
-    name: "Funke", cd: 5, aim: false,
-    desc: "Ein Blitz auf den nächsten sichtbaren Gegner. Wird mit deiner Stufe stärker.",
+  brand: {
+    name: "Aschebrand", cd: 9, aim: true, dauer: 6.5,
+    desc: "Setzt den Boden vor dir in Brand. Die Glut hält sechseinhalb Sekunden " +
+          "und frisst sich durch alles, was hineingerät — dich lässt sie in Ruhe.",
+    hint: "Richtung wählen — Maus, Pfeile oder WASD",
   },
 };
+
+/* Die Passivfaehigkeit gehoert zur Klasse, nicht zur aktiven Faehigkeit.
+   Sie greift jede Sekunde, ohne dass man sie ausloest - deshalb praegt sie
+   die Spielweise staerker als der Knopf auf F. */
+const PASSIVE = {
+  standhaft: {
+    name: "Standhaft",
+    desc: "Jeder Treffer, den du einsteckst, macht dich für 5 Sekunden um 1 " +
+          "Angriff wütender — bis zu fünffach. Wer lange steht, schlägt am härtesten.",
+  },
+  erstschlag: {
+    name: "Erstschlag",
+    desc: "Ein Gegner, der dich noch nicht bemerkt hat, nimmt dreifachen Schaden. " +
+          "Wer zuerst sieht, gewinnt.",
+  },
+  zehrung: {
+    name: "Zehrung",
+    desc: "Jeder Erschlagene gibt dir 5 Öl zurück. Deine Fackel lebt von dem, " +
+          "was du fällst.",
+  },
+};
+
+
 
 /* ── Asche: das Einzige, was den Tod überlebt ─────────────────────────────
    Jeder Lauf zahlt etwas ein, jede Stufe macht den nächsten Abstieg leichter. */
@@ -1991,29 +2025,29 @@ const CLASSES = {
   krieger: {
     name: "Krieger", key: "k",
     line: "Steht, wo andere fallen.",
-    hp: 50, atk: 4, def: 2, ability: "bash",
+    hp: 78, atk: 4, def: 2, ability: "wall", passiv: "standhaft",
     oilSteps: 4, fovBonus: 0, scrollPower: 1, crit: 0, evade: 0,
     kit: ["sword", "leather", "potion", "potion", "oil"],
     wear: { "Waffe": "sword", "Rüstung": "leather" },
-    note: "50 Leben · Angriff 4 · Schutz 2",
+    note: "78 Leben · Schildwall · Standhaft: Treffer machen dich stärker",
   },
   spaeher: {
     name: "Späher", key: "s",
     line: "Trifft die Lücke, sieht weiter, spart Öl.",
-    hp: 44, atk: 6, def: 1, ability: "dash",
+    hp: 62, atk: 6, def: 1, ability: "schatten", passiv: "erstschlag",
     oilSteps: 6, fovBonus: 1.6, scrollPower: 1, crit: .18, evade: .22,
     kit: ["dagger", "leather", "potion", "potion", "potion", "oil", "oil", "chart"],
     wear: { "Waffe": "dagger", "Rüstung": "leather" },
-    note: "44 Leben · weicht jedem fünften Schlag aus · trifft oft kritisch",
+    note: "62 Leben · Schattenschritt · Erstschlag: dreifacher Schaden auf Ahnungslose",
   },
   magier: {
     name: "Magier", key: "m",
-    line: "Zerbrechlich, aber nie unbewaffnet.",
-    hp: 36, atk: 2, def: 1, ability: "spark",
+    line: "Zerbrechlich. Verbrennt lieber die Welt als sich.",
+    hp: 50, atk: 5, def: 1, ability: "brand", passiv: "zehrung",
     oilSteps: 4, fovBonus: .6, scrollPower: 1.4, crit: 0, evade: .05,
     kit: ["dagger", "potion", "potion", "lightning", "oil"],
     wear: { "Waffe": "dagger" },
-    note: "36 Leben · Rollen wirken 40 % stärker · Funke kostet nichts",
+    note: "50 Leben · Aschebrand · Zehrung: jeder Kill gibt Öl zurück",
   },
 };
 
@@ -3403,6 +3437,7 @@ function populateFloor(floor) {
     if (gegner) {
       G.actors.push(gegner);
       map.gateBoss = true;          // die Treppe bleibt zu, bis er faellt
+      if (gegner.power === "waechter") stelleWaechterSaeulen(gegner, map);
     }
   }
 
@@ -3595,9 +3630,12 @@ const statusMag = (a, name) => (a.statuses && a.statuses[name]) ? a.statuses[nam
 
 function playerAtk() {
   const p = G.player;
+  // Standhaft: die Stapel verfallen, wenn eine Weile nichts trifft
+  if (p.trotzStapel && p.trotzBis <= G.time) p.trotzStapel = 0;
+  const standhaft = p.passiv === "standhaft" ? (p.trotzStapel || 0) : 0;
   // Trotz greift erst, wenn unter einem Drittel Leben uebrig ist.
   const trotz = p.trotz && p.hp <= playerMaxHp() / 3 ? p.trotz : 0;
-  return p.baseAtk + equipBonus("atk") + statusMag(p, "Stärke") + trotz;
+  return p.baseAtk + equipBonus("atk") + statusMag(p, "Stärke") + trotz + standhaft;
 }
 function playerDef() { return G.player.baseDef + equipBonus("def") + statusMag(G.player, "Schutz"); }
 function playerMaxHp() { return G.player.baseMaxHp + equipBonus("maxhp"); }
@@ -3614,6 +3652,48 @@ function resolveDamage(atk, def, critChance) {
 }
 
 function damage(target, amount, source) {
+  if (target.isPlayer) {
+    // Schattenschritt: waehrend des Satzes geht nichts durch
+    if (target.unverwundbar > G.time) {
+      floatText(target.x, target.y, "verfehlt", "#9C7FE0");
+      return;
+    }
+    // Schildwall: drei Viertel weniger, mindestens aber 1
+    if (target.wall > G.time && amount > 0) {
+      const vorher = amount;
+      amount = Math.max(1, Math.round(amount * .25));
+      floatText(target.x, target.y, `${vorher}→${amount}`, "#C8CEDA");
+      Sfx.spiel("abgeprallt");
+      // Wer im Nahkampf dagegenlaeuft, prallt betaeubt zurueck
+      if (source && !source.isPlayer && source.alive &&
+          Math.hypot(source.x - target.x, source.y - target.y) < 1.8) {
+        source.stunned = STUN_TIME;
+        source.lunge = { dx: source.x - target.x, dy: source.y - target.y, life: 1 };
+        ring(source.x, source.y, 1.1, "#C8CEDA");
+        log(`${source.spec.name} prallt am Schild ab.`, "you");
+      }
+    }
+    // Standhaft: jeder Treffer macht wuetender
+    if (G.player.passiv === "standhaft" && amount > 0) {
+      target.trotzStapel = Math.min(5, (target.trotzStapel || 0) + 1);
+      target.trotzBis = G.time + 5;
+      floatText(target.x, target.y - .4, `Zorn ×${target.trotzStapel}`, "#E8A94B");
+    }
+  }
+  // Der Wächter ist gedeckt, solange auch nur eine seiner Säulen steht
+  if (target.saeulen && target.saeulen.some(k => G.map.tiles[k] === PILLAR)) {
+    const offen = target.saeulen.filter(k => G.map.tiles[k] === PILLAR).length;
+    target.flash = .6;
+    floatText(target.x, target.y, "gedeckt", "#9AE0FF");
+    Sfx.spiel("abgeprallt");
+    if (!target.gedecktGesagt || G.time - target.gedecktGesagt > 3) {
+      target.gedecktGesagt = G.time;
+      log(`${target.spec.name} steht im Schutz seiner Säulen — ${offen} ${
+        offen === 1 ? "steht" : "stehen"} noch. Reiß sie ein.`, "system");
+    }
+    return;
+  }
+
   target.hp -= amount;
   target.flash = 1;
   floatText(target.x, target.y, "−" + amount, target.isPlayer ? C.madderLit : C.vellum);
@@ -3651,6 +3731,15 @@ function kill(target, source) {
 
   // Aasfresser - jeder Erschlagene gibt etwas zurueck.
   const p = G.player;
+  // Zehrung: der Magier zieht Öl aus dem, was er faellt
+  if (p.passiv === "zehrung" && p.alive && (!source || source.isPlayer) && p.oil < oilCap()) {
+    const vorher = p.oil;
+    p.oil = Math.min(oilCap(), p.oil + 5);
+    if (p.oil > vorher) {
+      floatText(p.x, p.y - .5, `+${p.oil - vorher} Öl`, "#E8B65A");
+      updateFov();
+    }
+  }
   const zurueckGabe = (p.killHeal || 0) + equipBonus("killHeal");
   if (zurueckGabe && p.alive && (!source || source.isPlayer)) {
     const zurueck = healActor(p, zurueckGabe);
@@ -3743,7 +3832,7 @@ function gainXp(amount) {
   G.player.xp += amount;
   log(`Du erhältst ${amount} Erfahrung.`, "system");
 }
-const xpNeeded = () => 90 + G.player.level * 60;
+const xpNeeded = () => 130 + G.player.level * 95;
 
 function healActor(a, amount) {
   const max = maxHpOf(a);
@@ -3915,8 +4004,17 @@ function playerDodges(attacker, target) {
 
 function attack(attacker, target) {
   if (playerDodges(attacker, target)) return;
-  const [dmg, crit] = resolveDamage(atkOf(attacker), defOf(target),
+  let [dmg, crit] = resolveDamage(atkOf(attacker), defOf(target),
     attacker.isPlayer ? .1 + (attacker.crit || 0) + equipBonus("crit") : .1);
+
+  // Erstschlag: wer dich noch nicht bemerkt hat, bekommt das Dreifache
+  let ausHinterhalt = false;
+  if (attacker.isPlayer && G.player.passiv === "erstschlag" && !target.wach && dmg > 0) {
+    dmg *= 3;
+    ausHinterhalt = true;
+    burst(target.x, target.y, "#9C7FE0", 18);
+    Sfx.spiel("kritisch");
+  }
   attacker.lunge = { dx: target.x - attacker.x, dy: target.y - attacker.y, life: 1 };
   if (dmg > 0) {
     const aff = attacker.maff ? MAFF_BY_KEY[attacker.maff] : null;
@@ -3924,7 +4022,8 @@ function attack(attacker, target) {
     const who = attacker.isPlayer
       ? `Du triffst ${target.spec.name}`
       : `${attacker.spec.name} trifft dich`;
-    log(`${who} für ${dmg + extra} Schaden.${crit ? " Kritisch!" : ""}${
+    log(`${who} für ${dmg + extra} Schaden.${
+      ausHinterhalt ? " Aus dem Hinterhalt!" : crit ? " Kritisch!" : ""}${
       extra ? " Die Flammen fressen sich fest." : ""}`,
       attacker.isPlayer ? "you" : "foe");
     if (extra) burst(target.x, target.y, "#FF8A38", 8);
@@ -4184,77 +4283,72 @@ function useAbility(dx, dy) {
   const p = G.player;
   const ab = ABILITIES[p.ability];
 
-  if (p.ability === "bash") {
-    const target = actorNear(p.x + dx * .9, p.y + dy * .9, 1.15);
-    if (!target) { log("Dort steht niemand.", "system"); return false; }
-    const [dmg] = resolveDamage(playerAtk(), defOf(target),
-                                .1 + (p.crit || 0) + equipBonus("crit"));
-    p.lunge = { dx, dy, life: 1 };
-    log(`Du rammst ${target.spec.name} für ${dmg} Schaden zurück.`, "you");
-    if (dmg > 0) damage(target, dmg, p);
-    if (target.alive) {
-      // Zwei Felder zurückstoßen, soweit der Weg frei ist
-      let moved = 0, inLava = false;
-      for (let i = 0; i < 16; i++) {
-        const nx = target.x + dx * .15, ny = target.y + dy * .15;
-        const tx = Math.floor(nx), ty = Math.floor(ny);
-        if (inBounds(tx, ty) && G.map.tiles[idx(tx, ty)] === LAVA) {
-          target.x = nx; target.y = ny; moved++;
-          inLava = true;
-          break;
-        }
-        if (blockiert(nx, ny, target.radius || R_MONSTER)) break;
-        target.x = nx; target.y = ny; moved++;
-      }
-      if (inLava) {
-        Sfx.spiel("feuer");
-        burst(target.x, target.y, "#FF8A38", 26);
-        ring(target.x, target.y, 2, "#E8703A");
-        log(`${target.spec.name} stürzt in die Lava.`, "alert");
-        damage(target, 999, p);
-      } else {
-        target.stunned = STUN_TIME;
-        ring(target.x, target.y, 1.3, "#C8CEDA");
-        if (!moved) log(`${target.spec.name} prallt gegen den Stein.`, "you");
-      }
-    }
+  if (p.ability === "wall") {
+    /* Kein Schaden, sondern Zeit: 2,8 Sekunden, in denen dich fast nichts
+       erreicht - und in denen jeder Nahkaempfer sich selbst betaeubt. */
+    p.wall = G.time + ab.dauer;
     Sfx.spiel("stoss");
-    anim.shake = 8;
+    ring(p.x, p.y, 1.5, "#C8CEDA");
+    log("Du gehst hinter den Schild. Sollen sie kommen.", "you");
+    banner("Schildwall", "Drei Viertel weniger Schaden", "good");
     p.abilityCd = ab.cd * (p.abilityHaste || 1);
     return true;
   }
 
-  if (p.ability === "dash") {
+  if (p.ability === "schatten") {
     const start = [p.x, p.y];
-    let steps = 0;
-    for (let i = 0; i < 24; i++) {
-      if (!bewege(p, dx * .14, dy * .14)) break;
-      steps++;
+    const durchquert = new Set();
+    let weit = 0;
+    p.unverwundbar = G.time + .55;
+    for (let i = 0; i < 40; i++) {
+      const nx = p.x + dx * .13, ny = p.y + dy * .13;
+      // Gegner sind kein Hindernis - man geht durch sie hindurch
+      if (blockiert(nx, ny, p.radius) || schleierSperrt(nx, ny)) break;
+      p.x = nx; p.y = ny;
+      weit += .13;
+      if (weit > ab.weite) break;
+      for (const z of G.actors) {
+        if (z.isPlayer || !z.alive || durchquert.has(z)) continue;
+        if (Math.hypot(z.x - p.x, z.y - p.y) > .85) continue;
+        durchquert.add(z);
+      }
     }
-    if (steps < 4) { log("Dorthin führt kein Weg.", "system"); return false; }
-    burst(start[0], start[1], "#7FD0E8", 12);
-    burst(p.x, p.y, "#7FD0E8", 12);
+    if (weit < .9) { p.unverwundbar = 0; log("Dorthin führt kein Weg.", "system"); return false; }
+
+    bolt(start[0], start[1], p.x, p.y, "#9C7FE0");
+    burst(start[0], start[1], "#9C7FE0", 14);
+    burst(p.x, p.y, "#9C7FE0", 14);
     Sfx.spiel("sprung");
-    log("Du rollst zur Seite.", "you");
+    for (const z of durchquert) {
+      addStatus(z, "Gift", 6, 3);
+      z.flash = 1;
+      burst(z.x, z.y, "#9C7FE0", 10);
+    }
+    log(durchquert.size
+        ? `Du fährst durch ${durchquert.size} hindurch und lässt sie blutend zurück.`
+        : "Du fährst durch den Schatten.", "you");
     refillFromBrazier();
     p.abilityCd = ab.cd * (p.abilityHaste || 1);
     return true;
   }
 
-  if (p.ability === "spark") {
-    let best = null, bestDist = Infinity;
-    for (const a of G.actors) {
-      if (a.isPlayer || !a.alive || !seesTile(kachelX(a), kachelY(a))) continue;
-      if (!trefferbar(a)) continue;
-      const d = Math.hypot(a.x - p.x, a.y - p.y);
-      if (d < bestDist) { best = a; bestDist = d; }
+  if (p.ability === "brand") {
+    /* Eine Glutzone vor dem Helden. Sie nutzt dieselbe Mechanik wie der
+       Feuerspeier, verschont aber den, der sie gelegt hat. */
+    const zx = Math.floor(p.x + dx * 2.1), zy = Math.floor(p.y + dy * 2.1);
+    if (!inBounds(zx, zy) || !WALKABLE[G.map.tiles[idx(zx, zy)]]) {
+      log("Dort ist kein Boden, der brennen könnte.", "system");
+      return false;
     }
-    if (!best) { log("Nichts in Sicht, worauf sich das lohnte.", "system"); return false; }
-    const dmg = Math.round((6 + p.level * 2) * p.scrollPower);
-    Sfx.spiel("blitz");
-    bolt(p.x, p.y, best.x, best.y, "#BCA8FF");
-    log(`Ein Funke springt auf ${best.spec.name} über — ${dmg} Schaden.`, "alert");
-    damage(best, dmg, p);
+    const staerke = Math.round((4 + p.level * 1.2) * (p.scrollPower || 1));
+    G.traps.push({
+      x: zx, y: zy, art: "feuer", scharf: false, entdeckt: true,
+      brenntBis: G.time + ab.dauer, eigen: true, wucht: staerke,
+    });
+    Sfx.spiel("feuer");
+    ring(mitte(zx), mitte(zy), 1.3, "#E8703A");
+    burst(mitte(zx), mitte(zy), "#FF9A40", 26);
+    log(`Der Boden vor dir fängt Feuer — ${staerke} Schaden je Takt.`, "alert");
     p.abilityCd = ab.cd * (p.abilityHaste || 1);
     return true;
   }
@@ -4355,14 +4449,21 @@ function actorTurn(a) {
     a.cooldown = Math.max(0, a.cooldown - takt);
     if (a.hp <= a.maxhp * .6 && a.cooldown <= 0 && a.summons < 4 && summon(a)) return;
     if (dist <= MONSTER_REACH * 1.2) {
-      const swings = rng() < .25 ? 2 : 1;
-      for (let i = 0; i < swings && p.alive; i++) attack(a, p);
+      if (a.nachhieb <= 0) {
+        const swings = rng() < .25 ? 2 : 1;
+        for (let i = 0; i < swings && p.alive; i++) attack(a, p);
+        a.nachhieb = hiebTakt(a);
+      }
       return;
     }
   }
 
   if (a.ai === "ranged") {
-    if (dist <= MONSTER_REACH) { a.zielt = 0; strike(a, p); return; }
+    if (dist <= MONSTER_REACH) {
+      a.zielt = 0;
+      if (a.nachhieb <= 0) { strike(a, p); a.nachhieb = hiebTakt(a); }
+      return;
+    }
     a.nachlad = Math.max(0, (a.nachlad || 0) - takt);
 
     const bahn = dist <= a.spec.range &&
@@ -4397,56 +4498,197 @@ function actorTurn(a) {
     return;
   }
 
-  if (dist <= MONSTER_REACH) strike(a, p);
+  if (dist <= MONSTER_REACH && a.nachhieb <= 0) {
+    strike(a, p);
+    a.nachhieb = hiebTakt(a);
+  }
 }
 
 /* Jeder Zwischenboss kann eine Sache, die normale Gegner nicht können. */
+/* == Die Namentlichen ====================================================
+   Jeder benutzt seine Kammer auf eigene Weise, und jeder hat bei der Haelfte
+   seines Lebens einen Punkt, ab dem er anders kaempft. Vorher waren es vier
+   Varianten desselben Zuschlagens. */
+
+/* Der Umschlagpunkt: einmal je Kampf, mit Ansage. */
+function zweitePhase(a, titel, zeile) {
+  if (a.phase2 || a.hp > a.maxhp * .5) return false;
+  a.phase2 = true;
+  a.cooldown = 0;
+  addStatus(a, "Stärke", 9999, 3);
+  anim.shake = 18;
+  ring(a.x, a.y, 3.4, a.spec.glow);
+  burst(a.x, a.y, a.spec.glow, 40);
+  Sfx.spiel("elite");
+  log(`${a.spec.name}: ${zeile}`, "bad");
+  banner(titel, zeile, "bad");
+  return true;
+}
+
 function elitePower(a, cheb) {
   const p = G.player;
   a.cooldown = Math.max(0, a.cooldown - 1);
 
-  if (a.power === "rage") {
-    if (!a.enraged && a.hp <= a.maxhp * .5) {
-      a.enraged = true;
-      addStatus(a, "Stärke", 9999, 4);
-      ring(a.x, a.y, 2.2, a.spec.glow);
-      log(`${a.spec.name} brüllt auf — seine Schläge werden schwerer.`, "bad");
+  /* ── Grimmzahn: rennt dich um und reisst dabei die Halle ein ──────────── */
+  if (a.power === "sturm") {
+    if (zweitePhase(a, "Grimmzahn bricht aus",
+                    "Er rennt jetzt, statt zu schlagen")) return true;
+    const takt = a.phase2 ? 3 : 5;
+    if (a.cooldown || cheb < 2 || cheb > 9) return false;
+    const l = Math.hypot(p.x - a.x, p.y - a.y) || 1;
+    const rx = (p.x - a.x) / l, ry = (p.y - a.y) / l;
+    if (!lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p))) return false;
+
+    const von = [a.x, a.y];
+    let weit = 0;
+    let saeule = null;
+    for (let k = 0; k < 90; k++) {
+      const nx = a.x + rx * .12, ny = a.y + ry * .12;
+      const tx = Math.floor(nx), ty = Math.floor(ny);
+      if (inBounds(tx, ty) && G.map.tiles[idx(tx, ty)] === PILLAR) { saeule = [tx, ty]; break; }
+      if (blockiert(nx, ny, a.radius || R_MONSTER) || schleierSperrt(nx, ny)) break;
+      a.x = nx; a.y = ny;
+      weit += .12;
+      if (weit > 10) break;
+    }
+    if (weit < 1) return false;
+
+    a.cooldown = takt;
+    a.lunge = { dx: rx, dy: ry, life: 1 };
+    anim.shake = 12;
+    Sfx.spiel("stoss");
+    bolt(von[0], von[1], a.x, a.y, a.spec.glow);
+    log(`${a.spec.name} setzt zum Sturmlauf an.`, "bad");
+
+    // Wer im Weg stand, wird umgerannt
+    for (const z of G.actors) {
+      if (z === a || !z.alive) continue;
+      const dx2 = z.x - von[0], dy2 = z.y - von[1];
+      const laengs = dx2 * rx + dy2 * ry;
+      if (laengs < 0 || laengs > weit + .8) continue;
+      const quer = Math.abs(dx2 * ry - dy2 * rx);
+      if (quer > 1.0) continue;
+      const [dmg] = resolveDamage(atkOf(a), defOf(z));
+      if (dmg > 0) damage(z, dmg, a);
+      if (z.alive) {
+        bewege(z, rx * .5, ry * .5);
+        z.stunned = STUN_TIME * .6;
+      }
+    }
+
+    // Die Halle haelt das nicht aus
+    if (saeule) {
+      log("Die Säule bricht unter dem Aufprall.", "alert");
+      const merk = G.saeulen[idx(saeule[0], saeule[1])];
+      G.saeulen[idx(saeule[0], saeule[1])] = 1;
+      schlageSaeule(saeule[0], saeule[1]);
+      if (merk === undefined) delete G.saeulen[idx(saeule[0], saeule[1])];
+    }
+    return true;
+  }
+
+  /* ── Mutter der Brut: erst Brut, dann Nebel ───────────────────────────── */
+  if (a.power === "brut") {
+    if (zweitePhase(a, "Die Mutter öffnet sich",
+                    "Der Boden ihrer Kammer beginnt zu dampfen")) return true;
+
+    // Ab der zweiten Phase vernebelt sie den Boden um sich herum
+    if (a.phase2 && !a.nebel && cheb <= 8) {
+      a.nebel = 4;
+      let gelegt = 0;
+      for (let versuch = 0; versuch < 40 && gelegt < 4; versuch++) {
+        const tx = kachelX(p) + Math.round((rng() - .5) * 7);
+        const ty = kachelY(p) + Math.round((rng() - .5) * 7);
+        if (!inBounds(tx, ty) || G.map.tiles[idx(tx, ty)] !== FLOOR) continue;
+        if (G.traps.some(f => f.x === tx && f.y === ty)) continue;
+        G.traps.push({ x: tx, y: ty, art: "gas", scharf: true, entdeckt: true, brut: true });
+        ring(mitte(tx), mitte(ty), 1.2, "#7CB868");
+        gelegt++;
+      }
+      if (gelegt) {
+        log(`${a.spec.name} lässt Schwaden aus dem Boden steigen.`, "bad");
+        Sfx.spiel("gift");
+        return true;
+      }
+    }
+    if (a.nebel > 0) a.nebel--;
+
+    const grenze = a.phase2 ? 7 : 5;
+    if (!a.cooldown && a.summons < grenze && cheb <= 8 && summon(a)) {
+      a.cooldown = a.phase2 ? 3 : 5;
       return true;
     }
     return false;
   }
 
-  if (a.power === "spawn") {
-    if (!a.cooldown && a.summons < 5 && cheb <= 7 && summon(a)) {
-      a.cooldown = 5;
-      return true;
-    }
-    return false;
-  }
+  /* ── Der Steinerne Wächter: unverwundbar, solange seine Säulen stehen ── */
+  if (a.power === "waechter") {
+    if (zweitePhase(a, "Der Wächter erwacht ganz",
+                    "Er setzt die Säulen wieder ein")) return true;
 
-  if (a.power === "quake") {
-    if (!a.cooldown && cheb <= 3) {
-      a.cooldown = 6;
+    // In der zweiten Phase stellt er gelegentlich eine Säule zurück
+    if (a.phase2 && !a.cooldown && a.saeulen && rng() < .35) {
+      const tot = a.saeulen.filter(k => G.map.tiles[k] !== PILLAR);
+      if (tot.length) {
+        const k = tot[Math.floor(rng() * tot.length)];
+        const tx = k % MAP_W, ty = (k / MAP_W) | 0;
+        if (!actorAt(tx, ty) && G.map.tiles[k] !== STAIRS) {
+          G.map.tiles[k] = PILLAR;
+          delete G.saeulen[k];
+          ring(mitte(tx), mitte(ty), 1.6, a.spec.glow);
+          anim.shake = 10;
+          Sfx.spiel("saeule");
+          log(`${a.spec.name} zieht eine Säule aus dem Boden. Er ist wieder gedeckt.`, "bad");
+          updateFov();
+          a.cooldown = 6;
+          return true;
+        }
+      }
+    }
+
+    if (!a.cooldown && cheb <= 4) {
+      a.cooldown = a.phase2 ? 4 : 6;
       anim.shake = 16;
-      ring(a.x, a.y, 3.4, a.spec.glow);
-      const [dmg] = resolveDamage(atkOf(a), playerDef());
+      ring(a.x, a.y, 3.6, a.spec.glow);
+      Sfx.spiel("saeule");
+      // Dem Beben kann man nicht ausweichen, also trifft es nicht voll
+      const [dmg] = resolveDamage(Math.round(atkOf(a) * .7), playerDef());
       if (dmg > 0) {
         log(`${a.spec.name} schlägt auf den Stein — das Beben trifft dich für ${dmg}.`, "bad");
         damage(p, dmg, a);
-      } else {
-        log(`${a.spec.name} schlägt auf den Stein, doch du hältst stand.`, "foe");
-      }
+      } else log(`${a.spec.name} schlägt auf den Stein, doch du hältst stand.`, "foe");
       return true;
     }
     return false;
   }
 
-  if (a.power === "blink") {
+  /* ── Der Bleiche Chor: viele Stimmen, und irgendwann alle zugleich ────── */
+  if (a.power === "chor") {
+    if (zweitePhase(a, "Der Chor teilt sich",
+                    "Aus einer Stimme werden viele")) {
+      // Beim Umschlagen spaltet er sich in Echos auf
+      let gemacht = 0;
+      for (let versuch = 0; versuch < 30 && gemacht < 3; versuch++) {
+        const tx = kachelX(a) + Math.round((rng() - .5) * 8);
+        const ty = kachelY(a) + Math.round((rng() - .5) * 8);
+        if (!isWalkable(tx, ty) || actorAt(tx, ty)) continue;
+        const echo = makeMonster("wraith", tx, ty);
+        echo.hp = echo.maxhp = Math.max(8, Math.round(a.maxhp * .18));
+        echo.wach = true;
+        echo.echo = true;
+        G.actors.push(echo);
+        burst(mitte(tx), mitte(ty), a.spec.glow, 16);
+        gemacht++;
+      }
+      if (gemacht) log(`${gemacht} Echos lösen sich aus ihm.`, "bad");
+      return true;
+    }
+
     if (!a.cooldown && cheb > 2 && cheb <= 9) {
       const spots = [];
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
-        const nx = p.x + dx, ny = p.y + dy;
+        const nx = kachelX(p) + dx, ny = kachelY(p) + dy;
         if (isWalkable(nx, ny) && !actorAt(nx, ny)) spots.push([nx, ny]);
       }
       if (spots.length) {
@@ -4454,7 +4696,7 @@ function elitePower(a, cheb) {
         const [nx, ny] = pick(spots);
         a.x = mitte(nx); a.y = mitte(ny); a.ax = a.x; a.ay = a.y;
         burst(nx, ny, a.spec.glow, 14);
-        a.cooldown = 5;
+        a.cooldown = a.phase2 ? 3 : 5;
         log(`${a.spec.name} steht plötzlich neben dir.`, "bad");
         return true;
       }
@@ -4463,6 +4705,73 @@ function elitePower(a, cheb) {
   }
 
   return false;
+}
+
+/* Vier Säulen um den Wächter herum. Solange eine steht, ist er gedeckt -
+   erst wer die Halle einreisst, kommt an ihn heran. */
+/* Sind von der Stelle des Waechters aus noch alle Kacheln seiner Kammer zu
+   erreichen? Der Schleier zaehlt dabei als begehbar, weil man hindurchtritt. */
+function kammerBleibtGanz(map, a) {
+  const raum = map.veilRoom;
+  if (!raum) return true;
+  const start = idx(kachelX(a), kachelY(a));
+  if (!WALKABLE[map.tiles[start]]) return false;
+  const gesehen = new Uint8Array(map.tiles.length);
+  const stapel = [start];
+  gesehen[start] = 1;
+  let erreicht = 0, gesamt = 0;
+  for (let k = 0; k < map.tiles.length; k++)
+    if (raum[k] === 1 && (WALKABLE[map.tiles[k]] || map.tiles[k] === VEIL)) gesamt++;
+  while (stapel.length) {
+    const c = stapel.pop();
+    erreicht++;
+    const x = c % MAP_W, y = (c / MAP_W) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+      const k = idx(nx, ny);
+      if (gesehen[k] || raum[k] !== 1) continue;
+      if (!WALKABLE[map.tiles[k]] && map.tiles[k] !== VEIL) continue;
+      gesehen[k] = 1; stapel.push(k);
+    }
+  }
+  return erreicht === gesamt;
+}
+
+function stelleWaechterSaeulen(a, map) {
+  const kandidaten = [];
+  for (let ty = 1; ty < MAP_H - 1; ty++)
+    for (let tx = 1; tx < MAP_W - 1; tx++) {
+      const k = idx(tx, ty);
+      if (map.tiles[k] !== FLOOR) continue;
+      if (map.veilRoom && map.veilRoom[k] !== 1) continue;
+      if (actorAt(tx, ty)) continue;
+      if (G.chests.some(c => c.x === tx && c.y === ty)) continue;
+      const d = Math.hypot(mitte(tx) - a.x, mitte(ty) - a.y);
+      if (d < 1.8 || d > 5.5) continue;
+      kandidaten.push([k, tx, ty, d]);
+    }
+  if (kandidaten.length < 4) return;
+
+  // Moeglichst weit auseinander: nach Winkel um den Waechter verteilen
+  kandidaten.sort((x, y) => x[3] - y[3]);
+  const gesetzt = [];
+  for (const [k, tx, ty] of kandidaten) {
+    if (gesetzt.length >= 4) break;
+    if (gesetzt.some(g => Math.hypot(g[1] - tx, g[2] - ty) < 3)) continue;
+    map.tiles[k] = PILLAR;
+    // vollVerbunden() taugt hier nicht: die Kammer haengt nur ueber den
+    // Schleier am Rest, und der ist nicht begehbar - die Etage gilt also
+    // ohnehin als zerfallen. Geprueft wird deshalb nur die Kammer selbst.
+    if (!kammerBleibtGanz(map, a)) { map.tiles[k] = FLOOR; continue; }
+    gesetzt.push([k, tx, ty]);
+  }
+  if (gesetzt.length < 2) {
+    for (const [k] of gesetzt) map.tiles[k] = FLOOR;
+    return;
+  }
+  a.saeulen = gesetzt.map(g => g[0]);
 }
 
 function summon(a) {
@@ -4496,7 +4805,8 @@ function upkeep() {
     if (!f.brenntBis || f.brenntBis <= G.time) continue;
     for (const z of G.actors) {
       if (!z.alive || Math.hypot(z.x - mitte(f.x), z.y - mitte(f.y)) > 1.0) continue;
-      damage(z, 3 + Math.floor(G.floor * .4), null);
+      if (f.eigen && z.isPlayer) continue;          // dein eigener Brand tut dir nichts
+      damage(z, f.wucht || (3 + Math.floor(G.floor * .4)), null);
       z.flash = 1;
     }
   }
@@ -4582,6 +4892,7 @@ function tickWorld(dt) {
    Abstandsfeld, aber gelaufen wird frei statt von Kachel zu Kachel. */
 function lenke(a, dt) {
   if (!a.alive || a.stunned > 0) return;
+  a.nachhieb = Math.max(0, (a.nachhieb || 0) - dt);
   const p = G.player;
   const dist = Math.hypot(p.x - a.x, p.y - a.y);
   let zx = 0, zy = 0;
@@ -4632,6 +4943,19 @@ function naechsterWegpunkt(a) {
     }
   if (!best || best[0] >= hier) return null;
   return [best[1], best[2]];
+}
+
+/* Wie oft ein Wesen wirklich zuschlagen darf. Bisher schlug es in seinem
+   Laufrhythmus zu - alle 0,28 Sekunden, also oefter als der Held selbst.
+   Jetzt hat jedes seinen eigenen Schlagtakt: schwere Wesen holen lange aus
+   und treffen hart, leichte kommen schneller wieder. */
+function hiebTakt(a) {
+  let t = a.spec.hieb || 1.0;
+  if (a.maff === "flink") t *= .78;
+  if (a.maff === "rasend") t *= .85;
+  if (a.elite) t *= .88;
+  if (a.phase2) t *= .78;
+  return t;
 }
 
 // Wie oft ein Gegner handelt. Flinke sind schneller, Betäubte stehen still.
@@ -7499,6 +7823,8 @@ function showCharacter() {
     ["Klasse", CLASSES[p.cls] ? CLASSES[p.cls].name : "—"],
     ["Fähigkeit", ABILITIES[p.ability]
       ? `${ABILITIES[p.ability].name} — ${ABILITIES[p.ability].desc}` : "—"],
+    ["Passiv", PASSIVE[p.passiv]
+      ? `${PASSIVE[p.passiv].name} — ${PASSIVE[p.passiv].desc}` : "—"],
     ["Stufe", ROMAN[p.level] || p.level],
     ["Erfahrung", `${p.xp} / ${xpNeeded()}`],
     ["Leben", `${p.hp} / ${playerMaxHp()}`],
@@ -7679,7 +8005,10 @@ function showMenu() {
       <span class="note" id="codeHinweis"></span>
     </div>
 
-    <button class="choice" id="titelBtn" style="margin-top:16px">
+    <button class="choice" id="tastenBtn" style="margin-top:16px">
+      <span class="key" aria-hidden="true">·</span><span>Tastenbelegung</span>
+      <span class="note">alles frei einstellbar</span></button>
+    <button class="choice" id="titelBtn" style="margin-top:4px">
       <span class="key" aria-hidden="true">·</span><span>Zum Titelbild</span>
       <span class="note">der laufende Abstieg bleibt gesichert</span></button>
     <div class="foot">Esc schließt · das Spiel sichert außerdem von selbst</div>`);
@@ -7715,32 +8044,102 @@ function showMenu() {
     const fehler = lieCode(feld.value);
     if (fehler) hinweis.textContent = fehler;
   };
+  $("tastenBtn").onclick = () => showTasten();
   $("titelBtn").onclick = () => { saveGame(); showTitle(); };
 }
 
+/* Tasten neu belegen: Zeile anklicken, dann die gewuenschte Taste druecken.
+   Doppelbelegungen werden aufgeloest, indem die andere Handlung frei wird. */
+let wartetAufTaste = null;
+
+function showTasten() {
+  const zeilen = HANDLUNGEN.map(h => `
+    <div class="bag-row">
+      <button class="choice bag-main" data-tat="${h.id}">
+        <span class="key" aria-hidden="true">·</span>
+        <span>${escapeHtml(h.name)}</span>
+        <span class="note">${h.art === "gehen" ? "Laufen" : ""}</span>
+      </button>
+      <button class="bag-act tastenknopf" data-tat="${h.id}">${
+        escapeHtml(tastenName(BELEGUNG[h.id]))}</button>
+    </div>`).join("");
+
+  openModal(`<h2>Tastenbelegung</h2>
+    <p class="sub">Zeile anklicken, dann die gewünschte Taste drücken.
+      Pfeiltasten, Ziffernblock und <b>Esc</b> bleiben immer belegt — daran
+      kommst du nicht vorbei, egal was du hier einstellst.</p>
+    ${zeilen}
+    <button class="choice" id="tastenZurueck" style="margin-top:14px">
+      <span class="key" aria-hidden="true">·</span><span>Alles zurücksetzen</span>
+      <span class="note">wieder auf die Voreinstellung</span></button>
+    <div class="foot">Esc schließt</div>`,
+    (taste, ev) => {
+      if (!wartetAufTaste) return false;
+      if (taste === "Escape") { wartetAufTaste = null; showTasten(); return true; }
+      // Sondertasten wie Umschalt allein taugen nicht als Belegung
+      if (["Shift", "Control", "Alt", "Meta", "Tab", "CapsLock"].includes(taste)) return true;
+      belege(wartetAufTaste, ev && ev.key === " " ? " " : taste);
+      wartetAufTaste = null;
+      showTasten();
+      return true;
+    });
+
+  const blatt = overlay.querySelector(".sheet");
+  if (blatt) blatt.classList.add("weit");
+
+  overlay.querySelectorAll("[data-tat]").forEach(btn => {
+    btn.onclick = () => {
+      wartetAufTaste = btn.dataset.tat;
+      overlay.querySelectorAll(".tastenknopf").forEach(k => {
+        k.classList.toggle("wartet", k.dataset.tat === wartetAufTaste);
+        if (k.dataset.tat === wartetAufTaste) k.textContent = "drück eine Taste";
+      });
+    };
+  });
+  $("tastenZurueck").onclick = () => {
+    for (const h of HANDLUNGEN) BELEGUNG[h.id] = h.standard;
+    speichereBelegung();
+    wartetAufTaste = null;
+    showTasten();
+  };
+}
+
+function belege(id, taste) {
+  // Wer die Taste bisher hatte, verliert sie - sonst haetten zwei dasselbe
+  for (const anderes in BELEGUNG)
+    if (anderes !== id && BELEGUNG[anderes] === taste) BELEGUNG[anderes] = "";
+  BELEGUNG[id] = taste;
+  speichereBelegung();
+  Sfx.spiel("aufheben");
+}
+
 function showHelp() {
+  // Die Hilfe liest die Belegung aus, statt feste Tasten zu behaupten
+  const t = id => tastenName(BELEGUNG[id] || "—");
   const rows = [
-    ["Pfeile · WASD · Ziffernblock", "gehen und angreifen"],
-    ["Klick auf ein Feld", "dorthin laufen"],
+    [`${t("hoch")} ${t("links")} ${t("runter")} ${t("rechts")} · Pfeile · Ziffernblock`, "gehen"],
     ["Linke Maustaste", "zuschlagen, wohin der Zeiger zeigt"],
     ["Rechte Maustaste", "dorthin laufen · auf einen Gegner: verfolgen"],
-    ["Leertaste · Punkt", "kurz innehalten"],
-    ["F", "Fähigkeit deiner Klasse"],
-    ["M", "Ton an oder aus"],
-    ["Enter", "vor der Bosskammer: durch den Schleier treten"],
-    ["R", "rasten — heilt 1 Leben je 1 Öl"],
-    ["G", "aufheben · Kiste öffnen"],
-    ["I oder E", "Beutel: benutzen, anlegen, wegwerfen"],
-    ["Q", "Aufträge"],
-    ["C", "Heldenbogen"],
-    ["&gt; (Umschalt + .)", "Treppe hinabsteigen"],
-    ["Esc", "abbrechen · Menü"],
+    [t("faehig"), "Fähigkeit deiner Klasse"],
+    [t("warten"), "kurz innehalten"],
+    [t("rasten"), "rasten — heilt Leben, kostet Öl"],
+    [t("aufheben"), "aufheben · Kiste öffnen · Riss aufbrechen"],
+    [t("beutel"), "Beutel — alles darin mit der Maus"],
+    [t("auftrag"), "Aufträge"],
+    [t("held"), "Heldenbogen"],
+    [t("treppe"), "Treppe hinabsteigen"],
+    [t("schleier"), "vor der Bosskammer: durch den Schleier"],
+    [t("ton"), "Ton an oder aus"],
+    [t("menue"), "Menü — Speicherplätze, Übertragungscode, Tastenbelegung"],
+    [t("hilfe"), "diese Hilfe"],
   ];
-  openModal(`<h2>Steuerung</h2><p class="sub">Jede Handlung kostet eine Runde — die Tiefe zieht mit.</p>
+  openModal(`<h2>Hilfe</h2><p class="sub">Alles, was du drücken kannst — und was es tut.
+    Die Tasten lassen sich im Menü frei belegen.</p>
     <div class="grid2">${rows.map(([a, b]) =>
-      `<div class="line"><span>${a}</span><span>${b}</span></div>`).join("")}</div>
+      `<div class="line"><span>${escapeHtml(a)}</span><span>${escapeHtml(b)}</span></div>`).join("")}</div>
     <div class="foot">Esc schließt</div>`);
 }
+
 
 /* ---- Talente ---------------------------------------------------------
    Beim Aufstieg werden drei Talente aus einem Beutel gezogen statt immer
@@ -8166,7 +8565,8 @@ function serialize() {
       baseAtk: G.player.baseAtk, baseDef: G.player.baseDef, baseMaxHp: G.player.baseMaxHp,
       oil: G.player.oil, oilMax: G.player.oilMax, oilTick: G.player.oilTick,
       revive: G.player.revive,
-      cls: G.player.cls, ability: G.player.ability, abilityCd: G.player.abilityCd,
+      cls: G.player.cls, ability: G.player.ability, passiv: G.player.passiv,
+      abilityCd: G.player.abilityCd,
       oilSteps: G.player.oilSteps, fovBonus: G.player.fovBonus,
       scrollPower: G.player.scrollPower, crit: G.player.crit, evade: G.player.evade,
       speedMult: G.player.speedMult, swingHaste: G.player.swingHaste,
@@ -8184,6 +8584,7 @@ function serialize() {
       id: a.id, x: a.x, y: a.y, hp: a.hp, confused: a.confused,
       statuses: a.statuses, summons: a.summons, stunned: a.stunned || 0,
       elite: a.eliteFloor || 0, enraged: !!a.enraged, cooldown: a.cooldown || 0,
+      phase2: !!a.phase2, saeulen: a.saeulen || null, echo: !!a.echo,
       seen: !!a.seen, maff: a.maff || null,
     })),
     ground: G.ground.map(i => ({
@@ -8241,7 +8642,10 @@ function loadGame() {
       revive: data.player.revive || 0,
       oilTick: data.player.oilTick || 0,
       cls: data.player.cls || "krieger",
-      ability: data.player.ability || "bash",
+      ability: data.player.ability || "wall",
+      passiv: data.player.passiv ||
+        (CLASSES[data.player.cls] ? CLASSES[data.player.cls].passiv : "standhaft"),
+      wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0,
       abilityCd: data.player.abilityCd || 0,
       oilSteps: data.player.oilSteps || 4,
       fovBonus: data.player.fovBonus || 0,
@@ -8273,6 +8677,9 @@ function loadGame() {
       m.hp = a.hp; m.confused = a.confused || 0;
       m.statuses = a.statuses || {}; m.summons = a.summons || 0;
       m.cooldown = a.cooldown || 0;
+      m.phase2 = !!a.phase2;
+      if (a.saeulen) m.saeulen = a.saeulen;
+      if (a.echo) m.echo = true;
       m.stunned = a.stunned || 0;
       m.seen = !!a.seen;
       if (a.elite) m.enraged = !!a.enraged;
@@ -8303,7 +8710,8 @@ function freshState() {
     level: 1, xp: 0, alive: true,
     oil: OIL_MAX, oilMax: OIL_MAX, oilTick: 0, revive: 0,
     facing: [0, 1], nextSwing: 0, radius: R_PLAYER,
-    cls: "krieger", ability: "bash", abilityCd: 0,
+    cls: "krieger", ability: "wall", passiv: "standhaft", abilityCd: 0,
+    wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0,
     oilSteps: 4, fovBonus: 0, scrollPower: 1, crit: 0, evade: 0,
     speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
     killHeal: 0, restHeal: 0, lootLuck: 0, brazierBonus: 1, trotz: 0,
@@ -8334,7 +8742,8 @@ function startNewGame(clsId) {
   const p = G.player;
   Object.assign(p, {
     cls: CLASSES[clsId] ? clsId : "krieger",
-    ability: cls.ability, abilityCd: 0,
+    ability: cls.ability, passiv: cls.passiv, abilityCd: 0,
+    wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0,
     baseMaxHp: cls.hp, hp: cls.hp,
     baseAtk: cls.atk, baseDef: cls.def,
     oilSteps: cls.oilSteps, fovBonus: cls.fovBonus, scrollPower: cls.scrollPower,
@@ -8373,13 +8782,102 @@ function startNewGame(clsId) {
 }
 
 /* ══════════════════════════════════════════════════════════════ Eingabe */
-const MOVES = {
+/* == Tastenbelegung ======================================================
+   Bisher stand jede Taste fest im Verteiler. Jetzt liegt dazwischen eine
+   Zuordnung: Taste -> Handlung. Wer eine Handlung neu belegt, aendert nur
+   diese Tabelle; der Verteiler unten arbeitet ausschliesslich mit Handlungen.
+   Pfeiltasten und Ziffernblock bleiben als feste Zweitbelegung fuers Laufen,
+   damit man sich nie vollstaendig aussperren kann. */
+const HANDLUNGEN = [
+  { id: "hoch",     name: "Hoch",              standard: "w", art: "gehen", richtung: [0, -1] },
+  { id: "runter",   name: "Runter",            standard: "s", art: "gehen", richtung: [0, 1] },
+  { id: "links",    name: "Links",             standard: "a", art: "gehen", richtung: [-1, 0] },
+  { id: "rechts",   name: "Rechts",            standard: "d", art: "gehen", richtung: [1, 0] },
+  { id: "faehig",   name: "Fähigkeit",         standard: "f" },
+  { id: "aufheben", name: "Aufheben, öffnen",  standard: "g" },
+  { id: "beutel",   name: "Beutel",            standard: "i" },
+  { id: "rasten",   name: "Rasten",            standard: "r" },
+  { id: "auftrag",  name: "Aufträge",          standard: "q" },
+  { id: "held",     name: "Heldenbogen",       standard: "c" },
+  { id: "warten",   name: "Innehalten",        standard: " " },
+  { id: "treppe",   name: "Treppe hinab",      standard: ">" },
+  { id: "schleier", name: "Durch den Schleier", standard: "Enter" },
+  { id: "ton",      name: "Ton an und aus",    standard: "m" },
+  { id: "hilfe",    name: "Hilfe",             standard: "?" },
+  { id: "menue",    name: "Menü",              standard: "Escape" },
+];
+
+const HANDLUNG_VON = Object.fromEntries(HANDLUNGEN.map(h => [h.id, h]));
+const BELEG_KEY = "der-abstieg-tasten-v1";
+
+let BELEGUNG = {};
+
+function ladeBelegung() {
+  BELEGUNG = {};
+  for (const h of HANDLUNGEN) BELEGUNG[h.id] = h.standard;
+  try {
+    const roh = localStorage.getItem(BELEG_KEY);
+    if (!roh) return;
+    const d = JSON.parse(roh);
+    for (const h of HANDLUNGEN)
+      if (typeof d[h.id] === "string" && d[h.id]) BELEGUNG[h.id] = d[h.id];
+  } catch (e) {}
+}
+
+function speichereBelegung() {
+  try { localStorage.setItem(BELEG_KEY, JSON.stringify(BELEGUNG)); } catch (e) {}
+}
+
+/* Welche Handlung gehoert zu dieser Taste? Gross- und Kleinschreibung sind
+   dabei egal, Sondertasten behalten ihren Namen. */
+function handlungFuer(key) {
+  for (const id in BELEGUNG) if (BELEGUNG[id] === key) return id;
+  return null;
+}
+
+/* Die vier Laufrichtungen aus der Belegung, plus die festen Zweitbelegungen. */
+function richtungFuer(key) {
+  const id = handlungFuer(key);
+  if (id && HANDLUNG_VON[id] && HANDLUNG_VON[id].richtung) return HANDLUNG_VON[id].richtung;
+  return FESTE_RICHTUNGEN[key] || null;
+}
+
+/* Diese bleiben immer belegt - sonst koennte man sich aussperren. */
+const FESTE_RICHTUNGEN = {
   ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
-  w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
-  k: [0, -1], j: [0, 1], h: [-1, 0], l: [1, 0],
-  y: [-1, -1], u: [1, -1], b: [-1, 1], n: [1, 1],
   1: [-1, 1], 2: [0, 1], 3: [1, 1], 4: [-1, 0], 6: [1, 0], 7: [-1, -1], 8: [0, -1], 9: [1, -1],
 };
+
+/* Wie eine Taste im Fenster geschrieben wird. */
+function tastenName(k) {
+  if (k === " ") return "Leer";
+  if (k === "Escape") return "Esc";
+  if (k === "Enter") return "⏎";
+  if (k.startsWith("Arrow")) return { ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→" }[k];
+  return k.length === 1 ? k.toUpperCase() : k;
+}
+
+/* Die alte feste Tabelle bleibt als Rueckfallebene fuer Diagonalen und
+   die Vim-Tasten; die vier Hauptrichtungen kommen aus der Belegung. */
+const MOVES_FEST = {
+  y: [-1, -1], u: [1, -1], b: [-1, 1], n: [1, 1],
+};
+
+function laufRichtung(key) {
+  if (typeof key !== "string") return undefined;
+  const r = richtungFuer(key);
+  if (r) return r;
+  // Wer eine Taste bewusst auf etwas anderes gelegt hat, will damit nicht laufen -
+  // sonst schluckte die Vim-Diagonale auf b jede Neubelegung.
+  if (handlungFuer(key)) return undefined;
+  return MOVES_FEST[key];
+}
+
+const MOVES = new Proxy({}, {
+  get(_, key) { return laufRichtung(key); },
+  has(_, key) { return !!laufRichtung(key); },
+});
+
 
 window.addEventListener("keyup", ev => {
   const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
@@ -8408,7 +8906,9 @@ window.addEventListener("keydown", ev => {
       act(() => useAbility(dx, dy));
       ev.preventDefault(); return;
     }
-    if (key === "Escape" || key === "f") { cancelAim(); ev.preventDefault(); return; }
+    if (key === "Escape" || handlungFuer(key) === "faehig") {
+      cancelAim(); ev.preventDefault(); return;
+    }
     return;
   }
 
@@ -8429,17 +8929,23 @@ window.addEventListener("keydown", ev => {
 
   travel = null;
   chase = null;
-  if (key !== "r") resting = 0;
+  if (handlungFuer(key) !== "rasten") resting = 0;
 
   if (MOVES[key]) {
     gedrueckt.add(key);
     ev.preventDefault(); return;
   }
 
-  switch (key) {
-    case " ": case ".": case "5":
+  /* Ab hier zaehlt nicht mehr die Taste, sondern die Handlung dahinter -
+     so laesst sich alles frei belegen, ohne den Verteiler anzufassen. */
+  const tat = handlungFuer(key) ||
+              (key === "." || key === "5" ? "warten" : null) ||
+              (key === "e" ? "beutel" : null);
+
+  switch (tat) {
+    case "warten":
       act(() => true); ev.preventDefault(); break;
-    case "r": {
+    case "rasten": {
       if (G.player.hp >= playerMaxHp()) { log("Du bist bereits ausgeruht.", "system"); break; }
       if (G.actors.some(a => !a.isPlayer && a.alive && seesTile(kachelX(a), kachelY(a)))) {
         log("Nicht, solange dich etwas ansieht.", "system"); break;
@@ -8451,22 +8957,22 @@ window.addEventListener("keydown", ev => {
       log("Du setzt dich ans Feuer deiner Fackel. Jede geheilte Wunde kostet Öl.", "system");
       break;
     }
-    case "Enter": durchschreite(); break;
-    case "m": {
+    case "schleier": durchschreite(); break;
+    case "ton": {
       Sfx.setAn(!Sfx.an);
       if (Sfx.an) Sfx.spiel("aufheben");
       log(Sfx.an ? "Ton an." : "Ton aus.", "system");
       refreshUI();
       break;
     }
-    case "f": beginAbility(); break;
-    case "g": act(() => pickUp()); break;
-    case "i": case "e": showBag(); break;
-    case "q": showQuestLog(); break;
-    case "c": showCharacter(); break;
-    case ">": act(() => takeStairs()); break;
-    case "?": showHelp(); break;
-    case "Escape": showMenu(); break;
+    case "faehig": beginAbility(); break;
+    case "aufheben": act(() => pickUp()); break;
+    case "beutel": showBag(); break;
+    case "auftrag": showQuestLog(); break;
+    case "held": showCharacter(); break;
+    case "treppe": act(() => takeStairs()); break;
+    case "hilfe": showHelp(); break;
+    case "menue": showMenu(); break;
   }
 });
 
@@ -8654,6 +9160,7 @@ function loop(now) {
 /* ══════════════════════════════════════════════════════════════ Start */
 META = ladeMeta();
 Sfx.ladeEinstellung();
+ladeBelegung();
 logEl = $("log");
 setupCanvas();
 window.addEventListener("resize", setupCanvas);
