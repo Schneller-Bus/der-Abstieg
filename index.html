@@ -316,6 +316,32 @@ body {
 
 .meter + .meter { margin-top: 7px; }
 
+.flammenreihe {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: -2px 0 10px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--stone-600);
+}
+
+.flammenstufe { cursor: pointer; letter-spacing: .04em; }
+.flammenstufe:hover { color: var(--vellum-dim); }
+.flammenstufe.an { text-shadow: 0 0 8px currentColor; }
+
+.flammenwort {
+  margin-left: 6px;
+  font-family: var(--rubric);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--vellum-faint);
+}
+
+.meter.finster { margin-bottom: 10px; }
+.fill.finster { background: linear-gradient(90deg, #3A2560, #8A5ECC); }
+
 .stat-row {
   display: flex;
   justify-content: space-between;
@@ -930,7 +956,9 @@ body {
       <section>
         <h2 class="rubric"><span>Vitalität</span><span id="levelTag">Stufe I</span></h2>
         <div class="meter"><i class="fill hp" id="hpFill"></i><div class="value" id="hpText">45 / 45</div></div>
-        <div class="meter"><i class="fill oil" id="oilFill"></i><div class="value" id="oilText">100 / 100 Öl</div></div>
+        <div class="meter"><i class="fill oil" id="oilFill"></i><div class="value" id="oilText">120 / 120 Öl</div></div>
+        <div class="flammenreihe" id="flammenReihe"></div>
+        <div class="meter finster" id="finsterMeter" hidden><i class="fill finster" id="finsterFill"></i><div class="value" id="finsterText">Finsternis</div></div>
         <div class="meter"><i class="fill xp" id="xpFill"></i><div class="value" id="xpText">0 / 150</div></div>
         <div class="stat-row"><span>Angriff</span><b id="statAtk">5</b></div>
         <div class="stat-row"><span>Schutz</span><b id="statDef">2</b></div>
@@ -1001,8 +1029,9 @@ const FOV_RADIUS = 10.5;
 // Wie weit die Fackel trägt, hängt am Ölstand - deshalb kein fester Wert.
 let fovR = FOV_RADIUS;
 function fovFromOil(oil) {
-  if (oil <= 0) return 2.6;
-  return 4.8 + (FOV_RADIUS - 4.8) * Math.min(1, oil / 60);
+  if (oil <= 0) return 2.2;
+  const grund = 4.8 + (FOV_RADIUS - 4.8) * Math.min(1, oil / 60);
+  return Math.max(2.6, grund * flamme().sicht);
 }
 const MAX_FLOOR = 10;
 const REGEN_INTERVAL = 8;
@@ -1045,12 +1074,70 @@ const STUN_TIME = 1.3;        // Sekunden Betäubung
 const CONFUSE_STEP = 0.9;     // Sekunden je Runde Verwirrung
 
 /* Fackelöl: das Licht ist deine Uhr. */
-const OIL_MAX = 100;
+const OIL_MAX = 120;
 // Der "Volle Krug" hebt die Kapazität - deshalb keine feste Zahl mehr.
 const oilCap = () => (G && G.player && G.player.oilMax) || OIL_MAX;
-const OIL_PER_STEPS = 4;    // eine Einheit je vier Runden Bewegung
-const OIL_PER_REST = 4;     // eine Einheit je vier Runden Rast (= 1 Leben)
-const BRAZIER_REFILL = 30;
+const OIL_PER_STEPS = 4;    // Bezugsgroesse: bei 4 brennt die Flamme normal
+const OIL_PER_REST = 4;     // eine Einheit je vier Runden Rast
+const BRAZIER_REFILL = 26;  // vier bis sechs je Etage - zusammen gut eine Fuellung
+
+/* Wie viel Öl ein Verwaltungstakt bei normaler Flamme kostet. Vorher tropfte
+   eine Einheit alle 3,6 Sekunden - eine Fuellung reichte damit fuer sechs
+   Minuten und war nie eine Entscheidung. Jetzt ist eine volle Fackel gut
+   zwei Minuten normales Licht wert, und die Stufe der Flamme entscheidet. */
+const OIL_JE_TAKT = 1.75;
+
+/* == Die Flamme als Regler ===============================================
+   Drei Stufen, jederzeit umschaltbar. Sie kosten unterschiedlich viel Öl und
+   verschieben, was du siehst - und was dich sieht. Gedrosselt bist du fast
+   blind, aber auch fast unsichtbar; aufgedreht siehst du Fallen von weitem
+   und lichtscheues Getier haelt Abstand, aber die Fackel frisst sich auf. */
+const FLAMMEN = {
+  gedrosselt: {
+    name: "gedrosselt", zeichen: "▁", farbe: "#8A6E4A",
+    verbrauch: .30, sicht: .48, entdecken: .6, bemerkt: .5,
+    text: "kaum Licht, kaum Verbrauch — und sie bemerken dich viel später",
+  },
+  normal: {
+    name: "normal", zeichen: "▄", farbe: "#E8A94B",
+    verbrauch: 1, sicht: 1, entdecken: 1, bemerkt: 1,
+    text: "der gewohnte Schein",
+  },
+  hoch: {
+    name: "aufgedreht", zeichen: "█", farbe: "#FFE0A0",
+    verbrauch: 3, sicht: 1.5, entdecken: 2.2, bemerkt: 1.3,
+    text: "weites Licht, Fallen zeigen sich von weitem, Lichtscheues weicht — dreifacher Verbrauch",
+  },
+};
+
+const FLAMMEN_FOLGE = ["gedrosselt", "normal", "hoch"];
+
+function flamme() {
+  return FLAMMEN[(G && G.player && G.player.flamme) || "normal"] || FLAMMEN.normal;
+}
+
+/* Wie viel Öl dieser Takt kostet. Die Talente wirken ueber oilSteps weiter:
+   ein hoeherer Wert bedeutet eine sparsamere Flamme. */
+function verbrauchProTakt() {
+  const p = G.player;
+  const stufen = Math.max(1, (p.oilSteps || OIL_PER_STEPS) + equipBonus("oilSteps"));
+  return OIL_JE_TAKT * (OIL_PER_STEPS / stufen) * flamme().verbrauch;
+}
+
+function dreheFlamme(richtung) {
+  const p = G.player;
+  const i = FLAMMEN_FOLGE.indexOf(p.flamme || "normal");
+  const neu = FLAMMEN_FOLGE[Math.max(0, Math.min(2, i + richtung))];
+  if (neu === p.flamme) return false;
+  p.flamme = neu;
+  const f = FLAMMEN[neu];
+  Sfx.spiel(richtung > 0 ? "oel" : "schale");
+  log(`Du drehst die Fackel ${richtung > 0 ? "auf" : "herunter"} — ${f.text}.`, "system");
+  ring(p.x, p.y, richtung > 0 ? 2.2 : 1.2, f.farbe);
+  updateFov();
+  refreshUI();
+  return true;
+}
 
 const C = {
   stone950: "#14110E",
@@ -1651,7 +1738,7 @@ const MONSTERS = {
              art: "skeleton", body: "#E8E2CC", dark: "#8B8574", size: 1.04, eye: "#FF9A5A" },
   orc:     { name: "Ork", g: "m",             hp: 66, def: 2, atk: 9,  xp: 72,  ai: "melee", hieb: 1.15,
              art: "orc",      body: "#5E9A56", dark: "#2F5A2C", size: 1.10, eye: "#FFD07A" },
-  spawn:   { name: "Schattenbrut", g: "f",    hp: 30, def: 0, atk: 8,  xp: 32,  ai: "melee", hieb: .85,
+  spawn:   { name: "Schattenbrut", g: "f",    hp: 30, def: 0, atk: 8,  xp: 32,  ai: "melee", hieb: .85, lichtscheu: true,
              art: "wisp",     body: "#8A61C4", dark: "#3A2560", size: 1.00, eye: "#E4BCFF",
              glow: "#8A5ECC", float: true },
   cultist: { name: "Kultist", g: "m",         hp: 50, def: 2, atk: 7,  xp: 100,  ai: "ranged", hieb: 1.1,
@@ -1662,7 +1749,7 @@ const MONSTERS = {
   golem:   { name: "Steingolem", g: "m",      hp: 180, def: 6, atk: 16, xp: 250, ai: "melee", hieb: 1.8,
              art: "golem",    body: "#968B7A", dark: "#463F36", size: 1.24, eye: "#FFB454",
              glow: "#E8A94B" },
-  wraith:  { name: "Grabwicht", g: "m",       hp: 180, def: 4, atk: 15, xp: 300, ai: "melee", hieb: 1.05,
+  wraith:  { name: "Grabwicht", g: "m",       hp: 180, def: 4, atk: 15, xp: 300, ai: "melee", hieb: 1.05, lichtscheu: true,
              art: "wraith",   body: "#8AA8CE", dark: "#33455C", size: 1.14, eye: "#BFE4FF",
              glow: "#7FB0DE", float: true },
   boss:    { name: "Der Namenlose", g: "m",   hp: 950, def: 7, atk: 21, xp: 1800, ai: "boss", hieb: 1.25,
@@ -1822,7 +1909,7 @@ const MONSTER_TABLE = {
 };
 
 const ITEM_TABLE = {
-  1: [["potion", 40], ["oil", 34], ["dagger", 8], ["leather", 8]],
+  1: [["potion", 34], ["oil", 46], ["dagger", 8], ["leather", 8]],
   2: [["confusion", 12], ["chart", 8], ["sword", 10]],
   3: [["lightning", 16], ["poison", 12], ["might", 10], ["chain", 10]],
   4: [["fireball", 16], ["blink", 10], ["ward", 10]],
@@ -3079,7 +3166,7 @@ function entdeckeFallen() {
   for (const f of G.traps) {
     if (f.entdeckt) continue;
     if (!G.map.visible[idx(f.x, f.y)]) continue;
-    if (Math.hypot(mitte(f.x) - p.x, mitte(f.y) - p.y) > 2.6) continue;
+    if (Math.hypot(mitte(f.x) - p.x, mitte(f.y) - p.y) > 2.6 * flamme().entdecken) continue;
     f.entdeckt = true;
     if (f.scharf) {
       log(`Du erkennst eine ${FALLEN[f.art].name} im Boden.`, "system");
@@ -3254,7 +3341,7 @@ function entdeckeGeheimnisse() {
   const p = G.player;
   for (const g of G.secrets) {
     if (g.entdeckt || g.offen) continue;
-    if (Math.hypot(mitte(g.x) - p.x, mitte(g.y) - p.y) > 1.8) continue;
+    if (Math.hypot(mitte(g.x) - p.x, mitte(g.y) - p.y) > 1.8 * flamme().entdecken) continue;
     g.entdeckt = true;
     log("Ein Riss im Mauerwerk — dahinter klingt es hohl.", "alert");
     Sfx.spiel("entdeckt");
@@ -3321,6 +3408,7 @@ function populateFloor(floor) {
   G.traps = [];
   G.secrets = [];
   G.saeulen = {};
+  G.player.finsternis = 0;      // eine neue Etage beginnt im Reinen
 
   // Zonenmitten können nachträglich zu Lava geworden sein - Mitte neu wählen.
   for (const zone of zones) {
@@ -3517,6 +3605,8 @@ function updateFov() {
   G.map.visible.fill(0);
   const p = G.player;
   fovR = fovFromOil(p.oil) + (p.oil > 0 ? (p.fovBonus || 0) + equipBonus("fovBonus") : 0);
+  // Die Finsternis drueckt den Schein zusammen, je mehr sich davon gesammelt hat
+  if (p.finsternis > 0) fovR = Math.max(1.4, fovR * (1 - (p.finsternis / 100) * .34));
   const px = kachelX(p), py = kachelY(p);
   G.map.visible[idx(px, py)] = 1;
   for (const [xx, xy, yx, yy] of OCTANTS)
@@ -4430,7 +4520,7 @@ function actorTurn(a) {
   const sicht = seesTile(kachelX(a), kachelY(a)) &&
                 lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
   if (!a.wach) {
-    if (sicht && dist <= AGGRO_RANGE) {
+    if (sicht && dist <= AGGRO_RANGE * flamme().bemerkt) {
       a.wach = true;
       a.kite = KITE_BUDGET;
     } else return;
@@ -4794,6 +4884,86 @@ function summon(a) {
 /* ════════════════════════════════════════════════════════════ Rundenlauf */
 /* Verwaltungstakt: alles, was früher "je Runde" passierte.
    Läuft jetzt auf der Uhr, unabhängig davon, was der Spieler tut. */
+/* == Die Finsternis ======================================================
+   Ohne Licht bleibt es nicht beim kleineren Kreis. Wer im Dunkeln steht,
+   sammelt Finsternis an - erst fluestert es nur, dann kriecht etwas aus den
+   Waenden, und irgendwann frisst das Dunkel selbst an dir. Licht ist damit
+   kein Komfort mehr, sondern Schutz. */
+const FINSTER_SCHWELLEN = { fluestern: 25, brut: 55, zehrt: 80 };
+
+const FLUESTERN = [
+  "Etwas atmet neben dir aus.",
+  "Ein Schritt, der nicht deiner ist, hält kurz inne.",
+  "Die Finsternis hat Gewicht bekommen.",
+  "Für einen Moment weißt du nicht mehr, wo oben ist.",
+  "Etwas streift dich, wo nichts sein sollte.",
+];
+
+function tickFinsternis() {
+  const p = G.player;
+  const vorher = p.finsternis || 0;
+
+  // Fuenf je Takt: rund zehn Sekunden, bis etwas aus dem Dunkel kommt, und
+  // vierzehn, bis es frisst - genug, um zu einer Schale zu laufen.
+  if (p.oil <= 0) p.finsternis = Math.min(100, vorher + 5);
+  else p.finsternis = Math.max(0, vorher - 12);
+
+  const f = p.finsternis;
+  if (f <= 0) { if (vorher > 0) refreshUI(); return; }
+
+  if (f >= FINSTER_SCHWELLEN.fluestern && vorher < FINSTER_SCHWELLEN.fluestern)
+    banner("Die Finsternis sammelt sich", "Such Licht, ehe sie dich findet", "bad");
+
+  if (f >= FINSTER_SCHWELLEN.fluestern && rng() < .35)
+    log(FLUESTERN[Math.floor(rng() * FLUESTERN.length)], "bad");
+
+  // Ab der zweiten Schwelle kriecht Brut aus den Waenden
+  if (f >= FINSTER_SCHWELLEN.brut) {
+    const ausDemDunkeln = G.actors.filter(a => a.ausFinsternis && a.alive).length;
+    if (ausDemDunkeln < 4 && rng() < .5) {
+      for (let versuch = 0; versuch < 25; versuch++) {
+        const w = rng() * 6.283;
+        const r = 3.5 + rng() * 3;
+        const tx = Math.round(p.x + Math.cos(w) * r);
+        const ty = Math.round(p.y + Math.sin(w) * r);
+        if (!isWalkable(tx, ty) || actorAt(tx, ty)) continue;
+        const m = makeMonster("spawn", tx, ty);
+        m.wach = true;
+        m.ausFinsternis = true;
+        G.actors.push(m);
+        burst(mitte(tx), mitte(ty), "#3A2560", 18);
+        Sfx.spiel("elite");
+        log("Etwas löst sich aus dem Dunkel.", "bad");
+        break;
+      }
+    }
+  }
+
+  // Ab der dritten frisst sie an dir
+  if (f >= FINSTER_SCHWELLEN.zehrt) {
+    const wucht = 2 + Math.floor((f - FINSTER_SCHWELLEN.zehrt) / 6);
+    anim.shake = Math.max(anim.shake, 6);
+    log("Die Finsternis frisst an dir.", "bad");
+    damage(p, wucht, null);
+  }
+  refreshUI();
+}
+
+/* Aufgedrehtes Licht versengt, was das Dunkel gewohnt ist. */
+function tickLichtscheu() {
+  if (flamme().name !== "aufgedreht") return;
+  const p = G.player;
+  for (const a of G.actors) {
+    if (a.isPlayer || !a.alive || !a.spec.lichtscheu) continue;
+    if (Math.hypot(a.x - p.x, a.y - p.y) > 3.4) continue;
+    damage(a, 3 + Math.floor(G.floor * .4), p);
+    if (a.alive) {
+      a.flash = 1;
+      burst(a.x, a.y, "#FFE0A0", 8);
+    }
+  }
+}
+
 function upkeep() {
   const p = G.player;
   G.turns++;
@@ -4812,20 +4982,24 @@ function upkeep() {
   }
 
   // Öl brennt weiter, ob du dich bewegst oder ausruhst.
-  p.oilTick++;
   if (resting > 0) {
-    // Ein Leben je Takt - die Rechnung bleibt 1 Öl je 1 Leben, es dauert nur
-    // nicht mehr ewig. Vorher waren 40 Leben über eine halbe Minute Stillstand.
+    // Rasten kostet Öl statt Zeit: zwei Leben je Einheit. Eine volle Heilung
+    // frisst damit rund die halbe Fackel - eine echte Abwaegung.
     p.oilTick = 0;
     if (p.oil > 0) {
       burnOil(1);
-      const healed = healActor(p, 1 + (p.restHeal || 0));
+      const healed = healActor(p, 2 + (p.restHeal || 0));
       if (healed) floatText(p.x, p.y, "+" + healed, "rgba(124,180,150,.75)");
     }
   } else {
-    if (p.oilTick >= (p.oilSteps || OIL_PER_STEPS) + equipBonus("oilSteps")) {
-      p.oilTick = 0; burnOil(1);
-    }
+    // Bruchteile aufsummieren, damit die Flammenstufe stufenlos wirkt
+    p.oilTick = (p.oilTick || 0) + verbrauchProTakt();
+    let schutz = 0;
+    while (p.oilTick >= 1 && schutz++ < 12) { p.oilTick -= 1; burnOil(1); }
+    tickFinsternis();
+    tickLichtscheu();
+    if (!p.alive) return;
+
     // Ohne Licht erholst du dich nur halb so schnell.
     const interval = p.oil > 0 ? REGEN_INTERVAL : REGEN_INTERVAL * 2;
     if (G.turns % interval === 0) {
@@ -4905,7 +5079,11 @@ function lenke(a, dt) {
     }
     zx = a.wirr[0]; zy = a.wirr[1];
   } else if (a.wach) {
-    if (a.ai === "ranged" && dist < (a.spec.keep || 4) && a.kite > 0) {
+    /* Lichtscheues Getier weicht dem hellen Schein aus - man kann sich damit
+       Luft verschaffen, zahlt sie aber mit Öl. */
+    if (a.spec.lichtscheu && flamme().name === "aufgedreht" && dist < 3.6) {
+      zx = a.x - p.x; zy = a.y - p.y;
+    } else if (a.ai === "ranged" && dist < (a.spec.keep || 4) && a.kite > 0) {
       a.kite -= dt;                            // Rückzug ist begrenzt
       zx = a.x - p.x; zy = a.y - p.y;          // Abstand halten
     } else if (dist > (a.ai === "ranged" ? (a.spec.keep || 4) : MONSTER_REACH * .9)) {
@@ -5443,6 +5621,27 @@ function drawFrame(dt) {
 
     if (a.isPlayer) drawHero(ctx, x, y, light, anim.t, a);
     else drawCreature(ctx, x, y, a.spec, light, anim.t + a.bob, a);
+  }
+
+  /* --- Die Finsternis kriecht von den Raendern herein --- */
+  const finster = (G.player.finsternis || 0) / 100;
+  if (finster > 0) {
+    const vx = (G.player.x - camX) * TILE, vy = (G.player.y - camY) * TILE;
+    const weit = Math.hypot(VIEW_W, VIEW_H) * TILE * .6;
+    const dunkel = ctx.createRadialGradient(vx, vy, weit * (.26 - finster * .21),
+                                            vx, vy, weit * (.95 - finster * .35));
+    dunkel.addColorStop(0, "rgba(0,0,0,0)");
+    dunkel.addColorStop(.55, `rgba(10,4,16,${(finster * .5).toFixed(3)})`);
+    dunkel.addColorStop(1, `rgba(4,2,7,${(.45 + finster * .55).toFixed(3)})`);
+    ctx.fillStyle = dunkel;
+    ctx.fillRect(0, 0, VIEW_W * TILE, VIEW_H * TILE);
+    // Ganz dicht dran zuckt das Bild
+    if (finster > .8) {
+      ctx.globalAlpha = (finster - .8) * (.5 + Math.sin(anim.t * 23) * .5) * .5;
+      ctx.fillStyle = "#1A0A24";
+      ctx.fillRect(0, 0, VIEW_W * TILE, VIEW_H * TILE);
+      ctx.globalAlpha = 1;
+    }
   }
 
   /* --- Fackelschein als Farbschicht --- */
@@ -7431,6 +7630,34 @@ function refreshUI() {
   $("oilText").textContent = p.oil > 0 ? `${p.oil} / ${oilCap()} Öl` : "Fackel erloschen";
   $("oilFill").parentElement.classList.toggle("out", p.oil <= 0);
 
+  // Die drei Stufen der Flamme, die gewählte hervorgehoben
+  const stufe = p.flamme || "normal";
+  $("flammenReihe").innerHTML = FLAMMEN_FOLGE.map(k => {
+    const f = FLAMMEN[k];
+    const an = k === stufe;
+    return `<span class="flammenstufe${an ? " an" : ""}" data-stufe="${k}"
+      title="${escapeHtml(f.text)}" style="${an ? `color:${f.farbe}` : ""}">${f.zeichen}</span>`;
+  }).join("") + `<span class="flammenwort">${escapeHtml(FLAMMEN[stufe].name)}</span>`;
+  $("flammenReihe").querySelectorAll("[data-stufe]").forEach(el => {
+    el.onclick = () => {
+      const i = FLAMMEN_FOLGE.indexOf(el.dataset.stufe);
+      const jetzt = FLAMMEN_FOLGE.indexOf(p.flamme || "normal");
+      if (i !== jetzt) dreheFlamme(i > jetzt ? 1 : -1);
+    };
+  });
+
+  // Die Finsternis zeigt sich erst, wenn sie da ist
+  const finster = p.finsternis || 0;
+  $("finsterMeter").hidden = finster <= 0;
+  if (finster > 0) {
+    $("finsterFill").style.width = Math.min(100, finster) + "%";
+    $("finsterText").textContent = finster >= FINSTER_SCHWELLEN.zehrt
+      ? "Sie frisst an dir"
+      : finster >= FINSTER_SCHWELLEN.brut
+        ? "Etwas kommt aus dem Dunkel"
+        : "Finsternis";
+  }
+
   const need = xpNeeded();
   $("xpFill").style.width = Math.min(100, (p.xp / need) * 100) + "%";
   $("xpText").textContent = `${p.xp} / ${need} Erfahrung`;
@@ -8121,6 +8348,7 @@ function showHelp() {
     ["Linke Maustaste", "zuschlagen, wohin der Zeiger zeigt"],
     ["Rechte Maustaste", "dorthin laufen · auf einen Gegner: verfolgen"],
     [t("faehig"), "Fähigkeit deiner Klasse"],
+    [`${t("flammeRunter")} / ${t("flammeHoch")}`, "Fackel herunter- und aufdrehen"],
     [t("warten"), "kurz innehalten"],
     [t("rasten"), "rasten — heilt Leben, kostet Öl"],
     [t("aufheben"), "aufheben · Kiste öffnen · Riss aufbrechen"],
@@ -8564,6 +8792,7 @@ function serialize() {
       x: G.player.x, y: G.player.y, hp: G.player.hp, level: G.player.level, xp: G.player.xp,
       baseAtk: G.player.baseAtk, baseDef: G.player.baseDef, baseMaxHp: G.player.baseMaxHp,
       oil: G.player.oil, oilMax: G.player.oilMax, oilTick: G.player.oilTick,
+      flamme: G.player.flamme, finsternis: G.player.finsternis,
       revive: G.player.revive,
       cls: G.player.cls, ability: G.player.ability, passiv: G.player.passiv,
       abilityCd: G.player.abilityCd,
@@ -8647,6 +8876,8 @@ function loadGame() {
         (CLASSES[data.player.cls] ? CLASSES[data.player.cls].passiv : "standhaft"),
       wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0,
       abilityCd: data.player.abilityCd || 0,
+      flamme: data.player.flamme || "normal",
+      finsternis: data.player.finsternis || 0,
       oilSteps: data.player.oilSteps || 4,
       fovBonus: data.player.fovBonus || 0,
       scrollPower: data.player.scrollPower || 1,
@@ -8709,6 +8940,7 @@ function freshState() {
     hp: 45, baseMaxHp: 45, baseAtk: 3, baseDef: 1,
     level: 1, xp: 0, alive: true,
     oil: OIL_MAX, oilMax: OIL_MAX, oilTick: 0, revive: 0,
+    flamme: "normal", finsternis: 0,
     facing: [0, 1], nextSwing: 0, radius: R_PLAYER,
     cls: "krieger", ability: "wall", passiv: "standhaft", abilityCd: 0,
     wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0,
@@ -8746,6 +8978,7 @@ function startNewGame(clsId) {
     wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0,
     baseMaxHp: cls.hp, hp: cls.hp,
     baseAtk: cls.atk, baseDef: cls.def,
+    flamme: "normal", finsternis: 0, oilTick: 0,
     oilSteps: cls.oilSteps, fovBonus: cls.fovBonus, scrollPower: cls.scrollPower,
     crit: cls.crit || 0, evade: cls.evade || 0,
     speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
@@ -8794,6 +9027,8 @@ const HANDLUNGEN = [
   { id: "links",    name: "Links",             standard: "a", art: "gehen", richtung: [-1, 0] },
   { id: "rechts",   name: "Rechts",            standard: "d", art: "gehen", richtung: [1, 0] },
   { id: "faehig",   name: "Fähigkeit",         standard: "f" },
+  { id: "flammeRunter", name: "Fackel herunterdrehen", standard: "x" },
+  { id: "flammeHoch",   name: "Fackel aufdrehen",      standard: "v" },
   { id: "aufheben", name: "Aufheben, öffnen",  standard: "g" },
   { id: "beutel",   name: "Beutel",            standard: "i" },
   { id: "rasten",   name: "Rasten",            standard: "r" },
@@ -8966,6 +9201,8 @@ window.addEventListener("keydown", ev => {
       break;
     }
     case "faehig": beginAbility(); break;
+    case "flammeRunter": dreheFlamme(-1); break;
+    case "flammeHoch": dreheFlamme(1); break;
     case "aufheben": act(() => pickUp()); break;
     case "beutel": showBag(); break;
     case "auftrag": showQuestLog(); break;
