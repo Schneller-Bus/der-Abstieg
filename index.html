@@ -1002,6 +1002,11 @@ const SWING_TIME = 0.36;      // Abklingzeit eines Schlags
 const MONSTER_STEP = 0.28;
 const AGGRO_RANGE = 8.5;      // ab hier bemerkt dich ein Gegner
 const KITE_BUDGET = 1.1;      // Sekunden, die ein Schütze zurückweichen darf
+/* Schuetzen handelten bisher im Monstertakt - also rund dreieinhalb Schuesse
+   je Sekunde, ohne Pause und ohne Vorwarnung. Jetzt legen sie erst an und
+   muessen danach nachladen. Wer waehrend des Anlegens in Deckung geht,
+   bricht den Schuss ab - damit werden Saeulen und Ecken zu Werkzeugen. */
+const ZIEL_ZEIT = .55;        // Sekunden, die ein Schütze anlegt
 const UPKEEP = 0.9;           // Sekunden je Verwaltungstakt
 const STUN_TIME = 1.3;        // Sekunden Betäubung
 const CONFUSE_STEP = 0.9;     // Sekunden je Runde Verwirrung
@@ -1059,6 +1064,7 @@ const Sfx = {
     this.an = an;
     try { localStorage.setItem("der-abstieg-ton", an ? "1" : "0"); } catch (e) {}
     if (this.master) this.master.gain.value = an ? this.laut : 0;
+    if (an && this.bettWunsch && !this.bett) this.kulisse(this.bettWunsch);
   },
 
   ladeEinstellung() {
@@ -1106,11 +1112,194 @@ const Sfx = {
     s.start(t); s.stop(t + dauer + .02);
   },
 
+
+  /* == Klangteppich ======================================================
+     Jede Tiefe bekommt ein eigenes Grundrauschen: ein paar tiefe Toene, eine
+     Rauschschicht und gelegentliche Einzelgeraeusche. Alles zur Laufzeit
+     erzeugt, keine Datei. Haengt am selben Regler wie der Rest, verstummt
+     also mit M. */
+  bett: null, bettWunsch: null, bettName: null,
+
+  kulisse(name) {
+    this.bettWunsch = name;
+    this.init();
+    if (!this.ctx) return;
+    if (this.bettName === name && this.bett) return;
+    this.stoppeKulisse();
+    if (this.ctx.state === "suspended") this.ctx.resume();
+    this.starteKulisse();
+  },
+
+  stoppeKulisse() {
+    if (!this.bett) return;
+    const b = this.bett;
+    this.bett = null;
+    this.bettName = null;
+    try {
+      clearInterval(b.uhr);
+      const t = this.jetzt();
+      b.gain.gain.cancelScheduledValues(t);
+      b.gain.gain.setValueAtTime(b.gain.gain.value, t);
+      b.gain.gain.linearRampToValueAtTime(0, t + 1.2);
+      for (const k of b.knoten) { try { k.stop(t + 1.3); } catch (e) {} }
+      setTimeout(() => { try { b.gain.disconnect(); } catch (e) {} }, 1600);
+    } catch (e) {}
+  },
+
+  starteKulisse() {
+    const name = this.bettWunsch;
+    if (!this.ctx || !name) return;
+    const t = this.jetzt();
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.connect(this.master);
+    const knoten = [];
+
+    // Ein tiefer Ton mit eigenem Filter
+    const brummen = (f, form, pegel, filter) => {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = filter;
+      o.type = form;
+      o.frequency.value = f;
+      g.gain.value = pegel;
+      o.connect(lp); lp.connect(g); g.connect(gain);
+      o.start(t); knoten.push(o);
+      return o;
+    };
+
+    // Eine Rauschschicht, endlos geschleift
+    const wehen = (mitte, güte, pegel) => {
+      const q = this.ctx.createBufferSource();
+      q.buffer = this.rausch;
+      q.loop = true;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = mitte;
+      bp.Q.value = güte;
+      const g = this.ctx.createGain();
+      g.gain.value = pegel;
+      q.connect(bp); bp.connect(g); g.connect(gain);
+      q.start(t); knoten.push(q);
+      return bp;
+    };
+
+    // Ein langsames Atmen auf einem Wert
+    const pendeln = (ziel, tempo, tiefe) => {
+      const l = this.ctx.createOscillator();
+      const lg = this.ctx.createGain();
+      l.frequency.value = tempo;
+      lg.gain.value = tiefe;
+      l.connect(lg); lg.connect(ziel);
+      l.start(t); knoten.push(l);
+    };
+
+    let stimme, laut = .13;
+    if (name === "cave") {
+      brummen(41, "sine", .50, 160);
+      brummen(61.5, "sine", .22, 220);
+      const bp = wehen(420, .8, .16);
+      pendeln(bp.frequency, .07, 190);
+      stimme = ["tropfen", "atem"];
+      laut = .15;
+    } else if (name === "forge") {
+      brummen(34, "sawtooth", .30, 90);
+      brummen(51, "sine", .28, 130);
+      const bp = wehen(210, .5, .26);
+      pendeln(bp.frequency, .11, 120);
+      stimme = ["knistern", "grollen"];
+      laut = .16;
+    } else if (name === "arena" || name === "cycle") {
+      // Zwei Toene dicht beieinander - sie schweben gegeneinander
+      brummen(55, "sine", .42, 150);
+      brummen(58.3, "sine", .34, 150);
+      brummen(110, "triangle", .10, 300);
+      wehen(900, 1.6, .05);
+      stimme = ["glocke", "atem"];
+      laut = .17;
+    } else {
+      brummen(48, "sine", .44, 170);
+      brummen(72, "sine", .18, 240);
+      const bp = wehen(650, 1.2, .09);
+      pendeln(bp.frequency, .05, 260);
+      stimme = ["tropfen", "hall"];
+      laut = .13;
+    }
+
+    gain.gain.linearRampToValueAtTime(laut, t + 2.4);
+
+    // Einzelgeraeusche in unregelmaessigen Abstaenden
+    const uhr = setInterval(() => {
+      if (!this.an || !this.bett || this.ctx.state === "suspended") return;
+      if (Math.random() > .34) return;
+      this.einwurf(stimme[Math.floor(Math.random() * stimme.length)], gain);
+    }, 2600);
+
+    this.bett = { gain, knoten, uhr };
+    this.bettName = name;
+  },
+
+  /* Ein einzelnes Geraeusch aus der Kulisse - leiser als alles im Vordergrund. */
+  einwurf(art, ziel) {
+    const t = this.jetzt() + Math.random() * 1.4;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    const f = this.ctx.createBiquadFilter();
+    f.type = "lowpass";
+    f.frequency.value = 3000;
+    o.connect(f); f.connect(g); g.connect(ziel);
+
+    if (art === "tropfen") {
+      o.type = "sine";
+      o.frequency.setValueAtTime(1400 + Math.random() * 700, t);
+      o.frequency.exponentialRampToValueAtTime(420, t + .13);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.35, t + .006);
+      g.gain.exponentialRampToValueAtTime(.0008, t + .30);
+      o.start(t); o.stop(t + .34);
+    } else if (art === "glocke") {
+      o.type = "sine";
+      o.frequency.value = 146 + Math.random() * 8;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.30, t + .04);
+      g.gain.exponentialRampToValueAtTime(.0008, t + 3.4);
+      o.start(t); o.stop(t + 3.6);
+    } else if (art === "grollen") {
+      o.type = "sine";
+      o.frequency.setValueAtTime(70, t);
+      o.frequency.exponentialRampToValueAtTime(28, t + 1.9);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.42, t + .5);
+      g.gain.exponentialRampToValueAtTime(.0008, t + 2.2);
+      o.start(t); o.stop(t + 2.4);
+    } else {
+      // atem, hall, knistern: gefiltertes Rauschen statt eines Tons
+      try { o.stop(t); } catch (e) {}
+      const q = this.ctx.createBufferSource();
+      q.buffer = this.rausch;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = art === "knistern" ? 2600 : 520;
+      bp.Q.value = art === "knistern" ? 3 : 1.1;
+      const gg = this.ctx.createGain();
+      const dauer = art === "knistern" ? .22 : 2.1;
+      gg.gain.setValueAtTime(0, t);
+      gg.gain.linearRampToValueAtTime(art === "knistern" ? .30 : .17, t + dauer * .35);
+      gg.gain.exponentialRampToValueAtTime(.0008, t + dauer);
+      q.connect(bp); bp.connect(gg); gg.connect(ziel);
+      q.start(t); q.stop(t + dauer + .05);
+    }
+  },
+
   spiel(name) {
     if (!this.an) return;
     this.init();
     if (!this.ctx) return;
     if (this.ctx.state === "suspended") this.ctx.resume();
+    // Der Klangteppich braucht eine Nutzergeste - hier ist sie
+    if (this.bettWunsch && !this.bett) this.starteKulisse();
     // Gleiches Geräusch nicht mehrfach im selben Augenblick
     const t = this.ctx.currentTime;
     if (this.letzte[name] && t - this.letzte[name] < .035) return;
@@ -1166,6 +1355,22 @@ const Sfx = {
       case "feuer":
         this.krach(.44, { pegel: .34, filter: 900, nach: 90, güte: .5 });
         this.ton(90, .40, { form: "sawtooth", pegel: .18, nach: 40 });
+        break;
+      case "falle":
+        this.krach(.20, { pegel: .40, filter: 900, nach: 240, güte: .7 });
+        this.ton(150, .14, { form: "square", pegel: .16, nach: 70 });
+        break;
+      case "saeule":
+        this.krach(.55, { pegel: .46, filter: 380, nach: 90, güte: .5 });
+        this.ton(62, .60, { form: "sine", pegel: .26, nach: 34 });
+        break;
+      case "entdeckt":
+        this.ton(660, .10, { form: "triangle", pegel: .11 });
+        this.ton(990, .14, { form: "triangle", pegel: .09, start: .07 });
+        break;
+      case "anlegen":
+        this.ton(190, .30, { form: "sawtooth", pegel: .055, nach: 420, ab: .05 });
+        this.krach(.06, { pegel: .07, filter: 2600, nach: 1200, güte: 3 });
         break;
       case "stoss":
         this.krach(.16, { pegel: .34, filter: 500, nach: 140, güte: .6 });
@@ -1312,7 +1517,7 @@ const MONSTERS = {
   goblin:  { name: "Goblin", g: "m",          hp: 10, def: 0, atk: 4,  xp: 32,  ai: "melee",
              art: "goblin",   body: "#7CB868", dark: "#3E6636", size: 1.02, eye: "#FFE9A0" },
   archer:  { name: "Skelettschütze", g: "m",  hp: 12, def: 0, atk: 3,  xp: 55,  ai: "ranged",
-             ratk: 4, range: 6, keep: 4,
+             ratk: 4, range: 5.5, keep: 3.5, nachladen: 1.1,
              art: "skeleton", body: "#E8E2CC", dark: "#8B8574", size: 1.04, eye: "#FF9A5A" },
   orc:     { name: "Ork", g: "m",             hp: 16, def: 0, atk: 5,  xp: 55,  ai: "melee",
              art: "orc",      body: "#5E9A56", dark: "#2F5A2C", size: 1.10, eye: "#FFD07A" },
@@ -1320,7 +1525,7 @@ const MONSTERS = {
              art: "wisp",     body: "#8A61C4", dark: "#3A2560", size: 1.00, eye: "#E4BCFF",
              glow: "#8A5ECC", float: true },
   cultist: { name: "Kultist", g: "m",         hp: 14, def: 1, atk: 4,  xp: 80,  ai: "ranged",
-             ratk: 6, range: 7, keep: 5,
+             ratk: 6, range: 6, keep: 4, nachladen: 1.5,
              art: "robe",     body: "#A8446A", dark: "#48182B", size: 1.12, eye: "#FF8AA6" },
   troll:   { name: "Höhlentroll", g: "m",     hp: 26, def: 1, atk: 7,  xp: 130, ai: "melee",
              art: "troll",    body: "#548A4C", dark: "#26401F", size: 1.26, eye: "#FFD07A" },
@@ -1751,6 +1956,7 @@ function bewege(a, dx, dy) {
   // eine Wand drueckt, kommt nicht voran - und rudert dann auch nicht mit den
   // Beinen. Die Zeit des letzten Schritts sagt spaeter, ob die Figur laeuft.
   if (bewegt) {
+    if (kachelX(a) !== Math.floor(vx) || kachelY(a) !== Math.floor(vy)) pruefeFalle(a);
     const weit = Math.hypot(a.x - vx, a.y - vy);
     a.gang = (a.gang || 0) + weit * 6.4;
     a.schrittZeit = G.time;
@@ -2617,11 +2823,240 @@ function stelleNamentlichen(map, zones, floor, eliteEtage, startX, startY) {
   return null;
 }
 
+/* == Die Hoehle als Mitspieler ===========================================
+   Fallen liegen versteckt, bis man nahe genug herankommt. Sie unterscheiden
+   nicht zwischen Freund und Feind - wer einen Gegner darueber lockt, hat sie
+   fuer sich arbeiten lassen. Ausgeloest wird beim Betreten der Kachel. */
+const FALLEN = {
+  dorn:  { name: "Dornenfalle", farbe: "#B9A277", radius: 0,
+           text: "Eiserne Zähne schnappen aus dem Boden." },
+  gas:   { name: "Gasfalle", farbe: "#7CB868", radius: 1.6,
+           text: "Ein grüner Schwaden zischt aus den Fugen." },
+  sturz: { name: "Steinschlag", farbe: "#968B7A", radius: 1.9,
+           text: "Die Decke gibt nach und begräbt alles darunter." },
+};
+
+function stelleFallen(map, zones, floor) {
+  G.traps = [];
+  if (floor < 2) return;                 // die erste Etage bleibt gnaedig
+  const anzahl = 2 + Math.min(4, Math.floor(floor / 2)) + (rng() < .5 ? 1 : 0);
+  const arten = Object.keys(FALLEN);
+  const pool = zones.slice(1);
+  if (!pool.length) return;
+
+  for (let k = 0; k < anzahl; k++) {
+    for (let versuch = 0; versuch < 25; versuch++) {
+      const zone = pool[Math.floor(rng() * pool.length)];
+      const felder = zone.tiles.filter(([x, y]) =>
+        map.tiles[idx(x, y)] === FLOOR &&
+        !actorAt(x, y) &&
+        !G.chests.some(c => c.x === x && c.y === y) &&
+        !G.braziers.some(b => b.x === x && b.y === y) &&
+        !G.ground.some(i => i.x === x && i.y === y) &&
+        !G.traps.some(f => f.x === x && f.y === y) &&
+        Math.hypot(mitte(x) - G.player.x, mitte(y) - G.player.y) > 6);
+      if (!felder.length) continue;
+      const [x, y] = felder[Math.floor(rng() * felder.length)];
+      G.traps.push({
+        x, y, art: arten[Math.floor(rng() * arten.length)],
+        scharf: true, entdeckt: false,
+      });
+      break;
+    }
+  }
+}
+
+/* Wer nah genug herankommt und hinsieht, erkennt die Bodenspur. */
+function entdeckeFallen() {
+  const p = G.player;
+  for (const f of G.traps) {
+    if (f.entdeckt) continue;
+    if (!G.map.visible[idx(f.x, f.y)]) continue;
+    if (Math.hypot(mitte(f.x) - p.x, mitte(f.y) - p.y) > 2.6) continue;
+    f.entdeckt = true;
+    if (f.scharf) {
+      log(`Du erkennst eine ${FALLEN[f.art].name} im Boden.`, "system");
+      Sfx.spiel("entdeckt");
+    }
+  }
+}
+
+/* Betreten loest aus - fuer jeden, der darauf tritt. */
+function pruefeFalle(a) {
+  if (!G.traps || !G.traps.length || !a.alive) return;
+  const tx = kachelX(a), ty = kachelY(a);
+  for (const f of G.traps) {
+    if (!f.scharf || f.x !== tx || f.y !== ty) continue;
+    f.scharf = false;
+    f.entdeckt = true;
+    loeseFalleAus(f, a);
+    return;
+  }
+}
+
+function loeseFalleAus(f, ausloeser) {
+  const def = FALLEN[f.art];
+  const wucht = 4 + Math.floor(G.floor * .8);
+  const mx = mitte(f.x), my = mitte(f.y);
+
+  Sfx.spiel(f.art === "gas" ? "gift" : "falle");
+  anim.shake = f.art === "sturz" ? 14 : 7;
+  burst(mx, my, def.farbe, f.art === "dorn" ? 16 : 26);
+  if (def.radius) ring(mx, my, def.radius, def.farbe);
+
+  if (ausloeser.isPlayer || G.map.visible[idx(f.x, f.y)])
+    log(`${def.text}${ausloeser.isPlayer ? "" : ` ${nameOf(ausloeser)} tritt hinein.`}`,
+        ausloeser.isPlayer ? "bad" : "good");
+
+  // Flaechige Fallen erwischen alles im Umkreis, auch den Ausloeser
+  const opfer = def.radius
+    ? G.actors.filter(z => z.alive && Math.hypot(z.x - mx, z.y - my) <= def.radius)
+    : [ausloeser];
+  for (const z of opfer) {
+    if (f.art === "gas") { addStatus(z, "Gift", 5, 2); z.flash = 1; }
+    else damage(z, f.art === "sturz" ? wucht + 3 : wucht, null);
+  }
+  refreshUI();
+}
+
+/* == Geheimkammern hinter rissigem Mauerwerk ==============================
+   Gegraben wird ausschliesslich in massiven Fels, und der Zugang bleibt
+   Wand, bis man ihn aufbricht - die Etage kann dadurch nicht zerfallen. */
+function stelleGeheimkammern(map, zones, floor) {
+  G.secrets = [];
+  if (floor < 2 || rng() > .55) return;
+
+  for (let versuch = 0; versuch < 400; versuch++) {
+    const x = 2 + Math.floor(rng() * (MAP_W - 4));
+    const y = 2 + Math.floor(rng() * (MAP_H - 4));
+    if (map.tiles[idx(x, y)] !== WALL) continue;
+
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      // Davor begehbarer Boden, dahinter massiver Fels
+      const vx = x - dx, vy = y - dy;
+      if (!inBounds(vx, vy) || map.tiles[idx(vx, vy)] !== FLOOR) continue;
+
+      const kammer = [];
+      let fest = true;
+      for (let i = 1; i <= 2 && fest; i++)
+        for (let q = -1; q <= 1; q++) {
+          const kx = x + dx * i + (dy ? q : 0);
+          const ky = y + dy * i + (dx ? q : 0);
+          if (kx < 1 || ky < 1 || kx >= MAP_W - 1 || ky >= MAP_H - 1) { fest = false; break; }
+          if (map.tiles[idx(kx, ky)] !== WALL) { fest = false; break; }
+          kammer.push([kx, ky]);
+        }
+      if (!fest || kammer.length < 6) continue;
+
+      /* Der Block muss ringsum im Fels liegen - sonst haengt die Kammer schon
+         woanders am Gang und das Aufbrechen waere sinnlos. Geprueft wird
+         achtfach, weil die Bewegung auch diagonal laeuft. */
+      const drin = new Set(kammer.map(([kx, ky]) => idx(kx, ky)));
+      let dicht = true;
+      for (const [kx, ky] of kammer) {
+        for (let oy = -1; oy <= 1 && dicht; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            if (!ox && !oy) continue;
+            const nx2 = kx + ox, ny2 = ky + oy;
+            if (!inBounds(nx2, ny2)) { dicht = false; break; }
+            const j = idx(nx2, ny2);
+            if (drin.has(j) || (nx2 === x && ny2 === y)) continue;
+            if (map.tiles[j] !== WALL) { dicht = false; break; }
+          }
+        if (!dicht) break;
+      }
+      if (!dicht) continue;
+
+      for (const [kx, ky] of kammer) map.tiles[idx(kx, ky)] = FLOOR;
+      G.secrets.push({ x, y, entdeckt: false, offen: false });
+
+      // Der Lohn: eine gut gefuellte Kiste, tief im Fels
+      const [bx, by] = kammer[kammer.length - 2] || kammer[0];
+      const chancen = chancesFor(ITEM_TABLE, floor);
+      if (chancen.length) {
+        const beute = [];
+        for (let i = 0; i < 3; i++) {
+          const gebaut = rollItem(weighted(chancen), floor, .45);
+          beute.push({ id: gebaut.id, ax: gebaut.ax || null });
+        }
+        G.chests.push({ x: bx, y: by, opened: false, loot: beute, geheim: true });
+      }
+      return;
+    }
+  }
+}
+
+function entdeckeGeheimnisse() {
+  const p = G.player;
+  for (const g of G.secrets) {
+    if (g.entdeckt || g.offen) continue;
+    if (Math.hypot(mitte(g.x) - p.x, mitte(g.y) - p.y) > 1.8) continue;
+    g.entdeckt = true;
+    log("Ein Riss im Mauerwerk — dahinter klingt es hohl.", "alert");
+    Sfx.spiel("entdeckt");
+  }
+}
+
+function geheimnisInReichweite() {
+  const p = G.player;
+  return G.secrets.find(g => g.entdeckt && !g.offen &&
+    Math.hypot(mitte(g.x) - p.x, mitte(g.y) - p.y) < 1.8);
+}
+
+function brichDurch(g) {
+  G.map.tiles[idx(g.x, g.y)] = FLOOR;
+  g.offen = true;
+  Sfx.spiel("saeule");
+  anim.shake = 10;
+  burst(mitte(g.x), mitte(g.y), "#93805F", 24);
+  log("Das Mauerwerk gibt nach. Dahinter liegt eine Kammer.", "good");
+  banner("Eine verborgene Kammer", "Der Riss war kein Zufall", "good");
+  updateFov();
+}
+
+/* == Saeulen, die nachgeben ===============================================
+   Drei Treffer, dann stuerzt sie und begraebt, was daneben steht. Aus einer
+   Saeule wird Boden - der Weg kann dadurch nur breiter werden, nie enger. */
+function schlageSaeule(tx, ty) {
+  const i = idx(tx, ty);
+  if (!G.saeulen) G.saeulen = {};
+  const uebrig = (G.saeulen[i] === undefined ? 3 : G.saeulen[i]) - 1;
+  G.saeulen[i] = uebrig;
+  Sfx.spiel(uebrig > 0 ? "abgeprallt" : "saeule");
+  burst(mitte(tx), mitte(ty), "#93805F", uebrig > 0 ? 8 : 26);
+
+  if (uebrig > 0) {
+    log(uebrig === 2 ? "Die Säule bekommt einen Riss." : "Die Säule wankt.",
+        uebrig === 2 ? "system" : "alert");
+    anim.shake = 5;
+    return;
+  }
+
+  G.map.tiles[i] = FLOOR;
+  delete G.saeulen[i];
+  anim.shake = 16;
+  ring(mitte(tx), mitte(ty), 2, "#93805F");
+  log("Die Säule stürzt.", "alert");
+  const wucht = 6 + Math.floor(G.floor * .9);
+  for (const z of G.actors) {
+    if (!z.alive) continue;
+    if (Math.hypot(z.x - mitte(tx), z.y - mitte(ty)) > 1.5) continue;
+    damage(z, z.isPlayer ? Math.round(wucht * .6) : wucht, null);
+  }
+  updateFov();
+  refreshUI();
+}
+
 function populateFloor(floor) {
   const { map, zones, arena } = generateFloor(floor);
   G.map = map;
   G.actors = [G.player];
   G.ground = [];
+  // Alles Etagengebundene zuruecksetzen, sonst wirken Fallen und angeschlagene
+  // Saeulen der vorigen Etage auf den neuen Kacheln weiter.
+  G.traps = [];
+  G.secrets = [];
+  G.saeulen = {};
 
   // Zonenmitten können nachträglich zu Lava geworden sein - Mitte neu wählen.
   for (const zone of zones) {
@@ -2725,6 +3160,7 @@ function populateFloor(floor) {
   }
 
   stelleKisten(map, zones, floor, kistenExtra);
+  Sfx.kulisse(theme().gen);
 
   // Namentliche kommen zuletzt: erst wenn Treppe und Boss stehen, laesst sich
   // pruefen, ob ihr Bossraum den Weg dorthin abschneiden wuerde.
@@ -2742,6 +3178,11 @@ function populateFloor(floor) {
 
   // Die Bosskammer wird zuletzt gebaut und mauert oder verschleiert dabei
   // gelegentlich eine Kiste ein. Die kommt hier wieder ans Licht.
+  /* Erst jetzt, ganz am Schluss: die Bosskammer wird in den Fels geschlagen
+     und wuerde eine frueher angelegte Geheimkammer wieder aufgraben. */
+  stelleGeheimkammern(map, zones, floor);
+  stelleFallen(map, zones, floor);
+
   rettteKisten(map);
 
   updateFov();
@@ -3169,6 +3610,9 @@ function schleierWarnung() {
     }
     setHint("⏎ Enter — durch den Schleier treten · es gibt kein Zurück");
     G.veilHint = true;
+  } else if (G.secrets && geheimnisInReichweite() && !modalOpen) {
+    setHint("G — den Riss aufbrechen");
+    G.veilHint = true;
   } else if (G.chests && kisteInReichweite() && !modalOpen) {
     setHint("G — Kiste öffnen");
     G.veilHint = true;
@@ -3270,6 +3714,8 @@ function attack(attacker, target) {
 function pickUp() {
   const here = itemsAt(kachelX(G.player), kachelY(G.player));
   if (!here.length) {
+    const riss = geheimnisInReichweite();
+    if (riss) { brichDurch(riss); return false; }
     if (oeffneKiste()) return false;     // Kiste oeffnen kostet keine Runde
     log("Hier liegt nichts.", "system");
     return false;
@@ -3650,9 +4096,25 @@ function actorTurn(a) {
   }
 
   if (a.ai === "ranged") {
-    if (dist <= MONSTER_REACH) { strike(a, p); return; }
-    if (dist <= a.spec.range && lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p))) {
+    if (dist <= MONSTER_REACH) { a.zielt = 0; strike(a, p); return; }
+    a.nachlad = Math.max(0, (a.nachlad || 0) - takt);
+
+    const bahn = dist <= a.spec.range &&
+                 lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
+
+    // Legt an: steht still, und die Deckung des Spielers zaehlt wirklich
+    if (a.zielt > 0) {
+      if (!bahn) {
+        a.zielt = 0;
+        a.nachlad = (a.spec.nachladen || 1.6) * .5;
+        log(`${a.spec.name} verliert dich aus dem Visier.`, "system");
+        return;
+      }
+      a.zielt -= takt;
+      if (a.zielt > 0) return;
+
       bolt(a.x, a.y, p.x, p.y, a.spec.body);
+      a.nachlad = a.spec.nachladen || 1.6;
       if (playerDodges(a, p)) return;
       const [dmg, crit] = resolveDamage(a.spec.ratk + statusMag(a, "Stärke"), playerDef());
       if (dmg > 0) {
@@ -3661,6 +4123,10 @@ function actorTurn(a) {
       } else log(`${a.spec.name} schießt daneben.`, "foe");
       return;
     }
+
+    // Nachgeladen und freie Bahn: erst anlegen, nicht sofort feuern
+    if (bahn && a.nachlad <= 0) { a.zielt = ZIEL_ZEIT; Sfx.spiel("anlegen"); return; }
+    if (bahn) return;              // laedt nach und haelt dabei die Stellung
     return;
   }
 
@@ -3808,6 +4274,9 @@ function tickWorld(dt) {
     if (!p.alive) return;
   }
 
+  entdeckeFallen();
+  entdeckeGeheimnisse();
+
   // Stufenlose Bewegung jedes Wesens
   for (const a of G.actors) {
     if (a.isPlayer || !a.alive) continue;
@@ -3939,7 +4408,21 @@ function schwingen(dx, dy) {
   // Die Dauer folgt dem Schlagtakt, damit Bild und Regel zusammenpassen.
   p.hieb = { fx, fy, life: 1, dauer: SWING_TIME * (p.swingHaste || 1) };
 
+  // Saeulen im Bogen geben nach - wer sie einreisst, aendert die Karte
+  let saeule = null;
+  for (let ty = kachelY(p) - 2; ty <= kachelY(p) + 2 && !saeule; ty++)
+    for (let tx = kachelX(p) - 2; tx <= kachelX(p) + 2; tx++) {
+      if (!inBounds(tx, ty) || G.map.tiles[idx(tx, ty)] !== PILLAR) continue;
+      const sx = mitte(tx) - p.x, sy = mitte(ty) - p.y;
+      const d = Math.hypot(sx, sy);
+      if (d > reichweite + .55) continue;
+      let ab = Math.abs(Math.atan2(sy, sx) - winkel);
+      if (ab > Math.PI) ab = Math.PI * 2 - ab;
+      if (ab <= ARC / 2 || d < .95) { saeule = [tx, ty]; break; }
+    }
+
   if (!getroffen.length) {
+    if (saeule) { schlageSaeule(saeule[0], saeule[1]); logBreak(); refreshUI(); return; }
     Sfx.spiel("abgeprallt");
     logBreak();
     refreshUI();
@@ -4246,10 +4729,27 @@ function drawFrame(dt) {
     drawBrazier(x, y, !!G.map.visible[i], anim.t + (b.x * 7 + b.y * 13) % 10, !!b.used);
   }
 
+  /* --- Entdeckte Fallen und Risse im Mauerwerk --- */
+  for (const f of (G.traps || [])) {
+    if (!f.entdeckt || !G.map.explored[idx(f.x, f.y)]) continue;
+    const x = (f.x - camX) * TILE, y = (f.y - camY) * TILE;
+    if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
+    drawFalle(x, y, f, !!G.map.visible[idx(f.x, f.y)]);
+  }
+
+  for (const g of (G.secrets || [])) {
+    if (!g.entdeckt || g.offen) continue;
+    if (!G.map.explored[idx(g.x, g.y)]) continue;
+    const x = (g.x - camX) * TILE, y = (g.y - camY) * TILE;
+    if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
+    drawRiss(x, y);
+  }
+
   /* --- Kisten --- */
   for (const c of (G.chests || [])) {
     const i = idx(c.x, c.y);
     if (!G.map.explored[i]) continue;
+    if (c.geheim && !G.map.visible[i]) continue;
     const vis = !!G.map.visible[i];
     const x = (c.x - camX) * TILE, y = (c.y - camY) * TILE;
     if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
@@ -4339,6 +4839,33 @@ function drawFrame(dt) {
   glow.addColorStop(1, `rgba(${gc},0)`);
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, VIEW_W * TILE, VIEW_H * TILE);
+
+  /* --- Schützen, die anlegen: der Faden wird kurz vor dem Schuss hell --- */
+  for (const a of G.actors) {
+    if (!a.alive || !(a.zielt > 0) || a.isPlayer) continue;
+    if (!G.map.visible[idx(kachelX(a), kachelY(a))]) continue;
+    const fort = 1 - a.zielt / ZIEL_ZEIT;            // 0 beim Anlegen, 1 beim Schuss
+    const ax = (a.x - camX) * TILE, ay = (a.y - camY) * TILE;
+    const px2 = (G.player.x - camX) * TILE, py2 = (G.player.y - camY) * TILE;
+    ctx.save();
+    ctx.globalAlpha = .20 + fort * .55;
+    ctx.strokeStyle = a.spec.body;
+    ctx.lineWidth = 1 + fort * 1.6;
+    ctx.setLineDash([5, 7]);
+    ctx.lineDashOffset = -anim.t * 26;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(px2, py2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Ein Ring, der sich um den Schützen zusammenzieht
+    ctx.globalAlpha = .30 + fort * .45;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(ax, ay, TILE * (.9 - fort * .45), 0, 6.283);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   /* --- Der eigene Schlag: ein Bogen vor dem Helden --- */
   if (anim.swing) {
@@ -5749,6 +6276,98 @@ function drawBrazier(x, y, vis, t, used) {
   ctx.restore();
 }
 
+/* Eine entdeckte Falle: scharf leuchtet sie schwach, ausgeloest liegt sie tot da. */
+function drawFalle(x, y, f, sichtbar) {
+  const def = FALLEN[f.art];
+  const cx = x + TILE / 2, cy = y + TILE / 2;
+  const r = TILE * .34;
+  ctx.save();
+  ctx.globalAlpha = (sichtbar ? 1 : .45) * (f.scharf ? 1 : .40);
+
+  if (f.art === "dorn") {
+    // Ein Ring aus Zaehnen, der sich beim Auslosen geschlossen hat
+    ctx.strokeStyle = def.farbe;
+    ctx.lineWidth = 1.4;
+    for (let i = 0; i < 8; i++) {
+      const w = (i / 8) * 6.283;
+      const innen = f.scharf ? r * .55 : r * .18;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(w) * r, cy + Math.sin(w) * r);
+      ctx.lineTo(cx + Math.cos(w) * innen, cy + Math.sin(w) * innen);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 6.283);
+    ctx.globalAlpha *= .5;
+    ctx.stroke();
+  } else if (f.art === "gas") {
+    // Eine Platte mit Loechern
+    ctx.fillStyle = "#0C120E";
+    ctx.strokeStyle = def.farbe;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.rect(cx - r, cy - r * .8, r * 2, r * 1.6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = def.farbe;
+    for (let a = -1; a <= 1; a++)
+      for (let b = -1; b <= 1; b++) {
+        ctx.beginPath();
+        ctx.arc(cx + a * r * .55, cy + b * r * .45, 1.5, 0, 6.283);
+        ctx.fill();
+      }
+  } else {
+    // Risse im Boden, unter denen die Decke haengt
+    ctx.strokeStyle = def.farbe;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy - r * .6);
+    ctx.lineTo(cx - r * .2, cy + r * .1);
+    ctx.lineTo(cx + r * .3, cy - r * .35);
+    ctx.lineTo(cx + r, cy + r * .5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - r * .5, cy + r * .7);
+    ctx.lineTo(cx - r * .1, cy + r * .05);
+    ctx.stroke();
+  }
+
+  // Scharfe Fallen glimmen ganz leicht - genug, um sie zu sehen, wenn man hinsieht
+  if (f.scharf && sichtbar) {
+    ctx.globalAlpha = .12 + Math.sin(anim.t * 2.4) * .05;
+    const gl = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 1.6);
+    gl.addColorStop(0, def.farbe);
+    gl.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 1.6, 0, 6.283);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* Ein entdeckter Riss: die Wand steht noch, aber sie hat eine Naht. */
+function drawRiss(x, y) {
+  const cx = x + TILE / 2;
+  ctx.save();
+  ctx.strokeStyle = "#E8A94B";
+  ctx.globalAlpha = .38 + Math.sin(anim.t * 1.8) * .16;
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx - TILE * .18, y + TILE * .10);
+  ctx.lineTo(cx + TILE * .06, y + TILE * .36);
+  ctx.lineTo(cx - TILE * .10, y + TILE * .58);
+  ctx.lineTo(cx + TILE * .16, y + TILE * .88);
+  ctx.stroke();
+  ctx.globalAlpha *= .6;
+  ctx.beginPath();
+  ctx.moveTo(cx + TILE * .06, y + TILE * .36);
+  ctx.lineTo(cx + TILE * .30, y + TILE * .28);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /* Eine Truhe aus Holz mit Eisenbeschlag. Offen steht der Deckel hoch. */
 function drawChest(x, y, vis, light, offen, hatInhalt) {
   const k = TILE / 26;
@@ -7017,6 +7636,7 @@ function serialize() {
     quest: G.quest, questLog: G.questLog,
     won: G.won, endless: G.endless, siegRunden: G.siegRunden,
     braziers: G.braziers, decals: G.decals, chests: G.chests,
+    traps: G.traps, secrets: G.secrets, saeulen: G.saeulen,
     player: {
       x: G.player.x, y: G.player.y, hp: G.player.hp, level: G.player.level, xp: G.player.xp,
       baseAtk: G.player.baseAtk, baseDef: G.player.baseDef, baseMaxHp: G.player.baseMaxHp,
@@ -7067,6 +7687,9 @@ function loadGame() {
     G.questLog = data.questLog || [];
     G.braziers = data.braziers || [];
     G.chests = data.chests || [];
+    G.traps = data.traps || [];
+    G.secrets = data.secrets || [];
+    G.saeulen = data.saeulen || {};
     G.decals = data.decals || [];
     G.map = newMap();
     G.map.tiles.set(data.tiles);
@@ -7166,7 +7789,8 @@ function freshState() {
   };
   return {
     player, actors: [player], ground: [], map: newMap(),
-    braziers: [], decals: [], chests: [], quest: null, questLog: [],
+    braziers: [], decals: [], chests: [], traps: [], secrets: [], saeulen: {},
+    quest: null, questLog: [],
     time: 0, upkeepAt: 0,
     floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
     logEntries: [],
