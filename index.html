@@ -339,7 +339,8 @@ body {
   color: var(--vellum-faint);
 }
 
-.meter.finster { margin-bottom: 10px; }
+.meter.finster, .meter.laerm { margin-bottom: 10px; }
+.fill.laerm { background: linear-gradient(90deg, #6B5335, #E8A94B); }
 .fill.finster { background: linear-gradient(90deg, #3A2560, #8A5ECC); }
 
 .stat-row {
@@ -652,6 +653,10 @@ body {
   color: var(--vellum-faint);
 }
 
+.choice.gefahr .key { color: var(--madder-lit); }
+.choice.gefahr:hover { background: rgba(160,50,45,.10); }
+.choice.gefahr.scharf { background: rgba(160,50,45,.16); }
+
 .tastenknopf { min-width: 92px; text-align: center; }
 
 .tastenknopf.wartet {
@@ -696,6 +701,30 @@ body {
   flex-wrap: wrap;
   gap: 6px;
   margin: 6px 0 14px;
+}
+
+.linie {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 5px 0;
+}
+
+.linie .pfeil { color: var(--stone-600); font-size: 13px; }
+.talent.hat   { border-color: var(--torch-deep); color: var(--vellum); }
+.talent.offen { border-style: dashed; color: var(--vellum-faint); }
+.talent.zu    { opacity: .35; }
+
+.oeffnet {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--rubric);
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--verdigris);
 }
 
 .talent {
@@ -959,6 +988,7 @@ body {
         <div class="meter"><i class="fill oil" id="oilFill"></i><div class="value" id="oilText">120 / 120 Öl</div></div>
         <div class="flammenreihe" id="flammenReihe"></div>
         <div class="meter finster" id="finsterMeter" hidden><i class="fill finster" id="finsterFill"></i><div class="value" id="finsterText">Finsternis</div></div>
+        <div class="meter laerm" id="laermMeter" hidden><i class="fill laerm" id="laermFill"></i><div class="value" id="laermText">Lärm</div></div>
         <div class="meter"><i class="fill xp" id="xpFill"></i><div class="value" id="xpText">0 / 150</div></div>
         <div class="stat-row"><span>Angriff</span><b id="statAtk">5</b></div>
         <div class="stat-row"><span>Schutz</span><b id="statDef">2</b></div>
@@ -2001,11 +2031,11 @@ const ABILITIES = {
           "und wen du durchquerst, den lässt du blutend zurück.",
     hint: "Richtung wählen — Maus, Pfeile oder WASD",
   },
-  brand: {
-    name: "Aschebrand", cd: 9, aim: true, dauer: 6.5,
-    desc: "Setzt den Boden vor dir in Brand. Die Glut hält sechseinhalb Sekunden " +
-          "und frisst sich durch alles, was hineingerät — dich lässt sie in Ruhe.",
-    hint: "Richtung wählen — Maus, Pfeile oder WASD",
+  lanze: {
+    name: "Flammenlanze", cd: 7, aim: false, weite: 8.5, dauer: 3.2,
+    desc: "Eine Lanze aus Feuer, dorthin wo der Zeiger steht. Sie fährt durch " +
+          "alles hindurch, was auf der Bahn liegt, und lässt Glut zurück, die " +
+          "noch drei Sekunden brennt — dir tut sie nichts.",
   },
 };
 
@@ -2130,11 +2160,11 @@ const CLASSES = {
   magier: {
     name: "Magier", key: "m",
     line: "Zerbrechlich. Verbrennt lieber die Welt als sich.",
-    hp: 50, atk: 5, def: 1, ability: "brand", passiv: "zehrung",
+    hp: 50, atk: 5, def: 1, ability: "lanze", passiv: "zehrung",
     oilSteps: 4, fovBonus: .6, scrollPower: 1.4, crit: 0, evade: .05,
     kit: ["dagger", "potion", "potion", "lightning", "oil"],
     wear: { "Waffe": "dagger" },
-    note: "50 Leben · Aschebrand · Zehrung: jeder Kill gibt Öl zurück",
+    note: "50 Leben · Flammenlanze · Zehrung: jeder Kill gibt Öl zurück",
   },
 };
 
@@ -3166,7 +3196,8 @@ function entdeckeFallen() {
   for (const f of G.traps) {
     if (f.entdeckt) continue;
     if (!G.map.visible[idx(f.x, f.y)]) continue;
-    if (Math.hypot(mitte(f.x) - p.x, mitte(f.y) - p.y) > 2.6 * flamme().entdecken) continue;
+    if (Math.hypot(mitte(f.x) - p.x, mitte(f.y) - p.y) >
+        2.6 * flamme().entdecken * (hatPerk("spuersinn") ? 2 : 1)) continue;
     f.entdeckt = true;
     if (f.scharf) {
       log(`Du erkennst eine ${FALLEN[f.art].name} im Boden.`, "system");
@@ -3341,7 +3372,8 @@ function entdeckeGeheimnisse() {
   const p = G.player;
   for (const g of G.secrets) {
     if (g.entdeckt || g.offen) continue;
-    if (Math.hypot(mitte(g.x) - p.x, mitte(g.y) - p.y) > 1.8 * flamme().entdecken) continue;
+    if (Math.hypot(mitte(g.x) - p.x, mitte(g.y) - p.y) >
+        1.8 * flamme().entdecken * (hatPerk("spuersinn") ? 2 : 1)) continue;
     g.entdeckt = true;
     log("Ein Riss im Mauerwerk — dahinter klingt es hohl.", "alert");
     Sfx.spiel("entdeckt");
@@ -3409,6 +3441,9 @@ function populateFloor(floor) {
   G.secrets = [];
   G.saeulen = {};
   G.player.finsternis = 0;      // eine neue Etage beginnt im Reinen
+  G.player.laerm = 0;
+  G.stilleGenutzt = false;
+  G.stilleRast = false;
 
   // Zonenmitten können nachträglich zu Lava geworden sein - Mitte neu wählen.
   for (const zone of zones) {
@@ -3743,6 +3778,16 @@ function resolveDamage(atk, def, critChance) {
 
 function damage(target, amount, source) {
   if (target.isPlayer) {
+    // Abpraller: was kaum kratzt, kommt gar nicht erst durch
+    if (amount > 0 && amount <= 4 && hatPerk("abpraller")) {
+      floatText(target.x, target.y, "abgeprallt", "#C8CEDA");
+      Sfx.spiel("abgeprallt");
+      return;
+    }
+    // Unverwuestlich: je enger es wird, desto zaeher stehst du
+    if (amount > 0 && hatPerk("unverwuestlich") && target.hp <= playerMaxHp() / 4)
+      amount = Math.max(1, Math.round(amount * .67));
+
     // Schattenschritt: waehrend des Satzes geht nichts durch
     if (target.unverwundbar > G.time) {
       floatText(target.x, target.y, "verfehlt", "#9C7FE0");
@@ -3829,6 +3874,11 @@ function kill(target, source) {
       floatText(p.x, p.y - .5, `+${p.oil - vorher} Öl`, "#E8B65A");
       updateFov();
     }
+  }
+  // Widerhall: jeder Erschlagene bringt die Fähigkeit näher
+  if (p.abilityCd > 0 && hatPerk("widerhall") && (!source || source.isPlayer)) {
+    p.abilityCd = Math.max(0, p.abilityCd - 1);
+    refreshUI();
   }
   const zurueckGabe = (p.killHeal || 0) + equipBonus("killHeal");
   if (zurueckGabe && p.alive && (!source || source.isPlayer)) {
@@ -4087,6 +4137,11 @@ function playerDodges(attacker, target) {
   if (weichen <= 0 || rng() >= weichen) return false;
   attacker.lunge = { dx: target.x - attacker.x, dy: target.y - attacker.y, life: 1 };
   Sfx.spiel("ausgewichen");
+  // Nachbild: das Ausweichen laesst ein Trugbild zurueck
+  if (hatPerk("nachbild")) {
+    target.unverwundbar = Math.max(target.unverwundbar || 0, G.time + 1);
+    burst(target.x, target.y, "#7FD0E8", 12);
+  }
   log(`Du weichst ${attacker.spec.name} aus.`, "you");
   floatText(target.x, target.y, "ausgewichen", "#7FD0E8");
   return true;
@@ -4117,6 +4172,11 @@ function attack(attacker, target) {
       extra ? " Die Flammen fressen sich fest." : ""}`,
       attacker.isPlayer ? "you" : "foe");
     if (extra) burst(target.x, target.y, "#FF8A38", 8);
+    // Klingentanz: ein kritischer Treffer gibt den naechsten Schlag sofort frei
+    if (attacker.isPlayer && crit && hatPerk("klingentanz")) {
+      attacker.nextSwing = 0;
+      floatText(attacker.x, attacker.y - .5, "wieder bereit", "#F2E4C0");
+    }
     Sfx.spiel(target.isPlayer ? "wehgetan" : (crit ? "kritisch" : "treffer"));
     damage(target, dmg + extra, attacker);
     // Verseuchte Gegner geben ihr Gift beim Zuschlagen weiter
@@ -4422,23 +4482,62 @@ function useAbility(dx, dy) {
     return true;
   }
 
-  if (p.ability === "brand") {
-    /* Eine Glutzone vor dem Helden. Sie nutzt dieselbe Mechanik wie der
-       Feuerspeier, verschont aber den, der sie gelegt hat. */
-    const zx = Math.floor(p.x + dx * 2.1), zy = Math.floor(p.y + dy * 2.1);
-    if (!inBounds(zx, zy) || !WALKABLE[G.map.tiles[idx(zx, zy)]]) {
-      log("Dort ist kein Boden, der brennen könnte.", "system");
-      return false;
+  if (p.ability === "lanze") {
+    /* Der Magier hatte bisher keinen Fernangriff und spielte sich deshalb wie
+       ein schlechter Krieger. Die Lanze faehrt dorthin, wo der Zeiger steht,
+       durch alles hindurch - und legt Glut auf die Bahn, weil dort gerade
+       jemand stand. Kein zusaetzlicher Zielschritt: F feuert sofort. */
+    const l0 = Math.hypot(dx, dy);
+    const rx = l0 > .01 ? dx / l0 : p.facing[0];
+    const ry = l0 > .01 ? dy / l0 : p.facing[1];
+    if (!rx && !ry) { log("Zeig erst irgendwohin.", "system"); return false; }
+
+    // Bahn bis zur ersten Wand
+    let weit = 0;
+    while (weit < ab.weite) {
+      const nx = p.x + rx * (weit + .25), ny = p.y + ry * (weit + .25);
+      const tx = Math.floor(nx), ty = Math.floor(ny);
+      if (!inBounds(tx, ty) || !TRANSPARENT[G.map.tiles[idx(tx, ty)]]) break;
+      weit += .25;
     }
-    const staerke = Math.round((4 + p.level * 1.2) * (p.scrollPower || 1));
-    G.traps.push({
-      x: zx, y: zy, art: "feuer", scharf: false, entdeckt: true,
-      brenntBis: G.time + ab.dauer, eigen: true, wucht: staerke,
-    });
+    if (weit < .6) { log("Die Wand ist im Weg.", "system"); return false; }
+
+    const zx = p.x + rx * weit, zy = p.y + ry * weit;
+    const wucht = Math.round((7 + p.level * 2.2) * (p.scrollPower || 1));
+
     Sfx.spiel("feuer");
-    ring(mitte(zx), mitte(zy), 1.3, "#E8703A");
-    burst(mitte(zx), mitte(zy), "#FF9A40", 26);
-    log(`Der Boden vor dir fängt Feuer — ${staerke} Schaden je Takt.`, "alert");
+    anim.shake = 7;
+    anim.effects.push({ type: "lanze", x1: p.x, y1: p.y, x2: zx, y2: zy, life: 1 });
+
+    // Getroffen wird, wer nahe genug an der Bahn steht
+    let getroffen = 0;
+    for (const z of G.actors) {
+      if (z.isPlayer || !z.alive) continue;
+      const ax = z.x - p.x, ay = z.y - p.y;
+      const laengs = ax * rx + ay * ry;
+      if (laengs < -.4 || laengs > weit + .6) continue;
+      if (Math.abs(ax * ry - ay * rx) > .8) continue;
+      burst(z.x, z.y, "#FF9A40", 16);
+      damage(z, wucht, p);
+      getroffen++;
+    }
+
+    // Glut auf der Bahn - sie liegt jetzt genau dort, wo jemand stand
+    const schritte = Math.max(2, Math.round(weit / 2.2));
+    for (let k = 1; k <= schritte; k++) {
+      const t = weit * (k / schritte);
+      const gx = Math.floor(p.x + rx * t), gy = Math.floor(p.y + ry * t);
+      if (!inBounds(gx, gy) || !WALKABLE[G.map.tiles[idx(gx, gy)]]) continue;
+      if (G.traps.some(f => f.x === gx && f.y === gy && f.brenntBis > G.time)) continue;
+      G.traps.push({
+        x: gx, y: gy, art: "feuer", scharf: false, entdeckt: true,
+        brenntBis: G.time + ab.dauer, eigen: true, wucht: Math.round(wucht * .35),
+      });
+    }
+
+    log(getroffen
+      ? `Die Flammenlanze fährt durch ${getroffen} ${getroffen === 1 ? "Wesen" : "Wesen"} — ${wucht} Schaden.`
+      : "Die Flammenlanze verbrennt nur Luft.", getroffen ? "alert" : "you");
     p.abilityCd = ab.cd * (p.abilityHaste || 1);
     return true;
   }
@@ -4905,7 +5004,7 @@ function tickFinsternis() {
 
   // Fuenf je Takt: rund zehn Sekunden, bis etwas aus dem Dunkel kommt, und
   // vierzehn, bis es frisst - genug, um zu einer Schale zu laufen.
-  if (p.oil <= 0) p.finsternis = Math.min(100, vorher + 5);
+  if (p.oil <= 0) p.finsternis = Math.min(100, vorher + (hatPerk("kohle") ? 2.5 : 5));
   else p.finsternis = Math.max(0, vorher - 12);
 
   const f = p.finsternis;
@@ -4964,6 +5063,86 @@ function tickLichtscheu() {
   }
 }
 
+/* == Rasten kostet Aufmerksamkeit ========================================
+   Oel taugt nicht mehr als Preis: seit die Fackel schnell brennt, kostete
+   eine volle Heilung mehr Licht, als sie ueberhaupt fasst. Rasten war damit
+   tot. Der Preis ist jetzt Laerm - Feuer schueren, Wunden versorgen, sich
+   ausruhen macht Geraeusche, und die Tiefe hoert zu. Je laenger du sitzt,
+   desto mehr weiss die Etage, wo du bist. */
+const LAERM_JE_TAKT = 4.2;      // eine volle Rast reicht fuer rund sieben Sekunden
+const LAERM_SCHWELLEN = { gehoert: 35, kommt: 70, schluss: 100 };
+
+/* Was einmal gehoert wurde, ist nicht nach zehn Sekunden vergessen. Bei 1,4
+   je Takt braucht eine volle Rast rund eine Minute, bis wieder Ruhe ist -
+   lange genug, dass man Rasten planen muss statt es zu spammen. */
+function laermSinkt() {
+  const p = G.player;
+  G.stilleRast = false;          // wer aufsteht, beendet die stille Stunde
+  if (!p.laerm) return;
+  p.laerm = Math.max(0, p.laerm - 1.4);
+}
+
+/* Ein Takt Rast: heilen, Laerm machen, und schauen, wer zuhoert. */
+function rastTakt() {
+  const p = G.player;
+  const geheilt = healActor(p, 4 + (p.restHeal || 0) * 2);
+  if (geheilt) floatText(p.x, p.y, "+" + geheilt, "rgba(124,180,150,.75)");
+
+  // Stille Stunde: die erste Rast auf der Etage bleibt ungehoert
+  if (G.stilleRast) return true;
+
+  const vorher = p.laerm || 0;
+  p.laerm = Math.min(100, vorher + LAERM_JE_TAKT * (hatPerk("leise") ? .66 : 1));
+  const l = p.laerm;
+
+  // Erste Schwelle: die Etage wird wach
+  if (l >= LAERM_SCHWELLEN.gehoert && vorher < LAERM_SCHWELLEN.gehoert) {
+    let geweckt = 0;
+    for (const a of G.actors) {
+      if (a.isPlayer || !a.alive || a.wach) continue;
+      if (Math.hypot(a.x - p.x, a.y - p.y) > 14) continue;
+      a.wach = true;
+      a.kite = KITE_BUDGET;
+      geweckt++;
+    }
+    Sfx.spiel("nein");
+    log(geweckt
+      ? `Etwas hat dich gehört — ${geweckt} ${geweckt === 1 ? "Wesen setzt" : "Wesen setzen"} sich in Bewegung.`
+      : "Deine Rast hallt durch die Gänge.", "bad");
+  }
+
+  // Zweite Schwelle: etwas macht sich aus dem Dunkel auf den Weg
+  if (l >= LAERM_SCHWELLEN.kommt && vorher < LAERM_SCHWELLEN.kommt) {
+    const chancen = chancesFor(MONSTER_TABLE, G.floor);
+    if (chancen.length) {
+      for (let versuch = 0; versuch < 40; versuch++) {
+        const w = rng() * 6.283;
+        const r = 9 + rng() * 5;
+        const tx = Math.round(p.x + Math.cos(w) * r);
+        const ty = Math.round(p.y + Math.sin(w) * r);
+        if (!isWalkable(tx, ty) || actorAt(tx, ty)) continue;
+        if (G.map.visible[idx(tx, ty)]) continue;      // nicht vor deinen Augen
+        const m = makeMonster(weighted(chancen), tx, ty);
+        m.wach = true;
+        m.gelockt = true;
+        G.actors.push(m);
+        Sfx.spiel("elite");
+        log(`${m.spec.name} folgt dem Geräusch.`, "bad");
+        banner("Etwas kommt näher", "Deine Rast ist nicht unbemerkt geblieben", "bad");
+        break;
+      }
+    }
+  }
+
+  // Dritte Schwelle: hier ist Schluss
+  if (l >= LAERM_SCHWELLEN.schluss) {
+    resting = 0;
+    log("Du kannst nicht länger sitzen bleiben.", "bad");
+    return false;
+  }
+  return true;
+}
+
 function upkeep() {
   const p = G.player;
   G.turns++;
@@ -4982,20 +5161,20 @@ function upkeep() {
   }
 
   // Öl brennt weiter, ob du dich bewegst oder ausruhst.
+  /* Die Fackel brennt weiter, ob du gehst oder sitzt - das ist die Grunduhr.
+     Beim Rasten laeuft der Verwaltungstakt dreimal so schnell, damit die
+     Heilung fluessig wirkt; das Oel darf davon nichts merken und zaehlt
+     deshalb nach verstrichener Zeit, nicht nach Takten. */
+  const zeitanteil = resting > 0 ? 1 / 3 : 1;
+  p.oilTick = (p.oilTick || 0) + verbrauchProTakt() * zeitanteil;
+  let oelSchutz = 0;
+  while (p.oilTick >= 1 && oelSchutz++ < 12) { p.oilTick -= 1; burnOil(1); }
+
   if (resting > 0) {
-    // Rasten kostet Öl statt Zeit: zwei Leben je Einheit. Eine volle Heilung
-    // frisst damit rund die halbe Fackel - eine echte Abwaegung.
-    p.oilTick = 0;
-    if (p.oil > 0) {
-      burnOil(1);
-      const healed = healActor(p, 2 + (p.restHeal || 0));
-      if (healed) floatText(p.x, p.y, "+" + healed, "rgba(124,180,150,.75)");
-    }
+    // Rasten kostet kein Öl, sondern Aufmerksamkeit
+    rastTakt();
   } else {
-    // Bruchteile aufsummieren, damit die Flammenstufe stufenlos wirkt
-    p.oilTick = (p.oilTick || 0) + verbrauchProTakt();
-    let schutz = 0;
-    while (p.oilTick >= 1 && schutz++ < 12) { p.oilTick -= 1; burnOil(1); }
+    laermSinkt();
     tickFinsternis();
     tickLichtscheu();
     if (!p.alive) return;
@@ -7490,7 +7669,8 @@ function drawTargeting(camX, camY) {
 function drawEffects(dt, camX, camY) {
   for (let i = anim.effects.length - 1; i >= 0; i--) {
     const e = anim.effects[i];
-    e.life -= dt * (e.type === "text" ? 1.05 : e.type === "bolt" ? 4 : 1.6);
+    e.life -= dt * (e.type === "text" ? 1.05 : e.type === "bolt" ? 4
+                  : e.type === "lanze" ? 2.6 : 1.6);
     if (e.life <= 0) { anim.effects.splice(i, 1); continue; }
 
     if (e.type === "text") {
@@ -7515,6 +7695,25 @@ function drawEffects(dt, camX, camY) {
       ctx.fillStyle = e.color;
       const x = (e.x - camX + .5) * TILE, y = (e.y - camY + .5) * TILE;
       ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+      ctx.restore();
+    } else if (e.type === "lanze") {
+      // Ein breiter Balken mit weissem Kern - sie soll wuchtig aussehen
+      const x1 = (e.x1 - camX + .5) * TILE, y1 = (e.y1 - camY + .5) * TILE;
+      const x2 = (e.x2 - camX + .5) * TILE, y2 = (e.y2 - camY + .5) * TILE;
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.shadowColor = "#FF8A38";
+      ctx.shadowBlur = 20 * e.life;
+      for (const [breite, farbe, anteil] of
+           [[TILE * .72, "rgba(200,70,20,", .35], [TILE * .40, "rgba(255,150,60,", .7],
+            [TILE * .16, "rgba(255,240,200,", 1]]) {
+        ctx.strokeStyle = farbe + (e.life * anteil).toFixed(3) + ")";
+        ctx.lineWidth = breite * (.55 + e.life * .45);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
       ctx.restore();
     } else if (e.type === "bolt") {
       ctx.save();
@@ -7645,6 +7844,16 @@ function refreshUI() {
       if (i !== jetzt) dreheFlamme(i > jetzt ? 1 : -1);
     };
   });
+
+  // Der Lärm einer Rast - er verrät dich, lange bevor du ihn siehst
+  const laerm = p.laerm || 0;
+  $("laermMeter").hidden = laerm <= 0;
+  if (laerm > 0) {
+    $("laermFill").style.width = Math.min(100, laerm) + "%";
+    $("laermText").textContent = laerm >= LAERM_SCHWELLEN.kommt
+      ? "Etwas ist unterwegs"
+      : laerm >= LAERM_SCHWELLEN.gehoert ? "Sie haben dich gehört" : "Lärm";
+  }
 
   // Die Finsternis zeigt sich erst, wenn sie da ist
   const finster = p.finsternis || 0;
@@ -8066,11 +8275,27 @@ function showCharacter() {
     ["Amulett", p.equipped["Amulett"] ? p.equipped["Amulett"].def.name : "nichts"],
   ];
   // Talente in der Reihenfolge des Beutels, damit die Liste ruhig bleibt.
-  const meine = PERKS.filter(t => perkAnzahl(t.key) > 0);
-  const talente = meine.length
-    ? `<p class="sub" style="margin-top:14px">Talente</p><div class="talente">${meine.map(t =>
-        `<span class="talent" title="${escapeHtml(t.text)}">${escapeHtml(t.name)}${
-          perkAnzahl(t.key) > 1 ? ` <b>×${perkAnzahl(t.key)}</b>` : ""}</span>`).join("")}</div>`
+  // Talente als Linien: was steht, was als Nächstes offen ist
+  const wurzeln = PERKS.filter(t => !t.braucht && !t.fueller);
+  const linien = wurzeln.map(w => {
+    const kette = [w];
+    let k = w.key;
+    while (PERK_KINDER[k] && PERK_KINDER[k].length) {
+      k = PERK_KINDER[k][0];
+      kette.push(PERK_VON[k]);
+    }
+    if (!kette.some(t => hatPerk(t.key))) return "";
+    return `<div class="linie">${kette.map(t => {
+      const zustand = hatPerk(t.key) ? "hat"
+        : (!t.braucht || hatPerk(t.braucht)) ? "offen" : "zu";
+      return `<span class="talent ${zustand}" title="${escapeHtml(t.text)}">${
+        escapeHtml(t.name)}</span>`;
+    }).join('<span class="pfeil">›</span>')}</div>`;
+  }).filter(Boolean).join("");
+  const fueller = perkAnzahl("abhaertung");
+  const talente = linien || fueller
+    ? `<p class="sub" style="margin-top:14px">Talente</p>${linien}${
+        fueller ? `<div class="linie"><span class="talent hat">Abhärtung ×${fueller}</span></div>` : ""}`
     : "";
   openModal(`<h2>Der Held</h2><p class="sub">Wer hier unten steht, und womit.</p>
     <div class="grid2">${rows.map(([a, b]) =>
@@ -8350,7 +8575,7 @@ function showHelp() {
     [t("faehig"), "Fähigkeit deiner Klasse"],
     [`${t("flammeRunter")} / ${t("flammeHoch")}`, "Fackel herunter- und aufdrehen"],
     [t("warten"), "kurz innehalten"],
-    [t("rasten"), "rasten — heilt Leben, kostet Öl"],
+    [t("rasten"), "rasten — heilt schnell, macht aber Lärm"],
     [t("aufheben"), "aufheben · Kiste öffnen · Riss aufbrechen"],
     [t("beutel"), "Beutel — alles darin mit der Maus"],
     [t("auftrag"), "Aufträge"],
@@ -8377,101 +8602,143 @@ function showHelp() {
    gewicht - wie haeufig es ueberhaupt in die Auswahl geraet
    wenn - zusaetzliche Bedingung, damit kein sinnloser Handel angeboten wird */
 const PERKS = [
-  { key: "balg", name: "Zäher Balg", text: "+25 Leben, sofort aufgefüllt",
-    max: 99, gewicht: 10,
-    wirk: p => { p.baseMaxHp += 25; healActor(p, 25); } },
+  /* ── Leib ──────────────────────────────────────────────────────────── */
+  { key: "balg", name: "Zäher Balg", text: "+30 Leben, sofort aufgefüllt",
+    gewicht: 10,
+    wirk: p => { p.baseMaxHp += 30; healActor(p, 30); } },
+  { key: "narben", name: "Narbengewebe", braucht: "balg",
+    text: "+40 Leben und +1 Schutz — was verheilt, wird härter",
+    gewicht: 9,
+    wirk: p => { p.baseMaxHp += 40; p.baseDef += 1; healActor(p, 40); } },
+  { key: "unverwuestlich", name: "Unverwüstlich", braucht: "narben",
+    text: "Unter einem Viertel Leben nimmst du ein Drittel weniger Schaden",
+    gewicht: 8, wirk: () => {} },
 
-  { key: "staerke", name: "Rohe Stärke", text: "+2 Angriff",
-    max: 99, gewicht: 10,
-    wirk: p => { p.baseAtk += 2; } },
+  /* ── Angriff ───────────────────────────────────────────────────────── */
+  { key: "staerke", name: "Rohe Stärke", text: "+3 Angriff",
+    gewicht: 10,
+    wirk: p => { p.baseAtk += 3; } },
+  { key: "rausch", name: "Schlachtrausch", braucht: "staerke",
+    text: "+5 Angriff, dafür 2 Schutz weniger",
+    gewicht: 8,
+    wirk: p => { p.baseAtk += 5; p.baseDef = Math.max(0, p.baseDef - 2); } },
+  { key: "blutdurst", name: "Blutdurst", braucht: "rausch",
+    text: "Jeder Erschlagene gibt dir 7 Leben zurück",
+    gewicht: 8,
+    wirk: p => { p.killHeal = (p.killHeal || 0) + 7; } },
 
-  { key: "fell", name: "Dickes Fell", text: "+1 Schutz",
-    max: 99, gewicht: 9,
-    wirk: p => { p.baseDef += 1; } },
-
-  { key: "schnitt", name: "Windschnitt", text: "+10 % kritische Treffer",
-    max: 4, gewicht: 7,
-    wirk: p => { p.crit = (p.crit || 0) + .10; } },
-
-  { key: "katze", name: "Katzenhaft", text: "+8 % Ausweichen",
-    max: 4, gewicht: 7,
-    wirk: p => { p.evade = (p.evade || 0) + .08; } },
-
-  { key: "aas", name: "Aasfresser", text: "Jeder Erschlagene gibt dir 4 Leben zurück",
-    max: 3, gewicht: 7,
-    wirk: p => { p.killHeal = (p.killHeal || 0) + 4; } },
-
-  { key: "zorn", name: "Zorn", text: "Deine Schläge kommen ein Fünftel schneller",
-    max: 3, gewicht: 6,
-    wirk: p => { p.swingHaste = (p.swingHaste || 1) * .82; } },
-
-  { key: "schritt", name: "Leichter Schritt", text: "+12 % Tempo",
-    max: 3, gewicht: 6,
-    wirk: p => { p.speedMult = (p.speedMult || 1) * 1.12; } },
-
-  { key: "hand", name: "Schnelle Hand", text: "Deine Fähigkeit ist ein Viertel früher bereit",
-    max: 3, gewicht: 6,
-    wirk: p => { p.abilityHaste = (p.abilityHaste || 1) * .75; } },
-
-  { key: "genesung", name: "Genesung", text: "Rasten heilt 2 Leben je Öl statt 1",
-    max: 2, gewicht: 6,
-    wirk: p => { p.restHeal = (p.restHeal || 0) + 1; } },
-
-  { key: "falke", name: "Falkenauge", text: "+1,5 Sichtweite",
-    max: 2, gewicht: 6,
-    wirk: p => { p.fovBonus = (p.fovBonus || 0) + 1.5; } },
-
-  { key: "sparsam", name: "Sparsame Flamme", text: "Dein Öl brennt halb so schnell herunter",
-    max: 2, gewicht: 6,
-    wirk: p => { p.oilSteps = Math.round((p.oilSteps || OIL_PER_STEPS) * 1.5); } },
-
-  { key: "gelehrt", name: "Gelehrig", text: "Rollen und der Funke wirken 40 % stärker",
-    max: 2, gewicht: 5,
-    wirk: p => { p.scrollPower = (p.scrollPower || 1) * 1.4; } },
-
-  { key: "pluender", name: "Plünderer", text: "Verzaubertes findet sich deutlich häufiger",
-    max: 2, gewicht: 5,
-    wirk: p => { p.lootLuck = (p.lootLuck || 0) + .15; } },
-
-  { key: "glut", name: "Innere Glut", text: "Fackelschalen geben doppelt, +15 Ölvorrat",
-    max: 2, gewicht: 5,
-    wirk: p => { p.brazierBonus = (p.brazierBonus || 1) * 2; p.oilMax += 15; p.oil += 15; } },
-
-  { key: "wucht", name: "Wuchtschlag", text: "Ein Drittel mehr Reichweite, dafür 15 % langsamer",
-    max: 2, gewicht: 5,
-    wirk: p => { p.reachMult = (p.reachMult || 1) * 1.33; p.swingHaste = (p.swingHaste || 1) * 1.15; } },
-
-  { key: "trotz", name: "Trotz", text: "Unter einem Drittel Leben: +6 Angriff",
-    max: 2, gewicht: 5,
-    wirk: p => { p.trotz = (p.trotz || 0) + 6; } },
-
-  { key: "brand", name: "Brandzeichen", text: "+5 Angriff, dafür brennt dein Öl ein Drittel schneller",
-    max: 2, gewicht: 5,
-    wenn: p => (p.oilSteps || OIL_PER_STEPS) > 2,
-    wirk: p => { p.baseAtk += 5; p.oilSteps = Math.max(2, Math.round((p.oilSteps || OIL_PER_STEPS) * .67)); } },
-
-  { key: "ader", name: "Aderlass", text: "+7 Angriff, dafür 20 Leben weniger",
-    max: 2, gewicht: 4,
-    wenn: p => p.baseMaxHp > 55,
-    wirk: p => { p.baseAtk += 7; p.baseMaxHp -= 20; p.hp = Math.min(p.hp, playerMaxHp()); } },
-
-  { key: "stein", name: "Steinhaut", text: "+4 Schutz, dafür 12 % langsamer",
-    max: 2, gewicht: 4,
+  /* ── Schutz ────────────────────────────────────────────────────────── */
+  { key: "fell", name: "Dickes Fell", text: "+2 Schutz",
+    gewicht: 10,
+    wirk: p => { p.baseDef += 2; } },
+  { key: "stein", name: "Steinhaut", braucht: "fell",
+    text: "+4 Schutz, dafür 12 % langsamer",
+    gewicht: 8,
     wirk: p => { p.baseDef += 4; p.speedMult = (p.speedMult || 1) * .88; } },
+  { key: "abpraller", name: "Abpraller", braucht: "stein",
+    text: "Treffer, die 4 Schaden oder weniger machen, prallen ganz ab",
+    gewicht: 7, wirk: () => {} },
+
+  /* ── Schneide ──────────────────────────────────────────────────────── */
+  { key: "schnitt", name: "Windschnitt", text: "+12 % kritische Treffer",
+    gewicht: 10,
+    wirk: p => { p.crit = (p.crit || 0) + .12; } },
+  { key: "zorn", name: "Zorn", braucht: "schnitt",
+    text: "Deine Schläge kommen ein Fünftel schneller",
+    gewicht: 9,
+    wirk: p => { p.swingHaste = (p.swingHaste || 1) * .82; } },
+  { key: "klingentanz", name: "Klingentanz", braucht: "zorn",
+    text: "Nach einem kritischen Treffer ist der nächste Schlag sofort bereit",
+    gewicht: 8, wirk: () => {} },
+
+  /* ── Gewandtheit ───────────────────────────────────────────────────── */
+  { key: "katze", name: "Katzenhaft", text: "+10 % Ausweichen",
+    gewicht: 10,
+    wirk: p => { p.evade = (p.evade || 0) + .10; } },
+  { key: "schritt", name: "Leichter Schritt", braucht: "katze",
+    text: "+14 % Tempo",
+    gewicht: 9,
+    wirk: p => { p.speedMult = (p.speedMult || 1) * 1.14; } },
+  { key: "nachbild", name: "Nachbild", braucht: "schritt",
+    text: "Nach jedem Ausweichen bist du eine Sekunde lang unverwundbar",
+    gewicht: 8, wirk: () => {} },
+
+  /* ── Flamme ────────────────────────────────────────────────────────── */
+  { key: "sparsam", name: "Sparsame Flamme", text: "Dein Öl brennt ein Drittel langsamer",
+    gewicht: 10,
+    wirk: p => { p.oilSteps = Math.round((p.oilSteps || OIL_PER_STEPS) * 1.5); } },
+  { key: "glut", name: "Innere Glut", braucht: "sparsam",
+    text: "Fackelschalen geben doppelt, +25 Ölvorrat",
+    gewicht: 9,
+    wirk: p => { p.brazierBonus = (p.brazierBonus || 1) * 2; p.oilMax += 25; p.oil += 25; } },
+  { key: "kohle", name: "Ewige Kohle", braucht: "glut",
+    text: "Bei erloschener Fackel steigt die Finsternis halb so schnell",
+    gewicht: 8, wirk: () => {} },
+
+  /* ── Auge ──────────────────────────────────────────────────────────── */
+  { key: "falke", name: "Falkenauge", text: "+2 Sichtweite",
+    gewicht: 10,
+    wirk: p => { p.fovBonus = (p.fovBonus || 0) + 2; } },
+  { key: "pluender", name: "Plünderer", braucht: "falke",
+    text: "Verzaubertes findet sich deutlich häufiger",
+    gewicht: 9,
+    wirk: p => { p.lootLuck = (p.lootLuck || 0) + .18; } },
+  { key: "spuersinn", name: "Spürsinn", braucht: "pluender",
+    text: "Fallen und Risse im Mauerwerk zeigen sich doppelt so weit",
+    gewicht: 8, wirk: () => {} },
+
+  /* ── Rast ──────────────────────────────────────────────────────────── */
+  { key: "genesung", name: "Genesung", text: "Rasten heilt doppelt so schnell",
+    gewicht: 10,
+    wirk: p => { p.restHeal = (p.restHeal || 0) + 1; } },
+  { key: "leise", name: "Leiser Tritt", braucht: "genesung",
+    text: "Rasten macht ein Drittel weniger Lärm",
+    gewicht: 9, wirk: () => {} },
+  { key: "stille", name: "Stille Stunde", braucht: "leise",
+    text: "Die erste Rast auf jeder Etage macht überhaupt keinen Lärm",
+    gewicht: 8, wirk: () => {} },
+
+  /* ── Wissen ────────────────────────────────────────────────────────── */
+  { key: "gelehrt", name: "Gelehrig", text: "Rollen und deine Fähigkeit wirken 40 % stärker",
+    gewicht: 10,
+    wirk: p => { p.scrollPower = (p.scrollPower || 1) * 1.4; } },
+  { key: "hand", name: "Schnelle Hand", braucht: "gelehrt",
+    text: "Deine Fähigkeit ist ein Viertel früher bereit",
+    gewicht: 9,
+    wirk: p => { p.abilityHaste = (p.abilityHaste || 1) * .75; } },
+  { key: "widerhall", name: "Widerhall", braucht: "hand",
+    text: "Jeder Erschlagene verkürzt die Abklingzeit deiner Fähigkeit um 1 Sekunde",
+    gewicht: 8, wirk: () => {} },
+
+  /* Wenn der Baum ausgereizt ist - im Schlund geht es ja weiter. */
+  { key: "abhaertung", name: "Abhärtung", text: "+15 Leben", fueller: true,
+    gewicht: 1,
+    wirk: p => { p.baseMaxHp += 15; healActor(p, 15); } },
 ];
 
 const PERK_VON = Object.fromEntries(PERKS.map(t => [t.key, t]));
 
-/* Wie oft der Held ein Talent schon genommen hat. */
-function perkAnzahl(key) { return (G.player.perks && G.player.perks[key]) || 0; }
+/* Welche Talente hängen an diesem hier? Für die Anzeige, damit man sieht,
+   worauf man zusteuert. */
+const PERK_KINDER = {};
+for (const t of PERKS) if (t.braucht) (PERK_KINDER[t.braucht] ||= []).push(t.key);
 
-/* Drei verschiedene Talente ziehen, gewichtet und ohne Zuruecklegen.
-   Gezogen wird aus allem, was noch unter seiner Obergrenze liegt und dessen
-   Bedingung erfuellt ist - notfalls bleiben weniger als drei uebrig. */
-function ziehePerks(anzahl) {
+/* Wie oft der Held ein Talent genommen hat. Alles ausser dem Lueckenbuesser
+   gibt es genau einmal - deshalb taucht nichts doppelt auf. */
+function perkAnzahl(key) { return (G.player.perks && G.player.perks[key]) || 0; }
+function hatPerk(key) { return perkAnzahl(key) > 0; }
+
+/* Offen ist, was noch nicht genommen wurde und dessen Vorstufe steht. */
+function offenePerks() {
   const p = G.player;
-  const beutel = PERKS.filter(t =>
-    perkAnzahl(t.key) < t.max && (!t.wenn || t.wenn(p)));
+  return PERKS.filter(t => !t.fueller && !hatPerk(t.key) &&
+    (!t.braucht || hatPerk(t.braucht)) && (!t.wenn || t.wenn(p)));
+}
+
+/* Drei ziehen, gewichtet und ohne Dopplung. Reicht der Baum nicht mehr,
+   fuellt die Abhaertung auf - sonst staende man im Schlund ohne Auswahl da. */
+function ziehePerks(anzahl) {
+  const beutel = offenePerks();
   const gezogen = [];
   while (gezogen.length < anzahl && beutel.length) {
     let summe = 0;
@@ -8481,6 +8748,10 @@ function ziehePerks(anzahl) {
     while (i < beutel.length - 1 && (wurf -= beutel[i].gewicht) > 0) i++;
     gezogen.push(beutel.splice(i, 1)[0]);
   }
+  // Die Abhaertung fuellt hoechstens einen Platz - sonst staende sie dreimal
+  // nebeneinander, und genau das sollte der Baum ja abschaffen.
+  if (!gezogen.length || (gezogen.length < anzahl && !gezogen.some(t => t.fueller)))
+    gezogen.push(PERK_VON.abhaertung);
   return gezogen;
 }
 
@@ -8488,18 +8759,22 @@ function showLevelUp() {
   if (mode.kind !== "play") return;
   const gewaehlt = ziehePerks(3);
   if (!gewaehlt.length) {           // alles ausgereizt - dann eben Leben
-    applyLevelUp(PERK_VON.balg);
+    applyLevelUp(PERK_VON.abhaertung);
     return;
   }
   const stufe = ROMAN[G.player.level + 1] || (G.player.level + 1);
   openModal(`<h2>Du wächst</h2><p class="sub">Stufe ${stufe}. Die Tiefe hat dich etwas gelehrt — was?</p>
     ${gewaehlt.map((t, i) => {
-      const hat = perkAnzahl(t.key);
+      const oeffnet = (PERK_KINDER[t.key] || []).filter(k => !hatPerk(k))
+        .map(k => PERK_VON[k].name);
+      const stufe = t.braucht ? "▸ Ausbau" : t.fueller ? "" : "◆ Grundstein";
       return `<button class="choice" data-i="${i}"><span class="key">${i + 1}</span>
-        <span>${escapeHtml(t.name)}${hat ? ` <span class="stapel">×${hat + 1}</span>` : ""}</span>
+        <span>${escapeHtml(t.name)}
+          ${stufe ? `<span class="stapel">${stufe}</span>` : ""}
+          ${oeffnet.length ? `<em class="oeffnet">öffnet ${escapeHtml(oeffnet.join(", "))}</em>` : ""}</span>
         <span class="note">${escapeHtml(t.text)}</span></button>`;
     }).join("")}
-    <div class="foot">Ziffer wählen · jedes Mal eine neue Auswahl</div>`, key => {
+    <div class="foot">Ziffer wählen · jedes Talent gibt es genau einmal, und es öffnet den nächsten</div>`, key => {
     const i = ["1", "2", "3"].indexOf(key);
     if (i >= 0 && i < gewaehlt.length) { applyLevelUp(gewaehlt[i]); return true; }
     return false;
@@ -8632,6 +8907,20 @@ function steigeTiefer() {
 }
 
 /* Das Lager zwischen zwei Abstiegen: hier wird Asche zu Ausdauer. */
+/* Alles zurueck auf Anfang: Asche, gekaufte Verbesserungen, Bestwerte,
+   Speicherplaetze und der laufende Abstieg. Zwei Klicks, weil es nicht
+   rueckgaengig zu machen ist. */
+function loescheFortschritt() {
+  META = { asche: 0, stufen: {}, laeufe: 0, beste: 0, siege: 0,
+           bestAsche: 0, schnellster: 0 };
+  speichereMeta(META);
+  clearSave();
+  for (const i of [1, 2, 3]) {
+    try { localStorage.removeItem(PLATZ_KEY(i)); } catch (e) {}
+  }
+  Sfx.spiel("nein");
+}
+
 function showCamp() {
   const zeilen = Object.entries(UPGRADES).map(([key, u]) => {
     const stufe = stufeVon(key);
@@ -8665,10 +8954,28 @@ function showCamp() {
     </div>
     ${zeilen}
     <button class="choice" id="zurueckBtn" style="margin-top:14px">
-      <span class="key">Esc</span><span>Zurück zur Klassenwahl</span><span class="note"></span></button>`,
+      <span class="key">Esc</span><span>Zurück zur Klassenwahl</span><span class="note"></span></button>
+    <button class="choice gefahr" id="loeschBtn" style="margin-top:4px">
+      <span class="key" aria-hidden="true">×</span><span id="loeschWort">Fortschritt löschen</span>
+      <span class="note" id="loeschNote">Asche, Verbesserungen, Bestwerte und alle Speicherplätze</span></button>`,
     key => { if (key === "Escape") { showTitle(); return true; } return false; });
   zwingend();
   $("zurueckBtn").onclick = () => showTitle();
+
+  // Zweistufig: der erste Klick fragt nur nach
+  let sicher = false;
+  $("loeschBtn").onclick = () => {
+    if (!sicher) {
+      sicher = true;
+      $("loeschWort").textContent = "Wirklich alles löschen?";
+      $("loeschNote").innerHTML = '<b style="color:var(--madder-lit)">Noch einmal klicken — das lässt sich nicht rückgängig machen</b>';
+      $("loeschBtn").classList.add("scharf");
+      return;
+    }
+    loescheFortschritt();
+    showCamp();
+    log("Aller Fortschritt gelöscht. Von vorn.", "alert");
+  };
   overlay.querySelectorAll("[data-up]").forEach(btn => {
     btn.onclick = () => kaufe(btn.dataset.up);
   });
@@ -8792,7 +9099,7 @@ function serialize() {
       x: G.player.x, y: G.player.y, hp: G.player.hp, level: G.player.level, xp: G.player.xp,
       baseAtk: G.player.baseAtk, baseDef: G.player.baseDef, baseMaxHp: G.player.baseMaxHp,
       oil: G.player.oil, oilMax: G.player.oilMax, oilTick: G.player.oilTick,
-      flamme: G.player.flamme, finsternis: G.player.finsternis,
+      flamme: G.player.flamme, finsternis: G.player.finsternis, laerm: G.player.laerm,
       revive: G.player.revive,
       cls: G.player.cls, ability: G.player.ability, passiv: G.player.passiv,
       abilityCd: G.player.abilityCd,
@@ -8878,6 +9185,7 @@ function loadGame() {
       abilityCd: data.player.abilityCd || 0,
       flamme: data.player.flamme || "normal",
       finsternis: data.player.finsternis || 0,
+      laerm: data.player.laerm || 0,
       oilSteps: data.player.oilSteps || 4,
       fovBonus: data.player.fovBonus || 0,
       scrollPower: data.player.scrollPower || 1,
@@ -8940,7 +9248,7 @@ function freshState() {
     hp: 45, baseMaxHp: 45, baseAtk: 3, baseDef: 1,
     level: 1, xp: 0, alive: true,
     oil: OIL_MAX, oilMax: OIL_MAX, oilTick: 0, revive: 0,
-    flamme: "normal", finsternis: 0,
+    flamme: "normal", finsternis: 0, laerm: 0,
     facing: [0, 1], nextSwing: 0, radius: R_PLAYER,
     cls: "krieger", ability: "wall", passiv: "standhaft", abilityCd: 0,
     wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0,
@@ -8978,7 +9286,7 @@ function startNewGame(clsId) {
     wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0,
     baseMaxHp: cls.hp, hp: cls.hp,
     baseAtk: cls.atk, baseDef: cls.def,
-    flamme: "normal", finsternis: 0, oilTick: 0,
+    flamme: "normal", finsternis: 0, laerm: 0, oilTick: 0,
     oilSteps: cls.oilSteps, fovBonus: cls.fovBonus, scrollPower: cls.scrollPower,
     crit: cls.crit || 0, evade: cls.evade || 0,
     speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
@@ -9185,11 +9493,17 @@ window.addEventListener("keydown", ev => {
       if (G.actors.some(a => !a.isPlayer && a.alive && seesTile(kachelX(a), kachelY(a)))) {
         log("Nicht, solange dich etwas ansieht.", "system"); break;
       }
-      if (G.player.oil <= 0) {
-        log("Ohne Licht findest du keine Ruhe. Such erst Öl.", "system"); break;
+      if ((G.player.laerm || 0) >= LAERM_SCHWELLEN.gehoert) {
+        log("Zu viel Bewegung eben noch. Warte, bis wieder Ruhe einkehrt.", "system"); break;
       }
       resting = 250;
-      log("Du setzt dich ans Feuer deiner Fackel. Jede geheilte Wunde kostet Öl.", "system");
+      if (hatPerk("stille") && !G.stilleGenutzt) {
+        G.stilleGenutzt = true;
+        G.stilleRast = true;
+        log("Du setzt dich. Diesmal hört dich niemand.", "good");
+      } else {
+        log("Du setzt dich und versorgst deine Wunden. Es bleibt nicht unbemerkt.", "system");
+      }
       break;
     }
     case "schleier": durchschreite(); break;
@@ -9343,9 +9657,11 @@ setInterval(() => {
       refreshUI();
       return;
     }
-    if (G.player.oil <= 0) {
+    // Wer neben etwas Wachem sitzt, ruht nicht weiter
+    if (G.actors.some(a => !a.isPlayer && a.alive && a.wach &&
+        Math.hypot(a.x - G.player.x, a.y - G.player.y) < 7)) {
       resting = 0;
-      log("Die Fackel ist aus — die Rast endet hier.", "bad");
+      log("Da ist etwas. An Ruhe ist nicht mehr zu denken.", "bad");
       refreshUI();
       return;
     }
