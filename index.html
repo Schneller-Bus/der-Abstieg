@@ -3517,6 +3517,7 @@ function populateFloor(floor) {
   G.player.laerm = 0;
   G.stilleGenutzt = false;
   G.stilleRast = false;
+  G.finsterBrut = 0;            // je Etage hoechstens eine Handvoll Geister
 
   // Zonenmitten können nachträglich zu Lava geworden sein - Mitte neu wählen.
   for (const zone of zones) {
@@ -5096,7 +5097,13 @@ function summon(a) {
    sammelt Finsternis an - erst fluestert es nur, dann kriecht etwas aus den
    Waenden, und irgendwann frisst das Dunkel selbst an dir. Licht ist damit
    kein Komfort mehr, sondern Schutz. */
-const FINSTER_SCHWELLEN = { fluestern: 25, brut: 55, zehrt: 80 };
+const FINSTER_SCHWELLEN = { fluestern: 25, brut: 55, schwarm: 85 };
+
+/* Wie viele Geister gleichzeitig neben dir stehen duerfen, und wie viele es
+   auf einer Etage ueberhaupt werden koennen. Die Obergrenze je Etage
+   verhindert, dass sich im Dunkeln sitzend Erfahrung ernten laesst. */
+const FINSTER_GLEICHZEITIG = { brut: 3, schwarm: 6 };
+const FINSTER_JE_ETAGE = 9;
 
 const FLUESTERN = [
   "Etwas atmet neben dir aus.",
@@ -5106,12 +5113,37 @@ const FLUESTERN = [
   "Etwas streift dich, wo nichts sein sollte.",
 ];
 
+/* Ein Geist loest sich aus dem Dunkel - immer ausserhalb deines Scheins,
+   damit er nicht vor deinen Augen aus dem Nichts erscheint. */
+function schickeGeist() {
+  const p = G.player;
+  for (let versuch = 0; versuch < 30; versuch++) {
+    const w = rng() * 6.283;
+    const r = 3.5 + rng() * 3.5;
+    const tx = Math.round(p.x + Math.cos(w) * r);
+    const ty = Math.round(p.y + Math.sin(w) * r);
+    if (!isWalkable(tx, ty) || actorAt(tx, ty)) continue;
+    const m = makeMonster("spawn", tx, ty);
+    m.wach = true;
+    m.ausFinsternis = true;
+    G.actors.push(m);
+    G.finsterBrut = (G.finsterBrut || 0) + 1;
+    burst(mitte(tx), mitte(ty), "#3A2560", 18);
+    Sfx.spiel("elite");
+    return true;
+  }
+  return false;
+}
+
+/* Die Finsternis tut dir nichts an - sie schickt, was in ihr wohnt. Blind
+   und umzingelt ist ohnehin bedrohlicher als ein Zehrschaden, und es bleibt
+   etwas, gegen das man sich wehren kann. */
 function tickFinsternis() {
   const p = G.player;
   const vorher = p.finsternis || 0;
 
-  // Fuenf je Takt: rund zehn Sekunden, bis etwas aus dem Dunkel kommt, und
-  // vierzehn, bis es frisst - genug, um zu einer Schale zu laufen.
+  // Fuenf je Takt: rund zehn Sekunden, bis der Erste kommt - genug, um noch
+  // zu einer Fackelschale zu laufen.
   if (p.oil <= 0) p.finsternis = Math.min(100, vorher +
     (hatPerk("kohle") ? 2.5 : 5) * (hatLaune("erstickend") ? 2 : 1));
   else p.finsternis = Math.max(0, vorher - 12);
@@ -5125,34 +5157,25 @@ function tickFinsternis() {
   if (f >= FINSTER_SCHWELLEN.fluestern && rng() < .35)
     log(FLUESTERN[Math.floor(rng() * FLUESTERN.length)], "bad");
 
-  // Ab der zweiten Schwelle kriecht Brut aus den Waenden
-  if (f >= FINSTER_SCHWELLEN.brut) {
-    const ausDemDunkeln = G.actors.filter(a => a.ausFinsternis && a.alive).length;
-    if (ausDemDunkeln < 4 && rng() < .5) {
-      for (let versuch = 0; versuch < 25; versuch++) {
-        const w = rng() * 6.283;
-        const r = 3.5 + rng() * 3;
-        const tx = Math.round(p.x + Math.cos(w) * r);
-        const ty = Math.round(p.y + Math.sin(w) * r);
-        if (!isWalkable(tx, ty) || actorAt(tx, ty)) continue;
-        const m = makeMonster("spawn", tx, ty);
-        m.wach = true;
-        m.ausFinsternis = true;
-        G.actors.push(m);
-        burst(mitte(tx), mitte(ty), "#3A2560", 18);
-        Sfx.spiel("elite");
-        log("Etwas löst sich aus dem Dunkel.", "bad");
-        break;
+  // Ab der dritten Schwelle kommen sie zu mehreren und schneller
+  if (f >= FINSTER_SCHWELLEN.schwarm && vorher < FINSTER_SCHWELLEN.schwarm)
+    banner("Der Schwarm", "Sie kommen jetzt zu mehreren", "bad");
+
+  if (f >= FINSTER_SCHWELLEN.brut && (G.finsterBrut || 0) < FINSTER_JE_ETAGE) {
+    const schwarm = f >= FINSTER_SCHWELLEN.schwarm;
+    const grenze = schwarm ? FINSTER_GLEICHZEITIG.schwarm : FINSTER_GLEICHZEITIG.brut;
+    const lebende = G.actors.filter(a => a.ausFinsternis && a.alive).length;
+    if (lebende < grenze && rng() < (schwarm ? .85 : .5)) {
+      const wieviele = schwarm ? 2 : 1;
+      let kamen = 0;
+      for (let k = 0; k < wieviele && lebende + kamen < grenze; k++)
+        if (schickeGeist()) kamen++;
+      if (kamen) {
+        anim.shake = Math.max(anim.shake, 5);
+        log(kamen > 1 ? `${kamen} lösen sich aus dem Dunkel.`
+                      : "Etwas löst sich aus dem Dunkel.", "bad");
       }
     }
-  }
-
-  // Ab der dritten frisst sie an dir
-  if (f >= FINSTER_SCHWELLEN.zehrt) {
-    const wucht = 2 + Math.floor((f - FINSTER_SCHWELLEN.zehrt) / 6);
-    anim.shake = Math.max(anim.shake, 6);
-    log("Die Finsternis frisst an dir.", "bad");
-    damage(p, wucht, null);
   }
   refreshUI();
 }
@@ -7976,8 +7999,8 @@ function refreshUI() {
   $("finsterMeter").hidden = finster <= 0;
   if (finster > 0) {
     $("finsterFill").style.width = Math.min(100, finster) + "%";
-    $("finsterText").textContent = finster >= FINSTER_SCHWELLEN.zehrt
-      ? "Sie frisst an dir"
+    $("finsterText").textContent = finster >= FINSTER_SCHWELLEN.schwarm
+      ? "Sie kommen zu mehreren"
       : finster >= FINSTER_SCHWELLEN.brut
         ? "Etwas kommt aus dem Dunkel"
         : "Finsternis";
@@ -9391,7 +9414,7 @@ function freshState() {
     player, actors: [player], ground: [], map: newMap(),
     braziers: [], decals: [], chests: [], traps: [], secrets: [], saeulen: {},
     quest: null, questLog: [],
-    time: 0, upkeepAt: 0, laune: null,
+    time: 0, upkeepAt: 0, laune: null, finsterBrut: 0,
     floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
     logEntries: [],
   };
