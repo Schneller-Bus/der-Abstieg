@@ -2960,7 +2960,7 @@ function beuteFallenLassen(gegner) {
   const floor = G.floor;
   // Namentliche tragen manchmal selbst etwas Legendaeres bei sich
   if (gegner.elite && rng() < .35) {
-    const id = LEGENDEN[Math.floor(rng() * LEGENDEN.length)];
+    const id = ziehLegende();
     const tx0 = Math.floor(gegner.x), ty0 = Math.floor(gegner.y);
     if (WALKABLE[G.map.tiles[idx(tx0, ty0)]]) {
       const st = { id, def: ITEMS[id], x: tx0, y: ty0 };
@@ -3230,6 +3230,33 @@ function stelleFallen(map, zones, floor) {
 }
 
 /* Wer nah genug herankommt und hinsieht, erkennt die Bodenspur. */
+/* Die Kacheln der Schatzkammer als Menge - das Zeichnen fragt das je Bild
+   fuer jede sichtbare Kachel ab, eine Liste waere dafuer zu langsam. */
+let vaultSet = null, vaultFuer = null;
+
+function schatzKacheln() {
+  if (!G.vault) { vaultSet = null; vaultFuer = null; return null; }
+  if (vaultFuer !== G.vault) { vaultSet = new Set(G.vault.tiles); vaultFuer = G.vault; }
+  return vaultSet;
+}
+
+function istSchatzKachel(i) {
+  const m = schatzKacheln();
+  return !!m && m.has(i);
+}
+
+/* Legenden gibt es dreimal im Spiel zu holen: Geheimkammer, Schatzkammer und
+   von Namentlichen. Damit nicht dreimal dasselbe Stueck kommt, wird bevorzugt
+   gezogen, was in diesem Lauf noch nicht aufgetaucht ist. */
+function ziehLegende() {
+  G.legenden = G.legenden || [];
+  const offen = LEGENDEN.filter(k => !G.legenden.includes(k));
+  const beutel = offen.length ? offen : LEGENDEN;
+  const key = beutel[Math.floor(rng() * beutel.length)];
+  G.legenden.push(key);
+  return key;
+}
+
 /* Die Schatzkammer meldet sich, sobald eine ihrer Kacheln im Schein liegt -
    sonst liefe man daran vorbei, ohne je zu erfahren, dass es sie gab. */
 function entdeckeSchatzkammer() {
@@ -3410,7 +3437,7 @@ function stelleGeheimkammern(map, zones, floor) {
       const [bx, by] = kammer[kammer.length - 2] || kammer[0];
       /* Der eigentliche Lohn ist das legendaere Stueck - sonst lohnte die
          ganze Sucherei nicht. Dazu zwei gewoehnliche Fundstuecke. */
-      const beute = [{ id: LEGENDEN[Math.floor(rng() * LEGENDEN.length)], ax: null }];
+      const beute = [{ id: ziehLegende(), ax: null }];
       const chancen = chancesFor(ITEM_TABLE, floor);
       for (let i = 0; i < 2 && chancen.length; i++) {
         const gebaut = rollItem(weighted(chancen), floor, .5);
@@ -3575,7 +3602,7 @@ function populateFloor(floor) {
      hoechstens eine, sie bekommt ihre Kisten an Ort und Stelle, und sie sagt
      sich an, sobald man sie sieht. */
   const kandidatenZonen = zones.slice(1).filter(z => z !== last);
-  const schatzZone = kandidatenZonen.length && rng() < .55
+  const schatzZone = kandidatenZonen.length && rng() < .30
     ? kandidatenZonen[Math.floor(rng() * kandidatenZonen.length)]
     : null;
   G.vault = null;
@@ -3702,14 +3729,24 @@ function populateFloor(floor) {
       map.tiles[idx(x, y)] === FLOOR && !actorAt(x, y) &&
       !G.chests.some(c => c.x === x && c.y === y) &&
       !G.braziers.some(b => b.x === x && b.y === y));
-    for (let k = 0; k < 2 && frei.length && chancen.length; k++) {
+
+    for (let k = 0; k < 2 && frei.length; k++) {
       const [cx2, cy2] = frei.splice(Math.floor(rng() * frei.length), 1)[0];
       const beute = [];
-      for (let i = 0; i < 3; i++) {
+      // In der ersten Truhe liegt das, wofuer sich der Weg lohnt
+      if (k === 0) beute.push({ id: ziehLegende(), ax: null });
+      for (let i = beute.length; i < 3 && chancen.length; i++) {
         const gebaut = rollItem(weighted(chancen), floor + 2, .45);
         beute.push({ id: gebaut.id, ax: gebaut.ax || null });
       }
       G.chests.push({ x: cx2, y: cy2, opened: false, loot: beute, schatz: true });
+    }
+
+    /* Zwei Fackelschalen hinein: die Kammer soll von sich aus leuchten, nicht
+       erst, wenn der Held mit seiner Fackel darin steht. */
+    for (let k = 0; k < 2 && frei.length; k++) {
+      const [bx2, by2] = frei.splice(Math.floor(rng() * frei.length), 1)[0];
+      G.braziers.push({ x: bx2, y: by2 });
     }
   }
   Sfx.kulisse(theme().gen);
@@ -3819,6 +3856,15 @@ function updateFov() {
   G.map.visible[idx(px, py)] = 1;
   for (const [xx, xy, yx, yy] of OCTANTS)
     castLight(px, py, 1, 1, 0, fovR, xx, xy, yx, yy);
+  /* Die Schatzkammer brennt selbst. Wer freie Sicht auf sie hat, sieht sie
+     ganz - sonst liefe man an einem Raum vorbei, dessen halbe Breite jenseits
+     des eigenen Fackelscheins liegt, und erfuehre nie davon. */
+  const v = G.vault;
+  if (v && Math.hypot(mitte(v.cx) - p.x, mitte(v.cy) - p.y) <= 16 &&
+      lineOfSight(px, py, v.cx, v.cy)) {
+    for (const i of v.tiles) G.map.visible[i] = 1;
+  }
+
   for (let i = 0; i < G.map.visible.length; i++)
     if (G.map.visible[i]) G.map.explored[i] = 1;
 
@@ -5115,7 +5161,12 @@ function stelleWaechterSaeulen(a, map) {
       if (map.tiles[k] !== FLOOR) continue;
       if (map.veilRoom && map.veilRoom[k] !== 1) continue;
       if (actorAt(tx, ty)) continue;
+      // Nichts begraben, was auf dem Boden steht - eine Saeule auf einer
+      // Fackelschale machte deren Oel unerreichbar.
       if (G.chests.some(c => c.x === tx && c.y === ty)) continue;
+      if (G.braziers.some(b => b.x === tx && b.y === ty)) continue;
+      if (G.ground.some(i => i.x === tx && i.y === ty)) continue;
+      if (G.traps.some(f => f.x === tx && f.y === ty)) continue;
       const d = Math.hypot(mitte(tx) - a.x, mitte(ty) - a.y);
       if (d < 1.8 || d > 5.5) continue;
       kandidaten.push([k, tx, ty, d]);
@@ -5905,6 +5956,24 @@ function drawFrame(dt) {
     drawBrazier(x, y, !!G.map.visible[i], anim.t + (b.x * 7 + b.y * 13) % 10, !!b.used);
   }
 
+  /* --- Der Schein der Schatzkammer: sie brennt von sich aus --- */
+  if (G.vault && G.map.explored[idx(G.vault.cx, G.vault.cy)]) {
+    const vx = (G.vault.cx + .5 - camX) * TILE, vy = (G.vault.cy + .5 - camY) * TILE;
+    const sichtbar = G.map.visible[idx(G.vault.cx, G.vault.cy)];
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = (sichtbar ? .30 : .12) + Math.sin(anim.t * 1.5) * .05;
+    const gl = ctx.createRadialGradient(vx, vy, 0, vx, vy, TILE * 5.5);
+    gl.addColorStop(0, "#E8C25A");
+    gl.addColorStop(.5, "rgba(180,130,50,.35)");
+    gl.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath();
+    ctx.arc(vx, vy, TILE * 5.5, 0, 6.283);
+    ctx.fill();
+    ctx.restore();
+  }
+
   /* --- Entdeckte Fallen und Risse im Mauerwerk --- */
   for (const f of (G.traps || [])) {
     if ((!f.entdeckt && !f.brenntBis) || !G.map.explored[idx(f.x, f.y)]) continue;
@@ -6321,8 +6390,17 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
   const T = theme();
   const inRoom = G.map.room[idx(mx, my)] === 1;
 
+  const schatz = istSchatzKachel(idx(mx, my));
+
   if (vis) {
-    ctx.fillStyle = mix(T.floorDim, T.floorLit, light);
+    // Der Boden der Schatzkammer ist von Gold durchzogen - man erkennt sie,
+    // ehe man die Truhen sieht.
+    /* Der Boden der Schatzkammer traegt eigenes Licht: er darf nicht mit der
+       Entfernung wegdunkeln, sonst erkennt man den Raum genau dann nicht,
+       wenn es darauf ankommt - naemlich von weitem. */
+    ctx.fillStyle = schatz
+      ? mix(mix(T.floorDim, T.floorLit, Math.max(.62, light)), "#9A7526", .52)
+      : mix(T.floorDim, T.floorLit, light);
     ctx.fillRect(x, y, TILE, TILE);
 
     if (inRoom) {
@@ -8003,6 +8081,14 @@ function zeichneKarte(now) {
     }
   }
 
+  // Die Schatzkammer, sobald man sie gesehen hat
+  if (G.vault)
+    for (const i of G.vault.tiles) {
+      if (!G.map.explored[i]) continue;
+      m.fillStyle = "rgba(232,200,106,.30)";
+      m.fillRect((i % MAP_W) * s, ((i / MAP_W) | 0) * s, s, s);
+    }
+
   // Kisten, die noch zu sind
   for (const c of (G.chests || [])) {
     if (!c.loot.length || !G.map.explored[idx(c.x, c.y)]) continue;
@@ -9306,7 +9392,7 @@ function serialize() {
   return {
     v: 5,
     floor: G.floor, deepest: G.deepest, turns: G.turns, seed, laune: G.laune || null,
-    vault: G.vault || null,
+    vault: G.vault || null, legenden: G.legenden || [],
     tiles: Array.from(G.map.tiles),
     room: Array.from(G.map.room),
     explored: Array.from(G.map.explored),
@@ -9375,6 +9461,7 @@ function loadGame() {
     G.braziers = data.braziers || [];
     G.laune = data.laune || null;
     G.vault = data.vault || null;
+    G.legenden = data.legenden || [];
     G.chests = data.chests || [];
     G.traps = data.traps || [];
     G.secrets = data.secrets || [];
@@ -9501,7 +9588,7 @@ function freshState() {
     player, actors: [player], ground: [], map: newMap(),
     braziers: [], decals: [], chests: [], traps: [], secrets: [], saeulen: {},
     quest: null, questLog: [],
-    time: 0, upkeepAt: 0, laune: null, finsterBrut: 0, vault: null,
+    time: 0, upkeepAt: 0, laune: null, finsterBrut: 0, vault: null, legenden: [],
     floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
     logEntries: [],
   };
