@@ -1,22 +1,5 @@
-<!doctype html>
-<html lang="de">
-<head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Der Abstieg</title>
-<meta name="description" content="Ein Echtzeit-Roguelike in zehn Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und hinter jedem Nebeltor wartet ein Namentlicher.">
-<meta name="theme-color" content="#14110E">
-<meta name="color-scheme" content="dark">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314110E'/%3E%3Cpath d='M32 8c6 9 12 13 12 22a12 12 0 0 1-24 0c0-5 3-8 6-12 1 4 3 6 6 7-2-6 0-12 0-17z' fill='%23E8A94B'/%3E%3Cpath d='M32 26c3 4 5 6 5 10a5 5 0 0 1-10 0c0-3 2-5 5-10z' fill='%23FFF0C4'/%3E%3Crect x='29' y='44' width='6' height='14' rx='2' fill='%236B5335'/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314110E'/%3E%3Cpath d='M32 8c6 9 12 13 12 22a12 12 0 0 1-24 0c0-5 3-8 6-12 1 4 3 6 6 7-2-6 0-12 0-17z' fill='%23E8A94B'/%3E%3Cpath d='M32 26c3 4 5 6 5 10a5 5 0 0 1-10 0c0-3 2-5 5-10z' fill='%23FFF0C4'/%3E%3Crect x='29' y='44' width='6' height='14' rx='2' fill='%236B5335'/%3E%3C/svg%3E">
-
-<meta property="og:type" content="website">
-<meta property="og:title" content="Der Abstieg">
-<meta property="og:description" content="Ein Echtzeit-Roguelike in zehn Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und hinter jedem Nebeltor wartet ein Namentlicher.">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Der Abstieg">
-<meta name="twitter:description" content="Ein Echtzeit-Roguelike in zehn Tiefen. Dein Fackelöl bestimmt, wie weit du siehst — und hinter jedem Nebeltor wartet ein Namentlicher.">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Grenze+Gotisch:wght@400;600;800&family=Spectral:ital,wght@0,300;0,400;0,600;1,400&display=swap">
@@ -315,6 +298,17 @@ body {
 }
 
 .meter + .meter { margin-top: 7px; }
+
+.laune {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--rubric);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--madder-lit);
+  cursor: help;
+}
 
 .flammenreihe {
   display: flex;
@@ -959,8 +953,7 @@ body {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 </style>
-</head>
-<body>
+
 <div class="frame">
   <header class="masthead">
     <h1>Der <span class="drop">Abstieg</span></h1>
@@ -968,6 +961,7 @@ body {
       <span class="realm" id="realmName">Kerker</span>
       <span class="label">Etage</span>
       <span class="numeral" id="floorNumeral">I</span>
+      <span class="laune" id="launeTag" hidden></span>
     </div>
   </header>
 
@@ -1151,7 +1145,8 @@ function flamme() {
 function verbrauchProTakt() {
   const p = G.player;
   const stufen = Math.max(1, (p.oilSteps || OIL_PER_STEPS) + equipBonus("oilSteps"));
-  return OIL_JE_TAKT * (OIL_PER_STEPS / stufen) * flamme().verbrauch;
+  return OIL_JE_TAKT * (OIL_PER_STEPS / stufen) * flamme().verbrauch *
+         (hatLaune("zugig") ? 2 : 1);
 }
 
 function dreheFlamme(richtung) {
@@ -2026,10 +2021,10 @@ const ABILITIES = {
           "und wer dich im Nahkampf trifft, prallt betäubt zurück.",
   },
   schatten: {
-    name: "Schattenschritt", cd: 8, aim: true, weite: 5.2,
-    desc: "Ein Satz durch alles hindurch. Währenddessen bist du unverwundbar, " +
-          "und wen du durchquerst, den lässt du blutend zurück.",
-    hint: "Richtung wählen — Maus, Pfeile oder WASD",
+    name: "Schattenschritt", cd: 8, aim: false, weite: 5.2,
+    desc: "Ein Satz durch alles hindurch, dorthin wo der Zeiger steht. " +
+          "Währenddessen bist du unverwundbar, und wen du durchquerst, den " +
+          "lässt du blutend zurück.",
   },
   lanze: {
     name: "Flammenlanze", cd: 7, aim: false, weite: 8.5, dauer: 3.2,
@@ -2452,18 +2447,38 @@ function makeRelic(name, x, y) {
   return { id: "relic", def: Object.assign({}, RELIC, { name }), x, y };
 }
 
-function makeElite(floor, x, y) {
+/* == Namentliche richten sich nach dir ===================================
+   Gewoehnliche Gegner haben feste Werte - das haelt den Fortschritt spuerbar.
+   Die Namentlichen und der Endboss waren dadurch aber Ausreisser: wer sie
+   unterlevelt erreicht, wurde erschlagen, ehe er ueberhaupt zuschlagen
+   konnte. Sie bekommen deshalb einen Massstab, der sich an der Stufe des
+   Helden orientiert - nach unten deutlich, nach oben nur wenig, damit ein
+   gut vorbereiteter Held immer noch einen echten Kampf bekommt. */
+function erwarteteStufe(floor) { return 2 + floor * 1.5; }
+
+function bossSkala(floor) {
+  const stufe = (G && G.player && G.player.level) || 1;
+  const anteil = stufe / erwarteteStufe(floor);
+  return Math.max(.60, Math.min(1.25, .55 + .45 * anteil));
+}
+
+function makeElite(floor, x, y, festerMass) {
   const e = ELITES[floor];
   if (!e) return null;
+  // Beim Laden kommt der Massstab aus dem Spielstand, sonst frisch
+  const mass = festerMass || bossSkala(floor);
   const m = makeMonster(e.base, x, y);
   m.spec = Object.assign({}, MONSTERS[e.base], {
-    name: e.name, epithet: e.epithet, hp: e.hp, atk: e.atk, def: e.def, xp: e.xp,
+    name: e.name, epithet: e.epithet,
+    hp: Math.round(e.hp * mass), atk: Math.max(1, Math.round(e.atk * mass)),
+    def: e.def, xp: e.xp,
     size: e.size, body: e.body, dark: e.dark, eye: e.eye, glow: e.glow, elite: true,
   });
   const skala = depthScale(G ? G.floor : 1);
   if (skala > 1) {
     m.spec = Object.assign({}, m.spec, {
-      hp: Math.round(e.hp * skala), atk: Math.round(e.atk * skala),
+      hp: Math.round(e.hp * mass * skala),
+      atk: Math.max(1, Math.round(e.atk * mass * skala)),
       xp: Math.round(e.xp * (1 + (skala - 1) * 1.6)),
       name: `${e.name} aus dem Schlund`,
     });
@@ -2472,6 +2487,7 @@ function makeElite(floor, x, y) {
   m.maxhp = m.spec.hp;
   m.elite = true;
   m.eliteFloor = floor;
+  m.skala = mass;
   m.power = e.power;
   m.drop = e.drop;
   m.enraged = false;
@@ -2866,13 +2882,17 @@ function stelleKisten(map, zones, floor, extra) {
   G.chests = [];
   // Kisten sind die Hauptquelle fuer Nachschub - aber knapp gehalten, sonst
   // schwimmt man nach drei Etagen in Traenken und trifft keine Entscheidung mehr.
-  const anzahl = 2 + (rng() < .6 ? 1 : 0) + (floor >= 6 ? 1 : 0) + (extra || 0);
+  let anzahl = 2 + (rng() < .6 ? 1 : 0) + (floor >= 6 ? 1 : 0) + (extra || 0);
+  if (hatLaune("vorraete")) anzahl *= 2;
+  if (hatLaune("verlassen")) anzahl += 2;
   const chancen = chancesFor(ITEM_TABLE, floor);
   if (!chancen.length) return;
 
   const pool = zones.slice(1);
   for (let k = 0; k < anzahl && pool.length; k++) {
-    for (let versuch = 0; versuch < 30; versuch++) {
+    // Mehr Anlaeufe, damit auch die Laune "Vergessene Vorraete" wirklich
+    // doppelt so viele Kisten unterbringt statt an belegten Feldern zu scheitern
+    for (let versuch = 0; versuch < 70; versuch++) {
       const zone = pool[Math.floor(rng() * pool.length)];
       const felder = zone.tiles.filter(([x, y]) =>
         WALKABLE[map.tiles[idx(x, y)]] &&
@@ -3163,7 +3183,8 @@ const FALLEN = {
 function stelleFallen(map, zones, floor) {
   G.traps = [];
   if (floor < 2) return;                 // die erste Etage bleibt gnaedig
-  const anzahl = 2 + Math.min(4, Math.floor(floor / 2)) + (rng() < .5 ? 1 : 0);
+  let anzahl = 2 + Math.min(4, Math.floor(floor / 2)) + (rng() < .5 ? 1 : 0);
+  if (hatLaune("vermint")) anzahl *= 3;
   const arten = Object.keys(FALLEN);
   const pool = zones.slice(1);
   if (!pool.length) return;
@@ -3430,7 +3451,59 @@ function schlageSaeule(tx, ty) {
   refreshUI();
 }
 
+/* == Launen der Etage ====================================================
+   Zehn Etagen in immer derselben Reihenfolge sind zehnmal dasselbe. Beim
+   Betreten wuerfelt jede Etage deshalb eine Bedingung aus und sagt sie an.
+   Alle Launen drehen nur an Reglern, die es ohnehin gibt - Oel, Laerm,
+   Finsternis, Aufmerksamkeit, Anzahl von Fallen und Kisten -, deshalb sind
+   sie billig und trotzdem spuerbar. */
+const LAUNEN = [
+  { key: "flut", name: "Überflutet", gewicht: 8,
+    text: "Knietief im Wasser — hier lässt sich nicht rasten." },
+  { key: "blutmond", name: "Blutmond", gewicht: 7,
+    text: "Alles hier ist wach und weiß, dass du gekommen bist." },
+  { key: "zugig", name: "Zugig", gewicht: 8,
+    text: "Ein Zug aus der Tiefe — deine Fackel brennt doppelt so schnell." },
+  { key: "verlassen", name: "Verlassen", gewicht: 7,
+    text: "Keine Fackelschale brennt mehr. Dafür blieb einiges zurück." },
+  { key: "vermint", name: "Vermint", gewicht: 7,
+    text: "Wer hier baute, wollte niemanden hereinlassen. Dreimal so viele Fallen." },
+  { key: "erstickend", name: "Erstickend", gewicht: 6,
+    text: "Die Luft steht. Ohne Licht holt dich die Finsternis doppelt so schnell." },
+  { key: "hallend", name: "Widerhallend", gewicht: 6,
+    text: "Jedes Geräusch trägt weit — Rasten macht doppelt so viel Lärm." },
+  { key: "verseucht", name: "Verseucht", gewicht: 6,
+    text: "Etwas hat sie gezeichnet. Jedes Wesen hier trägt ein Mal." },
+  { key: "wachsam", name: "Wachsam", gewicht: 7,
+    text: "Sie erwarten dich — und bemerken dich auf doppelte Entfernung." },
+  { key: "zaeh", name: "Zäh", gewicht: 6,
+    text: "Was hier lebt, stirbt langsam: ein Drittel mehr Leben, ein Drittel mehr Erfahrung." },
+  { key: "vorraete", name: "Vergessene Vorräte", gewicht: 6,
+    text: "Jemand hat hier gehortet und es nie geholt. Doppelt so viele Kisten." },
+];
+
+const LAUNE_VON = Object.fromEntries(LAUNEN.map(l => [l.key, l]));
+
+/* Die Laune dieser Etage, oder null. */
+function laune() { return (G && G.laune) || null; }
+function hatLaune(key) { return laune() === key; }
+
+/* Gewuerfelt wird beim Betreten. Die erste Etage bleibt verschont, damit man
+   das Spiel erst einmal normal kennenlernt, und die Kammer des Namenlosen
+   auch - die ist von Hand gebaut und soll bleiben, wie sie ist. */
+function wuerfleLaune(floor) {
+  if (floor <= 1 || floor === MAX_FLOOR) return null;
+  if (rng() > .45) return null;
+  let summe = 0;
+  for (const l of LAUNEN) summe += l.gewicht;
+  let wurf = rng() * summe;
+  for (const l of LAUNEN) if ((wurf -= l.gewicht) <= 0) return l.key;
+  return LAUNEN[0].key;
+}
+
 function populateFloor(floor) {
+  // Zuerst die Laune - Gegner, Kisten und Fallen richten sich danach
+  G.laune = wuerfleLaune(floor);
   const { map, zones, arena } = generateFloor(floor);
   G.map = map;
   G.actors = [G.player];
@@ -3474,8 +3547,19 @@ function populateFloor(floor) {
     while (n-- > 0 && spots.length && monsterChances.length) {
       const [x, y] = spots.pop();
       // In Schatzkammern lauert häufiger etwas Besonderes
-      const aff = rollMonsterAffix(vault ? floor + 3 : floor);
-      G.actors.push(makeMonster(weighted(monsterChances), x, y, aff));
+      // Verseucht: hier traegt jedes Wesen ein Mal
+      const aff = hatLaune("verseucht")
+        ? (rollMonsterAffix(floor + 6) || MONSTER_AFFIXES[Math.floor(rng() * MONSTER_AFFIXES.length)].key)
+        : rollMonsterAffix(vault ? floor + 3 : floor);
+      const m = makeMonster(weighted(monsterChances), x, y, aff);
+      if (hatLaune("blutmond")) { m.wach = true; m.kite = KITE_BUDGET; }
+      if (hatLaune("zaeh")) {
+        m.spec = Object.assign({}, m.spec, {
+          hp: Math.round(m.spec.hp * 1.34), xp: Math.round(m.spec.xp * 1.34),
+        });
+        m.hp = m.maxhp = m.spec.hp;
+      }
+      G.actors.push(m);
     }
     // Beute liegt nicht mehr herum - sie steckt in Kisten oder faellt von
     // Erschlagenen. Schatzkammern zaehlen dafuer als zusaetzliche Kiste.
@@ -3504,6 +3588,7 @@ function populateFloor(floor) {
   G.chests = [];
   G.veilWarned = false;
   if (map.arenaSchalen) G.braziers = map.arenaSchalen.map(b => ({ x: b.x, y: b.y }));
+  if (hatLaune("verlassen")) G.braziers = [];
   G.hasLava = map.tiles.includes(LAVA);
 
   // Zwischenboss in einem mittleren Raum, weit weg vom Eingang
@@ -3534,7 +3619,16 @@ function populateFloor(floor) {
       const free = last.tiles.find(([x, y]) => !actorAt(x, y) && isWalkable(x, y));
       if (free) [bx, by] = free;
     }
-    G.actors.push(makeMonster("boss", bx, by));
+    const namenlos = makeMonster("boss", bx, by);
+    // Auch der Namenlose richtet sich danach, wer da ankommt
+    const mass = bossSkala(floor);
+    namenlos.skala = mass;
+    namenlos.spec = Object.assign({}, namenlos.spec, {
+      hp: Math.round(namenlos.spec.hp * mass),
+      atk: Math.max(1, Math.round(namenlos.spec.atk * mass)),
+    });
+    namenlos.hp = namenlos.maxhp = namenlos.spec.hp;
+    G.actors.push(namenlos);
     map.stairs = null;
   } else {
     let [tx, ty] = last.center;
@@ -3574,6 +3668,14 @@ function populateFloor(floor) {
   rettteKisten(map);
 
   updateFov();
+
+  // Ansage - erst jetzt, wenn wirklich alles steht
+  if (G.laune && LAUNE_VON[G.laune]) {
+    const l = LAUNE_VON[G.laune];
+    banner(l.name, l.text, "bad");
+    log(`${l.name}: ${l.text}`, "alert");
+    Sfx.spiel("auftrag");
+  }
 }
 
 /* Kisten, die eine spaeter gebaute Wand oder ein Schleier erwischt hat, auf
@@ -4446,6 +4548,12 @@ function useAbility(dx, dy) {
   }
 
   if (p.ability === "schatten") {
+    // Wie bei der Lanze: ohne Richtung wird die Blickrichtung genommen, und
+    // die folgt dem Mauszeiger. Ein eigener Zielschritt waere ein Rueckschritt.
+    if (!dx && !dy) { dx = p.facing[0]; dy = p.facing[1]; }
+    if (!dx && !dy) { log("Zeig erst irgendwohin.", "system"); return false; }
+    const l1 = Math.hypot(dx, dy) || 1;
+    dx /= l1; dy /= l1;
     const start = [p.x, p.y];
     const durchquert = new Set();
     let weit = 0;
@@ -4619,7 +4727,7 @@ function actorTurn(a) {
   const sicht = seesTile(kachelX(a), kachelY(a)) &&
                 lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
   if (!a.wach) {
-    if (sicht && dist <= AGGRO_RANGE * flamme().bemerkt) {
+    if (sicht && dist <= AGGRO_RANGE * flamme().bemerkt * (hatLaune("wachsam") ? 2 : 1)) {
       a.wach = true;
       a.kite = KITE_BUDGET;
     } else return;
@@ -5004,7 +5112,8 @@ function tickFinsternis() {
 
   // Fuenf je Takt: rund zehn Sekunden, bis etwas aus dem Dunkel kommt, und
   // vierzehn, bis es frisst - genug, um zu einer Schale zu laufen.
-  if (p.oil <= 0) p.finsternis = Math.min(100, vorher + (hatPerk("kohle") ? 2.5 : 5));
+  if (p.oil <= 0) p.finsternis = Math.min(100, vorher +
+    (hatPerk("kohle") ? 2.5 : 5) * (hatLaune("erstickend") ? 2 : 1));
   else p.finsternis = Math.max(0, vorher - 12);
 
   const f = p.finsternis;
@@ -5092,7 +5201,8 @@ function rastTakt() {
   if (G.stilleRast) return true;
 
   const vorher = p.laerm || 0;
-  p.laerm = Math.min(100, vorher + LAERM_JE_TAKT * (hatPerk("leise") ? .66 : 1));
+  p.laerm = Math.min(100, vorher + LAERM_JE_TAKT * (hatPerk("leise") ? .66 : 1) *
+    (hatLaune("hallend") ? 2 : 1));
   const l = p.laerm;
 
   // Erste Schwelle: die Etage wird wach
@@ -7820,6 +7930,12 @@ function refreshUI() {
   const p = G.player;
   $("floorNumeral").textContent = ROMAN[G.floor] || G.floor;
   $("realmName").textContent = theme().name;
+  const l = G.laune && LAUNE_VON[G.laune];
+  $("launeTag").hidden = !l;
+  if (l) {
+    $("launeTag").textContent = l.name;
+    $("launeTag").title = l.text;
+  }
   $("levelTag").textContent = "Stufe " + (ROMAN[p.level] || p.level);
 
   const maxhp = playerMaxHp();
@@ -9081,7 +9197,7 @@ function clearSave() {
 function serialize() {
   return {
     v: 5,
-    floor: G.floor, deepest: G.deepest, turns: G.turns, seed,
+    floor: G.floor, deepest: G.deepest, turns: G.turns, seed, laune: G.laune || null,
     tiles: Array.from(G.map.tiles),
     room: Array.from(G.map.room),
     explored: Array.from(G.map.explored),
@@ -9120,6 +9236,7 @@ function serialize() {
       id: a.id, x: a.x, y: a.y, hp: a.hp, confused: a.confused,
       statuses: a.statuses, summons: a.summons, stunned: a.stunned || 0,
       elite: a.eliteFloor || 0, enraged: !!a.enraged, cooldown: a.cooldown || 0,
+      skala: a.skala || null,
       phase2: !!a.phase2, saeulen: a.saeulen || null, echo: !!a.echo,
       seen: !!a.seen, maff: a.maff || null,
     })),
@@ -9147,6 +9264,7 @@ function loadGame() {
     G.quest = data.quest || null;
     G.questLog = data.questLog || [];
     G.braziers = data.braziers || [];
+    G.laune = data.laune || null;
     G.chests = data.chests || [];
     G.traps = data.traps || [];
     G.secrets = data.secrets || [];
@@ -9211,8 +9329,18 @@ function loadGame() {
 
     G.actors = [p];
     for (const a of data.actors) {
-      const m = a.elite ? makeElite(a.elite, a.x, a.y) : makeMonster(a.id, a.x, a.y, a.maff);
+      const m = a.elite ? makeElite(a.elite, a.x, a.y, a.skala || undefined)
+                        : makeMonster(a.id, a.x, a.y, a.maff);
       if (!m) continue;
+      // Der Namenlose traegt seinen Massstab ebenfalls im Stand
+      if (!a.elite && a.skala && m.spec.boss) {
+        m.skala = a.skala;
+        m.spec = Object.assign({}, m.spec, {
+          hp: Math.round(m.spec.hp * a.skala),
+          atk: Math.max(1, Math.round(m.spec.atk * a.skala)),
+        });
+        m.maxhp = m.spec.hp;
+      }
       m.hp = a.hp; m.confused = a.confused || 0;
       m.statuses = a.statuses || {}; m.summons = a.summons || 0;
       m.cooldown = a.cooldown || 0;
@@ -9263,7 +9391,7 @@ function freshState() {
     player, actors: [player], ground: [], map: newMap(),
     braziers: [], decals: [], chests: [], traps: [], secrets: [], saeulen: {},
     quest: null, questLog: [],
-    time: 0, upkeepAt: 0,
+    time: 0, upkeepAt: 0, laune: null,
     floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
     logEntries: [],
   };
@@ -9492,6 +9620,9 @@ window.addEventListener("keydown", ev => {
       if (G.player.hp >= playerMaxHp()) { log("Du bist bereits ausgeruht.", "system"); break; }
       if (G.actors.some(a => !a.isPlayer && a.alive && seesTile(kachelX(a), kachelY(a)))) {
         log("Nicht, solange dich etwas ansieht.", "system"); break;
+      }
+      if (hatLaune("flut")) {
+        log("Knietief im Wasser findest du keine Ruhe.", "system"); break;
       }
       if ((G.player.laerm || 0) >= LAERM_SCHWELLEN.gehoert) {
         log("Zu viel Bewegung eben noch. Warte, bis wieder Ruhe einkehrt.", "system"); break;
@@ -9726,6 +9857,3 @@ refreshUI();
 requestAnimationFrame(loop);
 showTitle();
 </script>
-
-</body>
-</html>
