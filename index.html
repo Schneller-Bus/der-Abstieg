@@ -3230,6 +3230,21 @@ function stelleFallen(map, zones, floor) {
 }
 
 /* Wer nah genug herankommt und hinsieht, erkennt die Bodenspur. */
+/* Die Schatzkammer meldet sich, sobald eine ihrer Kacheln im Schein liegt -
+   sonst liefe man daran vorbei, ohne je zu erfahren, dass es sie gab. */
+function entdeckeSchatzkammer() {
+  const v = G.vault;
+  if (!v || v.entdeckt) return;
+  for (const i of v.tiles) {
+    if (!G.map.visible[i]) continue;
+    v.entdeckt = true;
+    Sfx.spiel("auftrag");
+    banner("Eine Schatzkammer", "Gut gefüllt — und gut bewacht", "good");
+    log("Eine Schatzkammer. Jemand hat sie nicht unbewacht gelassen.", "good");
+    return;
+  }
+}
+
 function entdeckeFallen() {
   const p = G.player;
   for (const f of G.traps) {
@@ -3536,6 +3551,7 @@ function populateFloor(floor) {
   G.stilleGenutzt = false;
   G.stilleRast = false;
   G.finsterBrut = 0;            // je Etage hoechstens eine Handvoll Geister
+  G.vault = null;
 
   // Zonenmitten können nachträglich zu Lava geworden sein - Mitte neu wählen.
   for (const zone of zones) {
@@ -3551,10 +3567,21 @@ function populateFloor(floor) {
   const last = zones[zones.length - 1];
   const monsterChances = chancesFor(MONSTER_TABLE, floor);
   const itemChances = chancesFor(ITEM_TABLE, floor);
-  let kistenExtra = 0;
+
+  /* Bisher war jede Zone mit 15 % eine "Schatzkammer" - bei einem Dutzend
+     Zonen also fast zwei je Etage. Gebracht hat das nichts: die Bonuskiste
+     wurde nur auf die Gesamtzahl aufgeschlagen und landete dann irgendwo auf
+     der Etage, und markiert war der Raum ueberhaupt nicht. Jetzt gibt es
+     hoechstens eine, sie bekommt ihre Kisten an Ort und Stelle, und sie sagt
+     sich an, sobald man sie sieht. */
+  const kandidatenZonen = zones.slice(1).filter(z => z !== last);
+  const schatzZone = kandidatenZonen.length && rng() < .55
+    ? kandidatenZonen[Math.floor(rng() * kandidatenZonen.length)]
+    : null;
+  G.vault = null;
 
   for (const zone of zones.slice(1)) {
-    const vault = zone !== last && rng() < .15;
+    const vault = zone === schatzZone;
     const spots = zone.tiles.filter(([x, y]) =>
       isWalkable(x, y) && !actorAt(x, y) && !(x === sx && y === sy));
     // Mischen
@@ -3562,7 +3589,7 @@ function populateFloor(floor) {
       const j = Math.floor(rng() * (i + 1));
       [spots[i], spots[j]] = [spots[j], spots[i]];
     }
-    let n = ri(0, fromTable(MAX_MONSTERS, floor)) + (vault ? 2 : 0);
+    let n = ri(0, fromTable(MAX_MONSTERS, floor)) + (vault ? 3 : 0);
     while (n-- > 0 && spots.length && monsterChances.length) {
       const [x, y] = spots.pop();
       // In Schatzkammern lauert häufiger etwas Besonderes
@@ -3580,9 +3607,14 @@ function populateFloor(floor) {
       }
       G.actors.push(m);
     }
-    // Beute liegt nicht mehr herum - sie steckt in Kisten oder faellt von
-    // Erschlagenen. Schatzkammern zaehlen dafuer als zusaetzliche Kiste.
-    if (vault) kistenExtra++;
+    // Gemerkt wird sie hier, gefuellt erst nach stelleKisten() - das leert
+    // G.chests, ihre Kisten waeren sonst gleich wieder weg.
+    if (vault) {
+      G.vault = {
+        tiles: zone.tiles.map(([x, y]) => idx(x, y)),
+        cx: zone.center[0], cy: zone.center[1], entdeckt: false,
+      };
+    }
   }
 
   // Fackelschalen geben den Räumen eigenes Licht statt nur Spielerfackel
@@ -3659,7 +3691,27 @@ function populateFloor(floor) {
     map.stairs = [tx, ty];
   }
 
-  stelleKisten(map, zones, floor, kistenExtra);
+  stelleKisten(map, zones, floor, 0);
+
+  /* Die Schatzkammer bekommt ihre Kisten an Ort und Stelle - sonst waere der
+     Fund ja keiner. Zwei Stueck, ergiebiger als gewoehnliche, und aus der
+     Tabelle zweier Etagen tiefer. */
+  if (schatzZone && G.vault) {
+    const chancen = chancesFor(ITEM_TABLE, floor);
+    const frei = schatzZone.tiles.filter(([x, y]) =>
+      map.tiles[idx(x, y)] === FLOOR && !actorAt(x, y) &&
+      !G.chests.some(c => c.x === x && c.y === y) &&
+      !G.braziers.some(b => b.x === x && b.y === y));
+    for (let k = 0; k < 2 && frei.length && chancen.length; k++) {
+      const [cx2, cy2] = frei.splice(Math.floor(rng() * frei.length), 1)[0];
+      const beute = [];
+      for (let i = 0; i < 3; i++) {
+        const gebaut = rollItem(weighted(chancen), floor + 2, .45);
+        beute.push({ id: gebaut.id, ax: gebaut.ax || null });
+      }
+      G.chests.push({ x: cx2, y: cy2, opened: false, loot: beute, schatz: true });
+    }
+  }
   Sfx.kulisse(theme().gen);
 
   // Namentliche kommen zuletzt: erst wenn Treppe und Boss stehen, laesst sich
@@ -5369,6 +5421,7 @@ function tickWorld(dt) {
 
   entdeckeFallen();
   entdeckeGeheimnisse();
+  entdeckeSchatzkammer();
 
   // Stufenlose Bewegung jedes Wesens
   for (const a of G.actors) {
@@ -5879,6 +5932,20 @@ function drawFrame(dt) {
     drawChest(x, y, vis, vis ? lightAt(Math.hypot(mitte(c.x) - G.player.x,
                                                   mitte(c.y) - G.player.y)) : .3,
               c.opened, c.loot.length > 0);
+    // Kisten der Schatzkammer tragen einen Schimmer, damit man sie erkennt
+    if ((c.schatz || c.geheim) && c.loot.length && vis) {
+      ctx.save();
+      ctx.globalAlpha = .18 + Math.sin(anim.t * 2.6) * .10;
+      const gl = ctx.createRadialGradient(x + TILE / 2, y + TILE / 2, 0,
+                                          x + TILE / 2, y + TILE / 2, TILE * .9);
+      gl.addColorStop(0, "#E8C25A");
+      gl.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath();
+      ctx.arc(x + TILE / 2, y + TILE / 2, TILE * .9, 0, 6.283);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   /* --- Gegenstände --- */
@@ -9239,6 +9306,7 @@ function serialize() {
   return {
     v: 5,
     floor: G.floor, deepest: G.deepest, turns: G.turns, seed, laune: G.laune || null,
+    vault: G.vault || null,
     tiles: Array.from(G.map.tiles),
     room: Array.from(G.map.room),
     explored: Array.from(G.map.explored),
@@ -9306,6 +9374,7 @@ function loadGame() {
     G.questLog = data.questLog || [];
     G.braziers = data.braziers || [];
     G.laune = data.laune || null;
+    G.vault = data.vault || null;
     G.chests = data.chests || [];
     G.traps = data.traps || [];
     G.secrets = data.secrets || [];
@@ -9432,7 +9501,7 @@ function freshState() {
     player, actors: [player], ground: [], map: newMap(),
     braziers: [], decals: [], chests: [], traps: [], secrets: [], saeulen: {},
     quest: null, questLog: [],
-    time: 0, upkeepAt: 0, laune: null, finsterBrut: 0,
+    time: 0, upkeepAt: 0, laune: null, finsterBrut: 0, vault: null,
     floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
     logEntries: [],
   };
