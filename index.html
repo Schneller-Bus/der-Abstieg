@@ -26,17 +26,19 @@
   --stone-950: #14110E;
   --stone-900: #1E1A15;
   --stone-850: #262119;
+  --zeile: #26211A;             /* Grund einer Menuezeile */
+  --zeile-hoch: #302921;        /* dieselbe Zeile unter dem Zeiger */
   --stone-800: #2E2820;
   --stone-700: #3B3229;
   --stone-600: #4E4335;
   --vellum:     #E8DCC4;
   --vellum-dim: #A2957C;
-  --vellum-faint: #8F826E;      /* 4,60:1 auf dem Fenstergrund - lesbar */
-  --vellum-leise: #726858;      /* nur fuer Beilaeufiges und Linien */
+  --vellum-faint: #948773;      /* 4,54:1 auf dem Zeilengrund, 4,92 auf dem Blatt */
+  --vellum-leise: #7C7160;      /* nur fuer Beilaeufiges und Linien */
   --torch:      #E8A94B;
   --torch-deep: #C4823A;
   --madder:     #B03A2E;
-  --madder-lit: #D9634F;
+  --madder-lit: #E06E59;        /* 4,79:1 auf dem Zeilengrund */
   --verdigris:  #5C9E8A;
   --verdigris-lit: #7FC0A9;
   --ink:        #4A5B72;
@@ -572,7 +574,8 @@ body {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(12,10,8,.86);
+  background: rgba(10,8,6,.92);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -661,9 +664,9 @@ body {
 
 .ladeseite h3 em {
   font-style: normal;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: .1em;
-  color: var(--stone-600);
+  color: var(--vellum-faint);
 }
 
 .ladeseite .quiet { margin: 8px 0 0; font-size: 12px; }
@@ -1089,10 +1092,10 @@ body {
   color: var(--vellum-faint);
   font: inherit;
   font-family: var(--rubric);
-  font-size: 11.5px;
-  letter-spacing: .11em;
+  font-size: 12.5px;
+  letter-spacing: .1em;
   text-transform: uppercase;
-  border-radius: 7px 7px 0 0;
+  border-radius: 8px 8px 0 0;
   cursor: pointer;
 }
 
@@ -1107,8 +1110,8 @@ body {
   background: transparent;
 }
 
-.reiter:hover { color: var(--vellum); background: var(--stone-850); }
-.reiter.an { color: var(--torch); }
+.reiter:hover { color: var(--vellum); background: var(--zeile-hoch); }
+.reiter.an { color: var(--torch); background: var(--zeile); }
 .reiter.an::after { background: currentColor; }
 .reiter b { color: var(--vellum-dim); font-weight: 500; margin-left: 3px; }
 .reiter.an b { color: inherit; }
@@ -1239,17 +1242,19 @@ body {
 .sheet h2 {
   font-family: var(--display);
   font-weight: 600;
-  font-size: 27px;
-  margin: 0 0 5px;
-  padding-right: 40px;
+  font-size: 31px;
+  line-height: 1.1;
+  margin: 0 0 7px;
+  padding-right: 44px;
   color: var(--torch);
+  text-shadow: 0 0 26px rgba(232,169,75,.16);
   text-wrap: balance;
 }
 
 .sheet .sub {
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--vellum-faint);
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--vellum-dim);
   margin: 0 0 16px;
   font-style: normal;
   text-wrap: pretty;
@@ -1265,11 +1270,13 @@ body {
   border-top: 1px solid var(--stone-800);
   background: var(--stone-900);
   font-family: var(--rubric);
-  font-size: 10.5px;
-  letter-spacing: .14em;
+  font-size: 11px;
+  letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--vellum-faint);
 }
+
+.sheet .foot b { color: var(--torch-deep); }
 
 .choice {
   display: grid;
@@ -1278,19 +1285,20 @@ body {
     "key titel wert"
     "key note  wert";
   align-items: center;
-  gap: 1px 13px;
+  gap: 2px 14px;
   width: 100%;
-  min-height: 46px;
+  min-height: 54px;
   text-align: left;
-  background: none;
-  border: 1px solid transparent;
-  padding: 8px 12px;
+  background: var(--zeile);
+  border: 1px solid var(--stone-800);
+  padding: 10px 14px;
   color: var(--vellum);
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.35;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 9px;
+  transition: background-color .12s ease, border-color .12s ease;
 }
 
 /* Alles, was nicht ausdruecklich Taste, Nebensatz oder Wert ist, ist Titel. */
@@ -1299,26 +1307,28 @@ body {
 .choice > .wert { grid-area: wert; }
 .choice > :not(.key):not(.note):not(.wert) { grid-area: titel; min-width: 0; }
 
-.choice:hover { background: var(--stone-850); border-color: var(--stone-700); }
+.choice:hover { background: var(--zeile-hoch); border-color: var(--stone-600); }
 .choice:active { background: var(--stone-800); }
 
 .choice .key, .klasse-kopf .key {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 30px;
-  padding: 3px 7px;
+  min-width: 34px;
+  min-height: 26px;
+  padding: 3px 8px;
   font-family: var(--rubric);
-  font-size: 11.5px;
+  font-size: 12.5px;
   letter-spacing: .04em;
   color: var(--torch);
   background: var(--stone-950);
   border: 1px solid var(--stone-700);
-  border-radius: 5px;
+  border-bottom-width: 2px;
+  border-radius: 6px;
 }
 
 .choice .note {
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.4;
   color: var(--vellum-faint);
   text-wrap: pretty;
@@ -1326,8 +1336,8 @@ body {
 
 .choice .wert {
   font-family: var(--rubric);
-  font-size: 12.5px;
-  color: var(--vellum-dim);
+  font-size: 13.5px;
+  color: var(--vellum);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1336,7 +1346,25 @@ body {
 .choice[disabled]:hover { background: none; border-color: transparent; }
 
 /* Eine Liste von Zeilen bekommt duenne Trennlinien statt Kaesten */
-.choice + .choice { margin-top: 1px; }
+.choice + .choice { margin-top: 4px; }
+
+/* Die Haupttat eines Fensters traegt eine Flanke in Fackelfarbe. */
+.choice.gross {
+  min-height: 62px;
+  font-size: 18px;
+  border-color: var(--torch-deep);
+  background:
+    linear-gradient(90deg, rgba(232,169,75,.10), rgba(232,169,75,.02) 40%, transparent),
+    var(--zeile);
+  box-shadow: inset 3px 0 0 var(--torch-deep);
+}
+
+.choice.gross:hover {
+  border-color: var(--torch);
+  box-shadow: inset 3px 0 0 var(--torch);
+}
+
+.choice.gross .key { min-width: 38px; font-size: 14px; }
 
 .bag-row {
   display: grid;
@@ -1354,16 +1382,16 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 40px;
   font-family: var(--rubric);
-  font-size: 10.5px;
+  font-size: 11.5px;
   letter-spacing: .09em;
   text-transform: uppercase;
-  color: var(--vellum-dim);
-  background: var(--stone-850);
-  border: 1px solid var(--stone-700);
+  color: var(--vellum);
+  background: var(--stone-800);
+  border: 1px solid var(--stone-600);
   border-radius: 7px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -1408,15 +1436,15 @@ body {
   grid-template-columns: 104px minmax(0, 1fr);
   gap: 12px;
   align-items: baseline;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.45;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--stone-850);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--stone-800);
 }
 
 .line > span:first-child {
   font-family: var(--rubric);
-  font-size: 10px;
+  font-size: 10.5px;
   letter-spacing: .13em;
   text-transform: uppercase;
   color: var(--vellum-faint);
@@ -1431,12 +1459,22 @@ body {
 /* Abschnittsueberschrift innerhalb eines Fensters */
 .abschnitt {
   grid-column: 1 / -1;
-  margin: 18px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 8px;
   font-family: var(--rubric);
-  font-size: 10.5px;
+  font-size: 11.5px;
   letter-spacing: .18em;
   text-transform: uppercase;
   color: var(--torch-deep);
+}
+
+.abschnitt::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--stone-700), transparent);
 }
 
 .abschnitt:first-child { margin-top: 0; }
@@ -3110,7 +3148,10 @@ const ITEM_TABLE = {
   8: [["runeblade", 7], ["hellebarde", 5]],
 };
 
-const MAX_MONSTERS = [[1, 2], [3, 3], [5, 4], [7, 5], [9, 6]];
+/* Je Zone. Gemessen standen auf Etage 1 bis zu vierzehn Wesen herum, weil
+   jede der vielen Zonen bis zu zwei bekam - die ersten Etagen brauchen einen
+   flacheren Einstieg. */
+const MAX_MONSTERS = [[1, 1], [3, 2], [5, 3], [7, 4], [9, 5], [11, 6]];
 const MAX_ITEMS = [[1, 1], [2, 2], [4, 3], [6, 4]];
 
 /* Monster-Affixe: dieselbe Idee wie bei der Beute, nur andersherum.
@@ -3711,14 +3752,17 @@ function carveTunnel(map, a, b) {
 
 function makeMonster(id, x, y, affixKey) {
   let spec = MONSTERS[id];
-  const skala = depthScale(G ? G.floor : 1);
-  if (skala > 1) {
+  const tiefe = depthScale(G ? G.floor : 1);
+  const lebenSkala = tiefe * gegnerSkala(G ? G.floor : 1);
+  const wuchtSkala = tiefe * gegnerWucht(G ? G.floor : 1);
+  if (Math.abs(lebenSkala - 1) > .01 || Math.abs(wuchtSkala - 1) > .01) {
     spec = Object.assign({}, spec, {
-      hp: Math.round(spec.hp * skala),
-      atk: Math.round(spec.atk * skala),
-      def: spec.def + Math.floor((skala - 1) * 4),
-      ratk: spec.ratk ? Math.round(spec.ratk * skala) : spec.ratk,
-      xp: Math.round(spec.xp * (1 + (skala - 1) * 1.6)),
+      hp: Math.max(4, Math.round(spec.hp * lebenSkala)),
+      atk: Math.max(1, Math.round(spec.atk * wuchtSkala)),
+      def: Math.max(0, spec.def + Math.round((lebenSkala - 1) * 4)),
+      ratk: spec.ratk ? Math.max(1, Math.round(spec.ratk * wuchtSkala)) : spec.ratk,
+      // Erfahrung folgt nur halb - sonst lohnte sich absichtliche Armut
+      xp: Math.round(spec.xp * (1 + (lebenSkala - 1) * .8)),
     });
   }
   const a = affixKey ? MAFF_BY_KEY[affixKey] : null;
@@ -3804,6 +3848,45 @@ function makeRelic(name, x, y) {
    jede Ecke ausraeumt, soll den Boss in voller Staerke bekommen, wer
    durchrennt, einen schwaecheren. */
 function erwarteteStufe(floor) { return .6 + floor * .95; }
+
+/* Wie gut der Held gerade dasteht - Stufe und Ausruestung in einer Zahl.
+   Eine Skala, die nur die Stufe kennt, half nichts: nach einem Tod ist die
+   Stufe unveraendert, aber die Axt weg, und gemessen kostete Etage 6 mit
+   rostigem Dolch das Achtfache eines Heldenlebens, wobei ein Grabwicht in
+   hundert Prozent der Faelle toedlich war. Was zaehlt, ist also nicht der
+   Rang, sondern was man in der Hand haelt. */
+function wehrkraft() {
+  const p = G && G.player;
+  if (!p) return 1;
+  const angriff = (p.baseAtk || 0) + equipBonus("atk");
+  const schutz = (p.baseDef || 0) + equipBonus("def");
+  return angriff * 2.2 + schutz * 3 + playerMaxHp() * .12;
+}
+
+/* Woran sich das misst - aus der Messreihe eines Helden, der auf jeder Tiefe
+   das traegt, was dort faellt. */
+function erwarteteWehrkraft(floor) { return 30 + floor * 2.1; }
+
+/* Die Skala geht nur nach unten. Wer gut ausgeruestet ist, trifft die Gegner
+   so, wie sie gedacht sind; wer schlecht dasteht, trifft schwaechere. Nach
+   oben zu skalieren waere das Gegenteil dessen, was besseres Zeug bedeuten
+   soll - man wuerde sich seinen Fortschritt wegskalieren.
+
+   Und sie wirkt ungleich: viel auf die Lebenspunkte, wenig auf den Schlag.
+   Gemessen war der Grabwicht fuer einen Helden mit rostigem Dolch in hundert
+   Prozent der Faelle toedlich, und zwar nicht, weil er hart schlaegt, sondern
+   weil der Kampf ewig dauert - drei Schaden je Hieb gegen hundertfuenfzig
+   Leben. Weniger Gegnerleben verkuerzt den Kampf und schneidet damit genau
+   die Todesursache heraus. */
+function gegnerSkala(floor) {
+  const anteil = wehrkraft() / erwarteteWehrkraft(floor);
+  return Math.max(.42, Math.min(1, .10 + .90 * anteil));
+}
+
+/* Der Schlag folgt derselben Lage, aber nur halb so weit. */
+function gegnerWucht(floor) {
+  return Math.max(.72, Math.min(1, .55 + .45 * (wehrkraft() / erwarteteWehrkraft(floor))));
+}
 
 function bossSkala(floor) {
   const stufe = (G && G.player && G.player.level) || 1;
@@ -7288,7 +7371,7 @@ function lesbar(hex) {
   if (LESBAR[hex]) return LESBAR[hex];
   const kanal = c => { c /= 255; return c <= .04045 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); };
   const leucht = c => .2126 * kanal(c[0]) + .7152 * kanal(c[1]) + .0722 * kanal(c[2]);
-  const grund = leucht([30, 26, 21]);          // --stone-900
+  const grund = leucht([38, 33, 26]);          // --zeile, der hellere Fall
   const kontrast = c => (leucht(c) + .05) / (grund + .05);
   const roh = [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16));
   let farbe = roh, anteil = 0;
@@ -11663,7 +11746,7 @@ function showCamp(reiter) {
       <span class="note">Stufe ${META.stufe | 0}${offenePunkte()
         ? ` · <b style="color:var(--verdigris)">${offenePunkte()} Punkte frei</b>` : ""}</span></button>
     <button class="choice" id="zurueckBtn" style="margin-top:4px">
-      <span class="key">Esc</span><span>Zurück zur Klassenwahl</span><span class="note"></span></button>
+      <span class="key">Esc</span><span>Zurück zum Titelbild</span><span class="note"></span></button>
     <button class="choice gefahr" id="loeschBtn" style="margin-top:4px">
       <span class="key" aria-hidden="true">×</span><span id="loeschWort">Fortschritt löschen</span>
       <span class="note" id="loeschNote">Münzen, Lager, Bestwerte und alle Speicherplätze</span></button>
@@ -11800,6 +11883,7 @@ function showLoadout() {
     if (key === "Escape") { showTitle(); return true; }
     if (key === "enter") { ladeAufbruch(); return true; }
     if (key === "r") { ladeDrehen(); return true; }
+    if (key === "n") { ladeNotaufbruch(); return true; }
     return false;
   });
   zwingend();
@@ -11859,12 +11943,16 @@ function ladeMarkup() {
     </div>
     <div class="tafel">${ladeTafel()}</div>
     <div class="ausgang" style="margin-top:14px;padding-top:12px">
-      <button class="choice" id="abBtn" ${zuSchwer ? "disabled" : ""}>
+      <button class="choice gross" id="abBtn" ${zuSchwer ? "disabled" : ""}>
         <span class="key">↵</span><span>Hinabsteigen</span>
         <span class="note">${zuSchwer
           ? "zu schwer beladen — leg etwas zurück"
           : `${META.mitnahme.length} im Rucksack · ${
               LADE_PLAETZE.filter(sl => META.anlegen[sl]).length} angelegt`}</span></button>
+      <button class="choice" id="notBtn">
+        <span class="key">N</span><span>Mit Notausrüstung hinab</span>
+        <span class="note">rostiger Dolch und ein Ölfläschchen — alles Gepackte
+          bleibt im Lager</span></button>
       <button class="choice" id="ladeRaeum">
         <span class="key" aria-hidden="true">↺</span><span>Lager aufräumen</span>
         <span class="note">packt das Sperrigste zuerst</span></button>
@@ -11972,6 +12060,38 @@ function ladeAufbruch() {
   startNewGame();
 }
 
+/* Ohne alles hinab. Bisher passierte das nur, wenn man nichts gepackt hatte -
+   also gerade dann nicht, wenn man es wollte: wer ein volles Lager hat und
+   einmal nichts riskieren will, musste erst alles zurueckschieben. Der Knopf
+   tut das selbst, und was gepackt war, bleibt oben liegen. */
+function ladeNotaufbruch() {
+  const zurueck = [];
+  for (const b of META.mitnahme || []) zurueck.push(b);
+  for (const slot of LADE_PLAETZE) {
+    const b = (META.anlegen || {})[slot];
+    if (b) zurueck.push(b);
+  }
+  META.mitnahme = [];
+  META.anlegen = {};
+  let heimatlos = 0;
+  for (const b of zurueck) {
+    b.gx = b.gy = null;
+    if (!insLager(b)) heimatlos++;
+  }
+  if (heimatlos) {
+    // Kein Platz im Lager - dann eben zu Muenzen, damit nichts verschwindet
+    lagerEinraeumen();
+    for (const b of zurueck) if (b.gx == null) {
+      if (insLager(b)) continue;
+      const preis = verkaufPreis(ausBestand(b));
+      META.muenzen += preis;
+      META.umsatz = (META.umsatz | 0) + preis;
+    }
+  }
+  speichereMeta(META);
+  startNewGame();
+}
+
 function ladeBinde() {
   const raster = {};
   overlay.querySelectorAll("[data-raster]").forEach(el => raster[el.dataset.raster] = el);
@@ -11988,6 +12108,7 @@ function ladeBinde() {
 
   const knopf = (id, tun) => { const k = $(id); if (k) k.onclick = tun; };
   knopf("abBtn", () => ladeAufbruch());
+  knopf("notBtn", () => ladeNotaufbruch());
   knopf("zurueckLade", () => showTitle());
   knopf("ladeRaeum", () => { lagerEinraeumen(); speichereMeta(META); Sfx.spiel("aufheben"); ladeFrisch(); });
   knopf("tafelAn", () => { if (ladeAnlegen(ladeWahl)) { speichereMeta(META); Sfx.spiel("ausruesten"); } ladeFrisch(); });
@@ -12135,6 +12256,9 @@ function showTitle() {
           ? `${mit} ${mit === 1 ? "Stück" : "Stücke"} gepackt${
               modul ? ` · ${escapeHtml(vorlage(modul).name)}` : " · kein Modul"}`
           : "noch nichts gepackt — du steigst mit dem Notbehelf hinab"}</span></button>
+      <button class="choice" id="notBtn2">
+        <span class="key">N</span><span>Sofort hinab, mit Notausrüstung</span>
+        <span class="note">rostiger Dolch und ein Ölfläschchen — nichts zu verlieren</span></button>
       <button class="choice" id="contBtn" ${saved ? "" : "disabled"}>
         <span class="key">W</span><span>Weiterspielen</span>
         <span class="note">${saved ? "gespeicherter Abstieg" : "kein Spielstand"}</span></button>
@@ -12157,6 +12281,7 @@ function showTitle() {
       </div>
     </div>`, key => {
     if (key === "a" || key === "enter") { showLoadout(); return true; }
+    if (key === "n") { ladeNotaufbruch(); return true; }
     if (key === "w" && saved) { if (loadGame()) { closeModal(); afterLoad(); } return true; }
     if (key === "h" || key === "l") { showCamp(); return true; }
     if (key === "k") { showSkills(); return true; }
@@ -12164,6 +12289,7 @@ function showTitle() {
   });
   zwingend();
   $("aufbruchBtn").onclick = () => showLoadout();
+  $("notBtn2").onclick = () => ladeNotaufbruch();
   $("lagerBtn2").onclick = () => showCamp();
   $("koennenBtn").onclick = () => showSkills();
   if (saved) $("contBtn").onclick = () => { if (loadGame()) { closeModal(); afterLoad(); } };
