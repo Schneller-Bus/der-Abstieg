@@ -1759,7 +1759,9 @@ function fovFromOil(oil) {
   return Math.max(2.6, grund * flamme().sicht);
 }
 const MAX_FLOOR = 10;
-const REGEN_INTERVAL = 8;
+/* Ein Leben je zwanzig Runden. Bei acht war die Etage von selbst verheilt,
+   noch ehe man den naechsten Gegner erreichte. */
+const REGEN_INTERVAL = 20;
 const SAVE_KEY = "der-abstieg-v1";
 
 const WALL = 0, FLOOR = 1, STAIRS = 2, DOOR = 3, PILLAR = 4, LAVA = 5, VEIL = 6;
@@ -2475,7 +2477,7 @@ const MONSTERS = {
   golem:   { name: "Steingolem", g: "m",      hp: 180, def: 6, atk: 16, xp: 250, ai: "melee", hieb: 1.8,
              art: "golem",    body: "#968B7A", dark: "#463F36", size: 1.24, eye: "#FFB454",
              glow: "#E8A94B" },
-  wraith:  { name: "Grabwicht", g: "m",       hp: 180, def: 4, atk: 15, xp: 300, ai: "melee", hieb: 1.05, lichtscheu: true,
+  wraith:  { name: "Grabwicht", g: "m",       hp: 150, def: 4, atk: 15, xp: 300, ai: "melee", hieb: 1.5, lichtscheu: true,
              art: "wraith",   body: "#8AA8CE", dark: "#33455C", size: 1.14, eye: "#BFE4FF",
              glow: "#7FB0DE", float: true },
   boss:    { name: "Der Namenlose", g: "m",   hp: 950, def: 7, atk: 21, xp: 1800, ai: "boss", hieb: 1.25,
@@ -2641,8 +2643,17 @@ function kachelMass(eintrag) {
   const art = (eintrag && eintrag.def && eintrag.def.kind)
     || (ITEMS[id] && ITEMS[id].kind) || "relic";
   const m = KACHEL_EIGEN[id] || KACHEL_ART[art] || KACHEL_ART.relic;
+  // Quergelegt tauschen Breite und Hoehe die Plaetze
+  const quer = eintrag && eintrag.dreh;
   // Ein Stapel Schrott belegt eine Kachel, wiegt aber so viel, wie er ist
-  return { w: m[0], h: m[1], kg: m[2] * (eintrag && eintrag.menge || 1) };
+  return { w: quer ? m[1] : m[0], h: quer ? m[0] : m[1],
+           kg: m[2] * (eintrag && eintrag.menge || 1) };
+}
+
+/* Ob sich Drehen bei diesem Stueck ueberhaupt lohnt. */
+function drehbar(eintrag) {
+  const m = kachelMass(eintrag);
+  return m.w !== m.h;
 }
 
 /* Gewichte lesen sich als Kilo mit einer Nachkommastelle, deutsches Komma. */
@@ -2738,7 +2749,7 @@ function insLager(b) {
   }
   const platz = suchePlatzIn(META.lager, spalten, reihen, b);
   if (!platz) return false;
-  b.gx = platz.gx; b.gy = platz.gy;
+  setzeAuf(b, platz);
   META.lager.push(b);
   return true;
 }
@@ -2802,12 +2813,32 @@ function passtIn(liste, spalten, reihen, eintrag, gx, gy, feld) {
   return true;
 }
 
+/* Sucht einen Platz und probiert dabei beide Lagen. Der Aufrufer bekommt
+   die Drehung mitgeliefert und muss sie mit uebernehmen - so bleibt der
+   Eintrag waehrend der Suche unberuehrt, wenn nichts passt. */
 function suchePlatzIn(liste, spalten, reihen, eintrag) {
+  const urspruenglich = !!eintrag.dreh;
   const feld = belegungIn(liste, spalten, reihen, eintrag);
-  for (let y = 0; y < reihen; y++)
-    for (let x = 0; x < spalten; x++)
-      if (passtIn(liste, spalten, reihen, eintrag, x, y, feld)) return { gx: x, gy: y };
-  return null;
+  const lagen = drehbar(eintrag) ? [urspruenglich, !urspruenglich] : [urspruenglich];
+  try {
+    for (const dreh of lagen) {
+      eintrag.dreh = dreh;
+      const m = kachelMass(eintrag);
+      for (let y = 0; y <= reihen - m.h; y++)
+        for (let x = 0; x <= spalten - m.w; x++)
+          if (passtIn(liste, spalten, reihen, eintrag, x, y, feld))
+            return { gx: x, gy: y, dreh };
+    }
+    return null;
+  } finally { eintrag.dreh = urspruenglich; }
+}
+
+/* Legt einen gefundenen Platz an - Ort und Lage zusammen. */
+function setzeAuf(eintrag, platz) {
+  eintrag.gx = platz.gx;
+  eintrag.gy = platz.gy;
+  if (platz.dreh !== undefined) eintrag.dreh = platz.dreh;
+  return eintrag;
 }
 
 /* Groesstes zuerst - sonst zerfranst jedes Raster nach ein paar Funden. */
@@ -2816,15 +2847,17 @@ function raeumeEinIn(liste, spalten, reihen) {
     const ma = kachelMass(a), mb = kachelMass(b);
     return (mb.w * mb.h) - (ma.w * ma.h) || mb.h - ma.h;
   });
-  const vorher = sortiert.map(e => [e.gx, e.gy]);
-  for (const e of sortiert) e.gx = e.gy = null;
+  const vorher = sortiert.map(e => [e.gx, e.gy, e.dreh]);
+  for (const e of sortiert) { e.gx = e.gy = null; e.dreh = false; }
   let alle = true;
   for (const e of sortiert) {
     const platz = suchePlatzIn(sortiert, spalten, reihen, e);
-    if (platz) { e.gx = platz.gx; e.gy = platz.gy; } else alle = false;
+    if (platz) setzeAuf(e, platz); else alle = false;
   }
   if (!alle && vorher.every(([x]) => x != null))
-    sortiert.forEach((e, i) => { e.gx = vorher[i][0]; e.gy = vorher[i][1]; });
+    sortiert.forEach((e, i) => {
+      e.gx = vorher[i][0]; e.gy = vorher[i][1]; e.dreh = vorher[i][2];
+    });
   return alle;
 }
 
@@ -2869,7 +2902,7 @@ function legeAb(p, eintrag) {
   if (getragen(p) + gewicht(eintrag) > traglast()) return "gewicht";
   const platz = suchePlatz(p, eintrag);
   if (!platz) return "platz";
-  eintrag.gx = platz.gx; eintrag.gy = platz.gy;
+  setzeAuf(eintrag, platz);
   p.bag.push(eintrag);
   return null;
 }
@@ -2884,7 +2917,7 @@ function zurueckInsRaster(p, eintrag) {
   if (eintrag.gx != null && passtHin(p, eintrag, eintrag.gx, eintrag.gy)) return true;
   const platz = suchePlatz(p, eintrag);
   if (!platz) return false;
-  eintrag.gx = platz.gx; eintrag.gy = platz.gy;
+  setzeAuf(eintrag, platz);
   return true;
 }
 
@@ -3066,14 +3099,14 @@ const MONSTER_TABLE = {
 };
 
 const ITEM_TABLE = {
-  1: [["potion", 34], ["oil", 46], ["dagger", 8], ["leather", 8], ["modWall", 5]],
-  2: [["confusion", 12], ["chart", 8], ["sword", 10], ["modLanze", 4]],
-  3: [["lightning", 16], ["poison", 12], ["might", 10], ["chain", 10], ["spiess", 8],
+  1: [["potion", 3], ["oil", 26], ["dagger", 8], ["leather", 8], ["modWall", 5]],
+  2: [["confusion", 10], ["chart", 8], ["sword", 10], ["modLanze", 4]],
+  3: [["lightning", 14], ["poison", 11], ["might", 9], ["chain", 10], ["spiess", 8],
       ["modSchatten", 4]],
-  4: [["fireball", 16], ["blink", 10], ["ward", 10], ["reisemantel", 7], ["modDonner", 4]],
-  5: [["greatPotion", 22], ["regen", 12], ["axe", 9], ["guard", 5], ["bigoil", 16]],
+  4: [["fireball", 14], ["blink", 9], ["ward", 9], ["reisemantel", 7], ["modDonner", 4]],
+  5: [["greatPotion", 2], ["regen", 2], ["axe", 9], ["guard", 5], ["bigoil", 11]],
   6: [["vitality", 6], ["wrath", 6], ["plate", 7], ["kolben", 7], ["modZoll", 4]],
-  7: [["potion", 20], ["plate", 9], ["schuppen", 7]],
+  7: [["plate", 9], ["schuppen", 7]],
   8: [["runeblade", 7], ["hellebarde", 5]],
 };
 
@@ -3219,7 +3252,7 @@ const META_KEY = "der-abstieg-asche-v1";
 
 
 function ladeMeta() {
-  const leer = { muenzen: 60, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
+  const leer = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
                  mitnahme: [], anlegen: {}, gesehen: [], stufe: 1, xp: 0, punkte: 0,
                  skills: {}, erweiterungen: [] };
   try {
@@ -3250,7 +3283,7 @@ function speichereMeta(m) {
   try { localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) {}
 }
 
-let META = { muenzen: 60, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
+let META = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
              mitnahme: [], anlegen: {}, gesehen: [], stufe: 1, xp: 0, punkte: 0,
              skills: {}, erweiterungen: [] };
 
@@ -3283,8 +3316,11 @@ function wert(eintrag) {
   w += Math.abs(d.hast || 0) * 200 + Math.abs(d.reach || 0) * 260;
   w += (d.killHeal || 0) * 30 + Math.abs(d.fovBonus || 0) * 40;
   w += (d.oilSteps || 0) * 25 + (d.lootLuck || 0) * 300;
-  if (d.use) w = { heal: 30, oil: 26, status: 55, lightning: 70, fireball: 80,
-                   confuse: 50, poison: 50, blink: 45, chart: 40 }[d.use] || 30;
+  if (d.use) {
+    const grund = { heal: 2.3, oil: .9, status: 55, lightning: 70, fireball: 80,
+                    confuse: 50, poison: 50, blink: 45, chart: 40 }[d.use] || 30;
+    w = d.amount ? Math.round(grund * d.amount) : grund;
+  }
   if (d.kind === "material") w = [0, 9, 26, 70, 180][d.rang || 1] * (eintrag.menge || 1);
   if (eintrag.ax) w = Math.round(w * 1.35);
   if (d.slot && !d.legendaer) w = Math.round(w * SELTEN_VON[seltenheitVon(eintrag)].wert);
@@ -3364,6 +3400,7 @@ function alsBestand(e) {
               sel: e.sel || null,
               q: e.def && e.def.quest ? e.def.name : null };
   if (e.menge) b.menge = e.menge;
+  if (e.dreh) b.dreh = true;
   return b;
 }
 
@@ -3373,6 +3410,7 @@ function ausBestand(b) {
     ? { id: "relic", def: Object.assign({}, RELIC, { name: b.q }) }
     : buildItem(b.id, b.ax, b.sel);
   if (b.menge) e.menge = b.menge;
+  if (b.dreh) e.dreh = true;
   if (b.stufe) wendeStufeAn(e, b.stufe);
   return e;
 }
@@ -5818,6 +5856,7 @@ function dropItem(entry) {
     if (G.player.equipped[slot] === entry) G.player.equipped[slot] = null;
   bag.splice(bag.indexOf(entry), 1);
   entry.gx = entry.gy = null;
+  entry.dreh = false;
   G.ground.push({ id: entry.id, def: entry.def, ax: entry.ax,
                   x: kachelX(G.player), y: kachelY(G.player) });
   log(`Du legst ${entry.def.name} ab.`, "you");
@@ -6773,7 +6812,12 @@ function tickLichtscheu() {
    tot. Der Preis ist jetzt Laerm - Feuer schueren, Wunden versorgen, sich
    ausruhen macht Geraeusche, und die Tiefe hoert zu. Je laenger du sitzt,
    desto mehr weiss die Etage, wo du bist. */
-const LAERM_JE_TAKT = 4.2;      // eine volle Rast reicht fuer rund sieben Sekunden
+/* Was ein Takt Rast bringt und kostet. Die volle Laermleiste soll rund ein
+   Drittel eines Heldenlebens zurueckgeben und dafuer knapp zwanzig Sekunden
+   brauchen - lange genug, dass die Fackel es merkt und man sich fragt, ob man
+   die Zeit hat. Vorher waren es 92 Leben in sieben Sekunden. */
+const REST_HEILUNG = 2;
+const LAERM_JE_TAKT = 5;
 const LAERM_SCHWELLEN = { gehoert: 35, kommt: 70, schluss: 100 };
 
 /* Was einmal gehoert wurde, ist nicht nach zehn Sekunden vergessen. Bei 1,4
@@ -6783,13 +6827,13 @@ function laermSinkt() {
   const p = G.player;
   G.stilleRast = false;          // wer aufsteht, beendet die stille Stunde
   if (!p.laerm) return;
-  p.laerm = Math.max(0, p.laerm - 1.4);
+  p.laerm = Math.max(0, p.laerm - 1.3);
 }
 
 /* Ein Takt Rast: heilen, Laerm machen, und schauen, wer zuhoert. */
 function rastTakt() {
   const p = G.player;
-  const geheilt = healActor(p, 4 + (p.restHeal || 0) * 2);
+  const geheilt = healActor(p, REST_HEILUNG + (p.restHeal || 0));
   if (geheilt) floatText(p.x, p.y, "+" + geheilt, "rgba(124,180,150,.75)");
 
   // Stille Stunde: die erste Rast auf der Etage bleibt ungehoert
@@ -6870,7 +6914,7 @@ function upkeep() {
      Beim Rasten laeuft der Verwaltungstakt dreimal so schnell, damit die
      Heilung fluessig wirkt; das Oel darf davon nichts merken und zaehlt
      deshalb nach verstrichener Zeit, nicht nach Takten. */
-  const zeitanteil = resting > 0 ? 1 / 3 : 1;
+  const zeitanteil = 1;
   p.oilTick = (p.oilTick || 0) + verbrauchProTakt() * zeitanteil;
   let oelSchutz = 0;
   while (p.oilTick >= 1 && oelSchutz++ < 12) { p.oilTick -= 1; burnOil(1); }
@@ -6912,7 +6956,9 @@ function tickWorld(dt) {
 
   // Verwaltung in festen Takten
   G.upkeepAt = G.upkeepAt || 0;
-  const takt = resting > 0 ? UPKEEP / 3 : UPKEEP;
+  // Rasten laeuft im selben Takt wie alles andere - drei Sekunden Rast
+  // sollen sich wie drei Sekunden anfuehlen, nicht wie eine.
+  const takt = UPKEEP;
   let schutz = 0;
   while (G.time >= G.upkeepAt && schutz++ < 12) {
     G.upkeepAt += takt;
@@ -10037,6 +10083,20 @@ function kachelName(e) {
   return n.length <= 13 ? n : n.slice(0, 12).trimEnd() + "…";
 }
 
+/* Dreht ein Stueck an Ort und Stelle, wenn es quer noch passt. Gibt zurueck,
+   ob es geklappt hat - der Aufrufer sagt es dann. */
+function dreheAn(liste, spalten, reihen, e) {
+  if (!drehbar(e)) return false;
+  const alt = !!e.dreh;
+  e.dreh = !alt;
+  if (e.gx != null && passtIn(liste, spalten, reihen, e, e.gx, e.gy)) return true;
+  // Am Platz geht es nicht - dann irgendwo anders quer hinlegen
+  const platz = suchePlatzIn(liste, spalten, reihen, e);
+  if (platz && platz.dreh === !alt) { setzeAuf(e, platz); return true; }
+  e.dreh = alt;
+  return false;
+}
+
 /* == Ein Raster fuer alles ===============================================
    Rucksack und Lager sind dasselbe Ding in zwei Groessen. Der Zeichner nimmt
    deshalb nur eine Liste, ein Mass und einen Namen fuer das Feld - wer die
@@ -10074,7 +10134,10 @@ let bagWahl = null;
 function showBag(focus) {
   const p = G.player;
   if (bagWahl && p.bag.indexOf(bagWahl) < 0) bagWahl = null;
-  openModal(bagMarkup(), null);
+  openModal(bagMarkup(), key => {
+    if (key === "r") { bagDrehen(); return true; }
+    return false;
+  });
   const blatt = overlay.querySelector(".sheet");
   if (blatt) blatt.classList.add("weit");
   bagBinde();
@@ -10150,7 +10213,7 @@ function bagMarkup() {
       <span>Aufräumen</span>
       <span class="note">packt das Sperrigste zuerst — schafft Platz für Rüstung</span></button>
     </div>
-    <div class="foot">Kacheln lassen sich verschieben · Klick benutzt oder legt an ·
+    <div class="foot">Kacheln verschieben · <b>R</b> dreht · Klick benutzt oder legt an ·
       auf ein Ausrüstungsfeld ziehen legt an · Esc schließt</div>`;
 }
 
@@ -10172,8 +10235,21 @@ function bagTafel() {
       an ? "" : compareText(e)}${d.sage ? `<em class="sage">„${escapeHtml(d.sage)}“</em>` : ""}</p>
     <div class="tafeltaten">
       <button class="bag-act" id="tatBtn" ${tat ? "" : "disabled"}>${tat || "—"}</button>
+      ${!an && drehbar(e)
+        ? '<button class="bag-act" id="drehBtn">Drehen · R</button>' : ""}
       <button class="bag-act drop" id="wegBtn">Wegwerfen</button>
     </div>`;
+}
+
+/* Das gewaehlte Stueck quer legen. Passt es quer nicht, bleibt es liegen -
+   der Klick soll nichts kaputtmachen, was schon gepackt war. */
+function bagDrehen() {
+  const p = G.player;
+  if (!bagWahl || Object.values(p.equipped).indexOf(bagWahl) >= 0) { Sfx.spiel("nein"); return; }
+  const { spalten, reihen } = raster();
+  if (dreheAn(imRucksack(p), spalten, reihen, bagWahl)) Sfx.spiel("aufheben");
+  else { Sfx.spiel("nein"); log("Quer passt es nirgends hin.", "system"); }
+  bagFrisch();
 }
 
 /* ── Kacheln greifen und legen ──────────────────────────────────────────
@@ -10198,9 +10274,10 @@ function bagBinde() {
   const raeum = $("raeumBtn");
   if (raeum) raeum.onclick = () => { raeumeEin(p); Sfx.spiel("aufheben"); bagFrisch(); };
 
-  const tat = $("tatBtn"), weg = $("wegBtn");
+  const tat = $("tatBtn"), weg = $("wegBtn"), dreh = $("drehBtn");
   if (tat) tat.onclick = () => chooseBagItem(bagWahl, false);
   if (weg) weg.onclick = () => chooseBagItem(bagWahl, true);
+  if (dreh) dreh.onclick = () => bagDrehen();
 
   function greife(el, e, amKoerper) {
     el.onpointerdown = ev => {
@@ -10209,9 +10286,12 @@ function bagBinde() {
       const kasten = el.getBoundingClientRect();
       const griffX = ev.clientX - kasten.left, griffY = ev.clientY - kasten.top;
       const startX = ev.clientX, startY = ev.clientY;
+      const lageStart = !!e.dreh;
       let geist = null;
 
+      let letzte = ev;
       const bewegt = ev2 => {
+        letzte = ev2;
         if (!geist) {
           if (Math.abs(ev2.clientX - startX) < ZUG_SCHWELLE &&
               Math.abs(ev2.clientY - startY) < ZUG_SCHWELLE) return;
@@ -10225,9 +10305,27 @@ function bagBinde() {
         geist.classList.toggle("nein", !gut && !ueberGear(ev2, e));
       };
 
+      /* R dreht mitten im Zug. Das ist die Stelle, an der man es braucht:
+         man sieht die Luecke und merkt, dass es nur quer hineingeht. */
+      const dreht = ev2 => {
+        if (ev2.key !== "r" && ev2.key !== "R") return;
+        ev2.preventDefault();
+        if (!drehbar(e)) return;
+        e.dreh = !e.dreh;
+        Sfx.spiel("aufheben");
+        if (geist) {
+          const m = kachelMass(e);
+          const zelle = 54;
+          geist.style.width = `${m.w * zelle + (m.w - 1) * 3}px`;
+          geist.style.height = `${m.h * zelle + (m.h - 1) * 3}px`;
+        }
+        bewegt(letzte);
+      };
+
       const los = ev2 => {
         window.removeEventListener("pointermove", bewegt);
         window.removeEventListener("pointerup", los);
+        window.removeEventListener("keydown", dreht);
         if (geist) geist.remove();
         el.classList.remove("hebt");
         if (!geist) {                       // war doch nur ein Klick
@@ -10248,12 +10346,18 @@ function bagBinde() {
           return;
         }
         if (passtHin(p, e, ziel.gx, ziel.gy)) { e.gx = ziel.gx; e.gy = ziel.gy; }
+        else if (e.dreh !== lageStart && !passtHin(p, e, e.gx, e.gy)) {
+          /* Mitten im Zug gedreht, aber nirgends abgelegt: quer bleiben darf
+             es nur, wenn es auf seinem alten Platz auch quer passt. */
+          e.dreh = lageStart;
+        }
         bagWahl = e;
         bagFrisch();
       };
 
       window.addEventListener("pointermove", bewegt);
       window.addEventListener("pointerup", los);
+      window.addEventListener("keydown", dreht);
     };
   }
 
@@ -10957,7 +11061,7 @@ const SKILLS = [
     text: r => `${(1 + r * .25).toFixed(2).replace(".", ",")}× Schaden auf Ahnungslose`,
     wirk: () => {} },
 
-  { key: "genesung", zweig: "zunft", name: "Genesung", max: 4,
+  { key: "genesung", zweig: "zunft", name: "Genesung", max: 2,
     text: r => `Rasten heilt ${r} mehr je Takt`,
     wirk: (p, r) => { p.restHeal = (p.restHeal || 0) + r; } },
   { key: "leise", zweig: "zunft", name: "Leiser Tritt", max: 4, braucht: ["genesung", 2],
@@ -11219,7 +11323,7 @@ function steigeTiefer() {
    Speicherplaetze und der laufende Abstieg. Zwei Klicks, weil es nicht
    rueckgaengig zu machen ist. */
 function loescheFortschritt() {
-  META = { muenzen: 60, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
+  META = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
            mitnahme: [], anlegen: {}, gesehen: [], laden: null, ladenRang: -1,
            stufe: 1, xp: 0, punkte: 0, skills: {}, erweiterungen: [] };
   speichereMeta(META);
@@ -11235,7 +11339,7 @@ function loescheFortschritt() {
    Umsatz. Die Waren werden einmal je Rang gewuerfelt und bleiben dann
    stehen, damit man sparen kann statt auf Glueck zu warten. */
 const SORTIMENT = {
-  0: ["potion", "oil", "dagger", "leather"],
+  0: ["potion", "oil", "dagger", "leather"],   // Traenke gibt es auf jedem Rang
   1: ["potion", "oil", "dagger", "sword", "leather", "chart"],
   2: ["greatPotion", "bigoil", "sword", "spiess", "chain", "lightning", "might"],
   3: ["greatPotion", "bigoil", "axe", "spiess", "chain", "kolben", "ward", "fireball"],
@@ -11695,6 +11799,7 @@ function showLoadout() {
   openModal(ladeMarkup(), key => {
     if (key === "Escape") { showTitle(); return true; }
     if (key === "enter") { ladeAufbruch(); return true; }
+    if (key === "r") { ladeDrehen(); return true; }
     return false;
   });
   zwingend();
@@ -11734,7 +11839,7 @@ function ladeMarkup() {
   return `<h2>Der Aufbruch</h2>
     <p class="sub">Was rechts liegt, geht mit hinab — und ist weg, wenn du unten
       bleibst. Was links bleibt, ist sicher. Kacheln lassen sich zwischen beiden
-      Seiten ziehen.</p>
+      Seiten ziehen, <b>R</b> dreht sie quer.</p>
     <div class="lade">
       <section class="ladeseite">
         <h3>Lager <em>${lm.spalten}×${lm.reihen}</em></h3>
@@ -11788,6 +11893,8 @@ function ladeTafel() {
       ${angelegt
         ? '<button class="bag-act" id="tafelAb">Abnehmen</button>'
         : `<button class="bag-act" id="tafelHin">${imLager ? "In den Rucksack" : "Ins Lager"}</button>`}
+      ${!angelegt && drehbar(b)
+        ? '<button class="bag-act" id="tafelDreh">Drehen · R</button>' : ""}
       ${kannAnlegen ? '<button class="bag-act" id="tafelAn">Anlegen</button>' : ""}
       ${imLager && !angelegt
         ? `<button class="bag-act drop" id="tafelWeg">Verkaufen · ${verkaufPreis(e)} M</button>` : ""}
@@ -11807,6 +11914,7 @@ function ladeSchiebe(b, vonFeld, zuFeld, gx, gy) {
   if (gx == null || !passtIn(ohne, spalten, reihen, b, gx, gy)) {
     const platz = suchePlatzIn(ohne, spalten, reihen, b);
     if (!platz) return false;
+    setzeAuf(b, platz);
     gx = platz.gx; gy = platz.gy;
   }
   const k = quelle.indexOf(b);
@@ -11837,11 +11945,25 @@ function ladeAblegen(b, feld) {
   const liste = ladeListe(feld);
   const platz = suchePlatzIn(liste, spalten, reihen, b);
   if (!platz) return false;
-  b.gx = platz.gx; b.gy = platz.gy;
+  setzeAuf(b, platz);
   liste.push(b);
   const slot = LADE_PLAETZE.find(sl => META.anlegen[sl] === b);
   if (slot) META.anlegen[slot] = null;
   return true;
+}
+
+/* Das gewaehlte Stueck quer legen - in dem Behaelter, in dem es liegt. */
+function ladeDrehen() {
+  if (!ladeWahl || LADE_PLAETZE.some(sl => META.anlegen[sl] === ladeWahl)) {
+    Sfx.spiel("nein"); return;
+  }
+  const feld = META.lager.includes(ladeWahl) ? "lager" : "mit";
+  const m = ladeMass(feld);
+  if (dreheAn(ladeListe(feld), m.spalten, m.reihen, ladeWahl)) {
+    speichereMeta(META);
+    Sfx.spiel("aufheben");
+  } else Sfx.spiel("nein");
+  ladeFrisch();
 }
 
 function ladeAufbruch() {
@@ -11877,6 +11999,7 @@ function ladeBinde() {
     } else { Sfx.spiel("nein"); }
     ladeFrisch();
   });
+  knopf("tafelDreh", () => ladeDrehen());
   knopf("tafelWeg", () => {
     const i = META.lager.indexOf(ladeWahl);
     if (i >= 0) { verkaufe(i); ladeWahl = null; }
@@ -11890,21 +12013,28 @@ function ladeBinde() {
       const kasten = el.getBoundingClientRect();
       const griffX = ev.clientX - kasten.left, griffY = ev.clientY - kasten.top;
       const startX = ev.clientX, startY = ev.clientY;
+      const lageStart = !!b.dreh;
       let geist = null;
 
+      let letzte = ev;
+      const geistMass = () => {
+        if (!geist) return;
+        const m = kachelMass(b);
+        const zelle = feld === "lager" ? 44 : 50;
+        geist.style.width = `${m.w * zelle + (m.w - 1) * 3}px`;
+        geist.style.height = `${m.h * zelle + (m.h - 1) * 3}px`;
+      };
       const bewegt = ev2 => {
+        letzte = ev2;
         if (!geist) {
           if (Math.abs(ev2.clientX - startX) < 4 && Math.abs(ev2.clientY - startY) < 4) return;
           geist = document.createElement("div");
           geist.className = "kachelgeist";
-          const m = kachelMass(b);
-          const zelle = feld === "lager" ? 44 : 50;
-          geist.style.width = `${m.w * zelle + (m.w - 1) * 3}px`;
-          geist.style.height = `${m.h * zelle + (m.h - 1) * 3}px`;
           geist.style.setProperty("--tint", seltenFarbe(b));
           geist.innerHTML = `<span class="kachelbild">${kachelBild(b)}</span>
             <span class="kachelname">${escapeHtml(kachelName(b))}</span>`;
           document.body.appendChild(geist);
+          geistMass();
           el.classList.add("hebt");
         }
         geist.style.left = `${ev2.clientX - griffX}px`;
@@ -11913,9 +12043,21 @@ function ladeBinde() {
         geist.classList.toggle("nein", !z && !ueberPlatz(ev2, b));
       };
 
+      // R dreht mitten im Zug - dort merkt man ja erst, dass es quer hineingeht
+      const dreht = ev2 => {
+        if (ev2.key !== "r" && ev2.key !== "R") return;
+        ev2.preventDefault();
+        if (!drehbar(b)) return;
+        b.dreh = !b.dreh;
+        Sfx.spiel("aufheben");
+        geistMass();
+        bewegt(letzte);
+      };
+
       const los = ev2 => {
         window.removeEventListener("pointermove", bewegt);
         window.removeEventListener("pointerup", los);
+        window.removeEventListener("keydown", dreht);
         if (geist) geist.remove();
         el.classList.remove("hebt");
         ladeWahl = b;
@@ -11938,13 +12080,14 @@ function ladeBinde() {
             } else Sfx.spiel("nein");
           } else if (ladeSchiebe(b, feld, z.feld, z.gx, z.gy)) {
             speichereMeta(META);
-          } else Sfx.spiel("nein");
-        }
+          } else { b.dreh = lageStart; Sfx.spiel("nein"); }
+        } else if (b.dreh !== lageStart) b.dreh = lageStart;
         ladeFrisch();
       };
 
       window.addEventListener("pointermove", bewegt);
       window.addEventListener("pointerup", los);
+      window.addEventListener("keydown", dreht);
     };
   }
 
@@ -12107,7 +12250,8 @@ function serialize() {
       // ax = Affix, q = Name eines Auftragsgegenstands (der hat keine feste Vorlage)
       // alsBestand/ausBestand kennen auch die Aufwertungsstufe - ohne sie
       // wurde aus einer Hellebarde +3 beim Laden wieder eine gewoehnliche.
-      bag: G.player.bag.map(e => Object.assign(alsBestand(e), { gx: e.gx, gy: e.gy })),
+      bag: G.player.bag.map(e =>
+        Object.assign(alsBestand(e), { gx: e.gx, gy: e.gy, dreh: !!e.dreh })),
       equipped: Object.fromEntries(Object.entries(G.player.equipped)
         .map(([k, v]) => [k, v ? G.player.bag.indexOf(v) : -1])),
     },
@@ -12200,6 +12344,7 @@ function loadGame() {
       const e = ausBestand(b);
       e.gx = b.gx == null ? null : b.gx;
       e.gy = b.gy == null ? null : b.gy;
+      e.dreh = !!b.dreh;
       return e;
     });
     p.equipped = { "Waffe": null, "Rüstung": null, "Amulett": null, "Modul": null };
@@ -12209,8 +12354,8 @@ function loadGame() {
     for (const e of imRucksack(p)) {
       if (e.gx != null && passtHin(p, e, e.gx, e.gy)) continue;
       const platz = suchePlatz(p, e);
-      e.gx = platz ? platz.gx : null;
-      e.gy = platz ? platz.gy : null;
+      if (platz) setzeAuf(e, platz);
+      else { e.gx = null; e.gy = null; }
     }
 
     G.actors = [p];
@@ -12322,7 +12467,7 @@ function startNewGame() {
   let mitgenommen = 0;
   for (const b of (META.mitnahme || [])) {
     const e = ausBestand(b);
-    e.gx = b.gx; e.gy = b.gy;
+    e.gx = b.gx; e.gy = b.gy; e.dreh = !!b.dreh;
     p.bag.push(e);
     mitgenommen++;
   }
@@ -12330,7 +12475,7 @@ function startNewGame() {
     const b = (META.anlegen || {})[slot];
     if (!b) continue;
     const e = ausBestand(b);
-    e.gx = e.gy = null;
+    e.gx = e.gy = null; e.dreh = false;
     p.bag.push(e);
     p.equipped[slot] = e;
     mitgenommen++;
