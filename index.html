@@ -191,6 +191,49 @@ body {
   touch-action: none;
 }
 
+/* Der Aufstieg dauert acht Sekunden - man muss sehen, wie weit er ist, und
+   dass er abbricht, wenn man getroffen wird. */
+.aufstiegsbalken {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  width: min(340px, 76%);
+  padding: 12px 16px 13px;
+  text-align: center;
+  background: rgba(12,10,8,.86);
+  border: 1px solid var(--verdigris);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.6);
+}
+
+.aufstiegsbalken[hidden] { display: none; }
+
+.ab-wort {
+  font-family: var(--rubric);
+  font-size: 13px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--verdigris-lit);
+}
+
+.ab-schiene {
+  height: 8px;
+  margin: 9px 0 7px;
+  border-radius: 4px;
+  background: rgba(0,0,0,.6);
+  overflow: hidden;
+}
+
+.ab-schiene i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--verdigris), var(--verdigris-lit));
+}
+
+.ab-note { font-size: 12.5px; color: var(--vellum-faint); }
+
 .hint {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -741,6 +784,19 @@ body {
   font-weight: 400;
 }
 
+.verkaufsraum {
+  display: grid;
+  grid-template-columns: max-content minmax(230px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.verkaufsraum .tafel { margin-top: 0; }
+
+@media (max-width: 820px) {
+  .verkaufsraum { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* ── Der Talentbaum ───────────────────────────────────────────────────── */
 .baumrahmen {
   overflow: auto;
@@ -974,6 +1030,10 @@ body {
 }
 
 .lastbalken i.voll { background: var(--madder-lit); }
+
+/* Der Aufstiegsbalken - er laeuft nur, waehrend man wirklich hinaufsteigt */
+.meter.aufstieg { box-shadow: 0 0 0 1px rgba(127,192,169,.35); }
+.fill.aufstieg { background: linear-gradient(90deg, #5C9E8A, #A8E0C8); }
 .lastbalken u { position: absolute; top: 0; width: 1px; height: 100%; background: var(--stone-600); }
 .schwerbeladen { color: var(--madder-lit); }
 
@@ -1712,6 +1772,11 @@ body {
         <div class="banner-sub" id="bannerSub"></div>
       </div>
       <div class="hint" id="hint" hidden></div>
+      <div class="aufstiegsbalken" id="aufstiegBalken" hidden aria-live="polite">
+        <div class="ab-wort">Aufstieg</div>
+        <div class="ab-schiene"><i id="abFuellung"></i></div>
+        <div class="ab-note" id="abNote"></div>
+      </div>
     </div>
 
     <aside class="margin">
@@ -1722,6 +1787,7 @@ body {
         <div class="flammenreihe" id="flammenReihe"></div>
         <div class="meter finster" id="finsterMeter" hidden><i class="fill finster" id="finsterFill"></i><div class="value" id="finsterText">Finsternis</div></div>
         <div class="meter laerm" id="laermMeter" hidden><i class="fill laerm" id="laermFill"></i><div class="value" id="laermText">Lärm</div></div>
+        <div class="meter aufstieg" id="aufstiegLeiste" hidden><i class="fill aufstieg" id="aufstiegFill"></i><div class="value" id="aufstiegText">Aufstieg</div></div>
         <div class="meter"><i class="fill xp" id="xpFill"></i><div class="value" id="xpText">0 / 150</div></div>
         <div class="stat-row"><span>Angriff</span><b id="statAtk">5</b></div>
         <div class="stat-row"><span>Schutz</span><b id="statDef">2</b></div>
@@ -1800,7 +1866,6 @@ const MAX_FLOOR = 10;
 /* Ein Leben je zwanzig Runden. Bei acht war die Etage von selbst verheilt,
    noch ehe man den naechsten Gegner erreichte. */
 const REGEN_INTERVAL = 20;
-const SAVE_KEY = "der-abstieg-v1";
 
 const WALL = 0, FLOOR = 1, STAIRS = 2, DOOR = 3, PILLAR = 4, LAVA = 5, VEIL = 6;
 //                    Wand   Boden Treppe Schwelle Säule  Lava   Schleier
@@ -3293,11 +3358,18 @@ const META_KEY = "der-abstieg-asche-v1";
 
 
 function ladeMeta() {
+  try { return ladeMetaAus(JSON.parse(localStorage.getItem(META_KEY))); }
+  catch (e) { return ladeMetaAus(null); }   // privater Modus - dann eben ohne
+}
+
+/* Aus einem rohen Datensatz einen vollstaendigen machen. Steht fuer sich,
+   damit auch ein Uebertragungscode hier durchlaeuft und nichts Halbes in
+   META landet. */
+function ladeMetaAus(roh) {
   const leer = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
                  mitnahme: [], anlegen: {}, gesehen: [], stufe: 1, xp: 0, punkte: 0,
                  skills: {}, erweiterungen: [] };
-  try {
-    const roh = JSON.parse(localStorage.getItem(META_KEY));
+  {
     if (roh && typeof roh === "object") {
       return {
         muenzen: roh.muenzen | 0,
@@ -3316,7 +3388,7 @@ function ladeMeta() {
         anlegen: (roh.anlegen && typeof roh.anlegen === "object") ? roh.anlegen : {},
       };
     }
-  } catch (e) { /* privater Modus - dann eben ohne Fortschritt */ }
+  }
   return leer;
 }
 
@@ -3484,10 +3556,12 @@ function verbucheLauf(gerettet) {
   if (G.won) META.siege++;
   let stuecke = 0, verkauft = 0, erloes = 0;
   if (gerettet) {
+    // Angelegtes bleibt am Koerper und faellt nicht in die Beute
+    const amKoerper = new Set(Object.values(G.player.equipped).filter(Boolean));
     /* Grosses zuerst, damit im vollen Lager nicht der Panzer uebrig bleibt,
        weil vier Traenke sich quer gelegt haben. */
     const beute = G.player.bag
-      .filter(e => !(e.def && e.def.quest))    // Auftragsstuecke sind kein Handelsgut
+      .filter(e => !(e.def && e.def.quest) && !amKoerper.has(e))
       .sort((a, b) => {
         const ma = kachelMass(a), mb = kachelMass(b);
         return (mb.w * mb.h) - (ma.w * ma.h);
@@ -3503,9 +3577,16 @@ function verbucheLauf(gerettet) {
       META.umsatz = (META.umsatz | 0) + erloes;
     }
   }
-  // Was mit hinabging, ist entweder oben wieder da oder verloren
+  /* Wer heil oben ankommt, behaelt, was er am Koerper trug. Vorher wurde man
+     nach jedem erfolgreichen Lauf ausgezogen und musste sich neu ausruesten -
+     das bestrafte genau das, was man erreichen wollte. Der Rucksack wandert
+     ins Lager (das ist die Beute), die vier Plaetze bleiben belegt. */
   META.mitnahme = [];
-  META.anlegen = {};
+  if (!gerettet) META.anlegen = {};
+  else for (const slot of LADE_PLAETZE) {
+    const b = META.anlegen[slot];
+    if (b) { b.gx = null; b.gy = null; b.dreh = false; }
+  }
   speichereMeta(META);
   return { stuecke, verkauft, erloes };
 }
@@ -4708,6 +4789,33 @@ function ziehLegende() {
 
 /* Die Schatzkammer meldet sich, sobald eine ihrer Kacheln im Schein liegt -
    sonst liefe man daran vorbei, ohne je zu erfahren, dass es sie gab. */
+/* Ein Schacht, den man gesehen hat, bleibt auf der Karte. */
+/* Wer auf einem Schacht steht, soll wissen, dass er hier hinaus kann. */
+let schachtStand = false;
+
+function schachtHinweis() {
+  if (G.aufstieg) return;
+  const drauf = !!schachtHier();
+  if (drauf === schachtStand) return;
+  schachtStand = drauf;
+  if (drauf) {
+    const t = tastenName(BELEGUNG.aufstieg || "<");
+    setHint(`Aufstiegsschacht — ${t} steigt hinauf und beendet den Lauf ` +
+            `(${AUFSTIEG_DAUER} s, und es hallt)`);
+  } else setHint(null);
+}
+
+function entdeckeSchaechte() {
+  for (const sch of (G.schaechte || [])) {
+    if (sch.bekannt) continue;
+    if (!seesTile(sch.x, sch.y)) continue;
+    sch.bekannt = true;
+    log("Ein Aufstiegsschacht. Von hier käme du hinaus.", "good");
+    Sfx.spiel("entdeckt");
+    ring(mitte(sch.x), mitte(sch.y), 2.4, "#7FC0A9");
+  }
+}
+
 function entdeckeSchatzkammer() {
   const v = G.vault;
   if (!v || v.entdeckt) return;
@@ -5035,6 +5143,8 @@ function populateFloor(floor) {
   G.traps = [];
   G.secrets = [];
   G.saeulen = {};
+  G.schaechte = [];
+  G.aufstieg = null;             // laufender Aufstieg, falls einer begonnen hat
   G.player.finsternis = 0;      // eine neue Etage beginnt im Reinen
   G.player.laerm = 0;
   G.stilleGenutzt = false;
@@ -5052,6 +5162,29 @@ function populateFloor(floor) {
   G.player.x = mitte(sx); G.player.y = mitte(sy);
   G.player.ax = G.player.x; G.player.ay = G.player.y;
   for (const a of G.actors) { a.wach = false; a.next = undefined; }
+
+  /* == Der Weg zurueck ===================================================
+     Bisher ging es an derselben Treppe hinauf, zu der man ohnehin lief -
+     sofort und ohne Risiko. Damit fehlte die Haelfte der Spannung: die Frage
+     "reicht das Oel noch fuer den Rueckweg" gab es nicht, weil es keinen
+     Rueckweg gab.
+
+     Jetzt ist der Schacht, durch den du hereingekommen bist, dein sicherer
+     Ausgang - und der liegt am Anfang der Etage. Je tiefer du hineingehst,
+     desto weiter ist es zurueck. Dazu kommen ein oder zwei weitere Schaechte
+     irgendwo in der Tiefe: wer sie findet, spart sich den Rueckweg. */
+  G.schaechte = [{ x: sx, y: sy, bekannt: true }];
+  const weitWeg = zones.slice(2).filter(z => {
+    const d = Math.hypot(z.center[0] - sx, z.center[1] - sy);
+    return d > 14 && isWalkable(z.center[0], z.center[1]);
+  });
+  for (let i = weitWeg.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [weitWeg[i], weitWeg[j]] = [weitWeg[j], weitWeg[i]];
+  }
+  const zusaetzlich = rng() < .55 ? 2 : 1;
+  for (const z of weitWeg.slice(0, zusaetzlich))
+    G.schaechte.push({ x: z.center[0], y: z.center[1], bekannt: false });
 
   const last = zones[zones.length - 1];
   const monsterChances = chancesFor(MONSTER_TABLE, floor);
@@ -5567,7 +5700,6 @@ function kill(target, source) {
     }
     log("Du stirbst in der Tiefe.", "bad");
     mode = { kind: "dead" };
-    clearSave();
     setTimeout(() => showDeath(), 700);
     return;
   }
@@ -6978,6 +7110,8 @@ function rastTakt() {
 function upkeep() {
   const p = G.player;
   G.turns++;
+  tickAufstieg();
+  if (!p.alive) return;
   tickStatuses(p);
   if (!p.alive) return;
 
@@ -7024,7 +7158,6 @@ function upkeep() {
     tickStatuses(a);
     if (!p.alive) return;
   }
-  saveGame();
 }
 
 /* Die Weltuhr. Wird jedes Bild aufgerufen und bewegt alles, was nicht
@@ -7052,6 +7185,8 @@ function tickWorld(dt) {
   entdeckeFallen();
   entdeckeGeheimnisse();
   entdeckeSchatzkammer();
+  entdeckeSchaechte();
+  schachtHinweis();
 
   // Stufenlose Bewegung jedes Wesens
   for (const a of G.actors) {
@@ -7589,6 +7724,15 @@ function drawFrame(dt) {
     const x = (g.x - camX) * TILE, y = (g.y - camY) * TILE;
     if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
     drawRiss(x, y);
+  }
+
+  /* --- Aufstiegsschaechte: der Weg hinaus --- */
+  for (const sch of (G.schaechte || [])) {
+    const i = idx(sch.x, sch.y);
+    if (!sch.bekannt && !G.map.explored[i]) continue;
+    const x = (sch.x - camX) * TILE, y = (sch.y - camY) * TILE;
+    if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
+    drawSchacht(x, y, !!G.map.visible[i]);
   }
 
   /* --- Kisten --- */
@@ -9326,6 +9470,54 @@ function drawRiss(x, y) {
 }
 
 /* Eine Truhe aus Holz mit Eisenbeschlag. Offen steht der Deckel hoch. */
+/* Ein Schacht nach oben: ein Loch in der Decke, aus dem Licht faellt. Er ist
+   das Gegenstueck zur Treppe und muss sich auf den ersten Blick von ihr
+   unterscheiden - deshalb Licht von oben statt Stufen nach unten. */
+function drawSchacht(x, y, vis) {
+  const m = TILE / 2;
+  const puls = .6 + Math.sin(anim.t * 1.8) * .4;
+  ctx.save();
+
+  // Der Schaft selbst
+  ctx.fillStyle = vis ? "rgba(0,0,0,.55)" : "rgba(0,0,0,.4)";
+  ctx.beginPath();
+  ctx.arc(x + m, y + m, TILE * .38, 0, 6.283);
+  ctx.fill();
+
+  // Lichtkegel von oben
+  if (vis) {
+    const g = ctx.createRadialGradient(x + m, y + m, 0, x + m, y + m, TILE * .95);
+    g.addColorStop(0, `rgba(198,232,214,${.30 + puls * .20})`);
+    g.addColorStop(.55, "rgba(140,200,175,.10)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x + m, y + m, TILE * .95, 0, 6.283);
+    ctx.fill();
+  }
+
+  // Der Rand, in Eisen gefasst
+  ctx.strokeStyle = vis
+    ? `rgba(127,192,169,${.5 + puls * .4})`
+    : "rgba(78,110,98,.45)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x + m, y + m, TILE * .38, 0, 6.283);
+  ctx.stroke();
+
+  // Sprossen einer Leiter, die nach oben verschwindet
+  ctx.strokeStyle = vis ? "rgba(210,236,224,.55)" : "rgba(120,150,140,.3)";
+  ctx.lineWidth = 1.6;
+  for (let k = 0; k < 3; k++) {
+    const yy = y + m - 5 + k * 5;
+    ctx.beginPath();
+    ctx.moveTo(x + m - 5, yy);
+    ctx.lineTo(x + m + 5, yy);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawChest(x, y, vis, light, offen, hatInhalt) {
   const k = TILE / 26;
   const cx = x + TILE / 2, basis = y + TILE - 4 * k;
@@ -9726,6 +9918,16 @@ function zeichneKarte(now) {
       m.fillRect((i % MAP_W) * s, ((i / MAP_W) | 0) * s, s, s);
     }
 
+  /* Die Schaechte. Ohne Markierung sucht man den Rueckweg blind ab - und der
+     Rueckweg ist ja jetzt der halbe Lauf. */
+  for (const sch of (G.schaechte || [])) {
+    if (!sch.bekannt) continue;
+    m.fillStyle = "#7FC0A9";
+    m.fillRect(sch.x * s - 1, sch.y * s - 1, s + 2, s + 2);
+    m.fillStyle = "#DDF2E8";
+    m.fillRect(sch.x * s, sch.y * s, s, s);
+  }
+
   // Die Truhe mit dem Auftragsstueck
   for (const c of (G.chests || [])) {
     if (!c.auftrag || !c.loot.some(e => e.q)) continue;
@@ -9772,6 +9974,42 @@ function zeichneKarte(now) {
 /* ═════════════════════════════════════════════════════════ Seitenleiste */
 const $ = id => document.getElementById(id);
 
+/* Der Balken laeuft im Bildtakt, nicht im Verwaltungstakt - sonst ruckelt er
+   in Dritteln vor sich hin. */
+function zeigeAufstieg() {
+  const kasten = $("aufstiegBalken");
+  if (!kasten) return;
+  if (!G || !G.aufstieg) { kasten.hidden = true; return; }
+  const rest = Math.max(0, G.aufstieg.bis - G.time);
+  const anteil = 1 - rest / AUFSTIEG_DAUER;
+  kasten.hidden = false;
+  $("abFuellung").style.width = `${Math.round(anteil * 100)}%`;
+  $("abNote").textContent = rest > .1
+    ? `${rest.toFixed(1)} s — bleib stehen, ein Treffer bricht ab`
+    : "gleich oben";
+}
+
+/* Was die Anzeige ueberhaupt zeigt, in einer Zeichenkette. Aendert sie sich,
+   wird nachgezeichnet - sonst nicht, denn refreshUI baut DOM. */
+let letzterStand = "";
+
+function standFingerabdruck() {
+  if (!G || !G.player) return "";
+  const p = G.player;
+  return [p.hp, playerMaxHp(), p.oil, oilCap(), Math.round(p.laerm || 0),
+          p.level, p.xp, G.floor, p.finsternis | 0,
+          Object.keys(p.statuses || {}).join(","),
+          Math.round((p.abilityCd || 0) * 4),
+          G.aufstieg ? Math.round((G.aufstieg.bis - G.time) * 10) : "-"].join("|");
+}
+
+function zeigeStandNach() {
+  const jetzt = standFingerabdruck();
+  if (jetzt === letzterStand) return;
+  letzterStand = jetzt;
+  refreshUI();
+}
+
 function refreshUI() {
   if (!G) return;
   const p = G.player;
@@ -9788,6 +10026,17 @@ function refreshUI() {
   const maxhp = playerMaxHp();
   $("hpFill").style.width = Math.max(0, (p.hp / maxhp) * 100) + "%";
   $("hpText").textContent = `${Math.max(0, p.hp)} / ${maxhp}`;
+  const auf = $("aufstiegLeiste");
+  if (auf) {
+    const laeuft = !!G.aufstieg;
+    auf.hidden = !laeuft;
+    if (laeuft) {
+      const rest = Math.max(0, G.aufstieg.bis - G.time);
+      $("aufstiegFill").style.width =
+        Math.round((1 - rest / AUFSTIEG_DAUER) * 100) + "%";
+      $("aufstiegText").textContent = `Aufstieg — ${rest.toFixed(1)} s`;
+    }
+  }
   $("oilFill").style.width = Math.max(0, (p.oil / oilCap()) * 100) + "%";
   $("oilText").textContent = p.oil > 0 ? `${p.oil} / ${oilCap()} Öl` : "Fackel erloschen";
   $("oilFill").parentElement.classList.toggle("out", p.oil <= 0);
@@ -10729,86 +10978,13 @@ function showCharacter() {
    Uebertragungscode: der ganze Fortschritt als Text, den man in einem anderen
    Browser oder auf einem anderen Rechner wieder einfuegen kann. Ohne Server -
    es gibt keinen, und ein Passwortfeld waere hier nur Kulisse. */
-const PLATZ_KEY = i => `der-abstieg-platz-${i}`;
-
-function platzInfo(i) {
-  try {
-    const roh = localStorage.getItem(PLATZ_KEY(i));
-    if (!roh) return null;
-    const d = JSON.parse(roh);
-    return {
-      etage: d.floor || 1,
-      stufe: d.player ? d.player.level : 1,
-      modul: d.player && d.player.modul ? d.player.modul : "ohne Modul",
-      zeit: d.gespeichertAm || null,
-    };
-  } catch (e) { return null; }
-}
-
-function speichereAufPlatz(i) {
-  if (!G || !G.player.alive) { log("Jetzt gerade lässt sich nichts sichern.", "system"); return false; }
-  try {
-    const d = serialize();
-    d.gespeichertAm = Date.now();
-    localStorage.setItem(PLATZ_KEY(i), JSON.stringify(d));
-    Sfx.spiel("auftrag");
-    log(`Auf Platz ${i} gesichert.`, "good");
-    return true;
-  } catch (e) {
-    log("Der Browser lässt kein Speichern zu.", "bad");
-    return false;
-  }
-}
-
-function ladeVonPlatz(i) {
-  try {
-    const roh = localStorage.getItem(PLATZ_KEY(i));
-    if (!roh) return false;
-    localStorage.setItem(SAVE_KEY, roh);       // der normale Ladeweg macht den Rest
-    overlay._noEscape = false;
-    closeModal();
-    if (loadGame()) {
-      Sfx.spiel("treppe");
-      banner(`Platz ${i}`, "Der Stand ist geladen", "good");
-      return true;
-    }
-  } catch (e) {}
-  log("Dieser Platz lässt sich nicht laden.", "bad");
-  return false;
-}
-
-/* Die vier grossen Kachelfelder sind fast durchgehend gleiche Werte -
-   als Lauflaengen geschrieben schrumpft der Code von rund 31 auf 3 KB. */
-const KARTENFELDER = ["tiles", "room", "explored", "veilRoom"];
-
-function packe(arr) {
-  const out = [];
-  let letzt = arr[0], n = 0;
-  for (const v of arr) { if (v === letzt) n++; else { out.push(letzt, n); letzt = v; n = 1; } }
-  if (n) out.push(letzt, n);
-  return out;
-}
-
-function entpacke(paare) {
-  const out = [];
-  for (let i = 0; i < paare.length; i += 2)
-    for (let k = 0; k < paare[i + 1]; k++) out.push(paare[i]);
-  return out;
-}
-
-/* Der ganze Fortschritt als Text: Spielstand und Lager zusammen, damit
-   wirklich alles mitkommt. Base64, damit kein Zeilenumbruch etwas zerreisst. */
+/* Der Charakter als Text: Lager, Muenzen, Stufe und Koennen. Der laufende
+   Abstieg gehoert nicht dazu - den gibt es nur einmal, und zwar jetzt.
+   Base64, damit kein Zeilenumbruch etwas zerreisst. */
 function baueCode() {
   try {
-    const d = serialize();
-    d.gespeichertAm = Date.now();
-    for (const feld of KARTENFELDER)
-      if (Array.isArray(d[feld])) d[feld] = packe(d[feld]);
-    // Blutflecken und Nachrichtenprotokoll sind Kosmetik und muessen nicht mitreisen
-    d.decals = [];
-    d.logEntries = [];
-    const paket = JSON.stringify({ v: 2, gepackt: true, s: d, m: META });
-    return "ABSTIEG:" + btoa(unescape(encodeURIComponent(paket)));
+    return "ABSTIEG:" + btoa(unescape(encodeURIComponent(
+      JSON.stringify({ v: 3, m: META }))));
   } catch (e) { return null; }
 }
 
@@ -10817,106 +10993,74 @@ function lieCode(text) {
     const roh = String(text).trim().replace(/\s+/g, "");
     if (!roh.startsWith("ABSTIEG:")) return "Das sieht nicht nach einem Abstieg-Code aus.";
     const paket = JSON.parse(decodeURIComponent(escape(atob(roh.slice(8)))));
-    if (!paket || !paket.s || !paket.s.player) return "Der Code ist unvollständig.";
-    if (paket.gepackt)
-      for (const feld of KARTENFELDER)
-        if (Array.isArray(paket.s[feld])) paket.s[feld] = entpacke(paket.s[feld]);
-    localStorage.setItem(SAVE_KEY, JSON.stringify(paket.s));
-    if (paket.m) { META = paket.m; speichereMeta(META); }
+    if (!paket || !paket.m) return "Der Code ist unvollständig.";
+    META = ladeMetaAus(paket.m);
+    speichereMeta(META);
     overlay._noEscape = false;
     closeModal();
-    if (!loadGame()) return "Der Stand ließ sich nicht öffnen.";
     Sfx.spiel("treppe");
-    banner("Übernommen", "Der Fortschritt ist wieder da", "good");
+    banner("Übernommen", "Lager, Münzen und Können sind wieder da", "good");
+    showTitle();
     return null;
   } catch (e) { return "Der Code ist beschädigt."; }
 }
 
+/* == Das Menue im Lauf ===================================================
+   Es gab hier drei Speicherplaetze und einen Uebertragungscode fuer den
+   laufenden Abstieg. Beides ist raus: in einem Extraktionsspiel darf ein Lauf
+   nicht gesichert werden koennen, sonst laedt man nach jedem Fehler neu und
+   der Einsatz ist keiner mehr. Was bleibt, bleibt ohnehin - Muenzen, Lager,
+   Stufe und Koennen haengen am Charakter, nicht am Lauf.
+
+   Uebrig bleibt, was mitten im Lauf wirklich gebraucht wird: Tasten, Ton und
+   der Ausstieg. */
 function showMenu() {
   if (mode.kind !== "play") return;
   const p = G.player;
-  const plaetze = [1, 2, 3].map(i => {
-    const info = platzInfo(i);
-    const wann = info && info.zeit
-      ? new Date(info.zeit).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })
-      : "";
-    return `<div class="bag-row">
-      <button class="choice bag-main" data-platz="${i}" data-tun="speichern">
-        <span class="key" aria-hidden="true">${i}</span>
-        <span>${info ? `Etage ${info.etage} · Stufe ${ROMAN[info.stufe] || info.stufe} · ${escapeHtml(info.klasse)}`
-                     : "<em>leerer Platz</em>"}</span>
-        <span class="note">${escapeHtml(wann)}</span>
-      </button>
-      <button class="bag-act" data-platz="${i}" data-tun="speichern">Sichern</button>
-      <button class="bag-act" data-platz="${i}" data-tun="laden" ${info ? "" : "disabled"}>Laden</button>
-    </div>`;
-  }).join("");
+  let sicher = false;
 
   openModal(`<h2>Menü</h2>
-    <p class="sub">Etage ${G.floor} · Stufe ${ROMAN[p.level] || p.level} ·
-      ${p.hp}/${playerMaxHp()} Leben. Solange dieses Fenster offen ist, steht die Welt still.</p>
+    <p class="sub">Etage ${G.floor} · Stufe ${p.level} · ${p.hp}/${playerMaxHp()} Leben ·
+      ${imRucksack(p).length} ${imRucksack(p).length === 1 ? "Stück" : "Stücke"} im Rucksack.
+      Solange dieses Fenster offen ist, steht die Welt still.</p>
 
-    <p class="abschnitt">Speicherplätze</p>
-    ${plaetze}
-
-    <p class="abschnitt">Fortschritt mitnehmen</p>
-    <div class="bag-row">
-      <button class="choice bag-main" id="codeAus">
-        <span>Code erzeugen</span>
-        <span class="note">Spielstand, Münzen und Lager als Text</span>
-      </button>
-      <button class="bag-act" id="codeEin">Code einfügen</button>
-    </div>
-    <textarea id="codeFeld" class="codefeld" spellcheck="false"
-      placeholder="Hier erscheint dein Code — oder füge einen ein und drücke Übernehmen."></textarea>
-    <div class="codeleiste">
-      <button class="bag-act" id="codeUebernehmen">Übernehmen</button>
-      <span class="note" id="codeHinweis"></span>
-    </div>
+    <button class="choice" id="tastenBtn">
+      <span class="key" aria-hidden="true">·</span><span>Tastenbelegung</span>
+      <span class="note">alles frei einstellbar</span></button>
+    <button class="choice" id="tonBtn">
+      <span class="key">${tastenName(BELEGUNG.ton)}</span><span>Ton</span>
+      <span class="note" id="tonNote">${Sfx.an ? "an" : "aus"}</span></button>
+    <button class="choice" id="hilfeBtn">
+      <span class="key">${tastenName(BELEGUNG.hilfe)}</span><span>Hilfe</span>
+      <span class="note">alle Tasten und was sie tun</span></button>
 
     <div class="ausgang">
-    <button class="choice" id="tastenBtn">
-      <span>Tastenbelegung</span>
-      <span class="note">alles frei einstellbar</span></button>
-    <button class="choice" id="titelBtn">
-      <span>Zum Titelbild</span>
-      <span class="note">der laufende Abstieg bleibt gesichert</span></button>
+    <button class="choice gefahr" id="aufgebenBtn">
+      <span class="key" aria-hidden="true">×</span><span id="aufgebenWort">Lauf aufgeben</span>
+      <span class="note" id="aufgebenNote">alles im Rucksack ist verloren — es gibt kein Speichern</span></button>
     </div>
-    <div class="foot">Esc schließt · das Spiel sichert außerdem von selbst</div>`);
+    <div class="foot">Esc schließt · gesichert wird nur, was du hinaufträgst</div>`);
 
-  const blatt = overlay.querySelector(".sheet");
-  if (blatt) blatt.classList.add("weit");
-
-  overlay.querySelectorAll("[data-platz]").forEach(btn => {
-    btn.onclick = () => {
-      const i = +btn.dataset.platz;
-      if (btn.dataset.tun === "laden") ladeVonPlatz(i);
-      else if (speichereAufPlatz(i)) showMenu();
-    };
-  });
-
-  const feld = $("codeFeld");
-  const hinweis = $("codeHinweis");
-  $("codeAus").onclick = () => {
-    const code = baueCode();
-    if (!code) { hinweis.textContent = "Der Code ließ sich nicht bauen."; return; }
-    feld.value = code;
-    feld.focus();
-    feld.select();
-    let kopiert = false;
-    try { kopiert = document.execCommand("copy"); } catch (e) {}
-    hinweis.textContent = kopiert
-      ? "Kopiert — bewahre ihn auf."
-      : "Markiert — jetzt mit Strg+C kopieren.";
-  };
-  $("codeEin").onclick = () => { feld.value = ""; feld.focus(); hinweis.textContent = "Code einfügen, dann Übernehmen."; };
-  $("codeUebernehmen").onclick = () => {
-    if (!feld.value.trim()) { hinweis.textContent = "Da steht noch nichts."; return; }
-    const fehler = lieCode(feld.value);
-    if (fehler) hinweis.textContent = fehler;
-  };
   $("tastenBtn").onclick = () => showTasten();
-  $("titelBtn").onclick = () => { saveGame(); showTitle(); };
+  $("hilfeBtn").onclick = () => showHelp();
+  $("tonBtn").onclick = () => {
+    Sfx.setAn(!Sfx.an);
+    if (Sfx.an) Sfx.spiel("aufheben");
+    $("tonNote").textContent = Sfx.an ? "an" : "aus";
+  };
+  $("aufgebenBtn").onclick = () => {
+    if (!sicher) {
+      sicher = true;
+      $("aufgebenWort").textContent = "Wirklich aufgeben?";
+      $("aufgebenNote").innerHTML =
+        '<b style="color:var(--madder-lit)">Noch einmal klicken — der Rucksack ist dann weg</b>';
+      $("aufgebenBtn").classList.add("scharf");
+      return;
+    }
+    verbucheLauf(false);
+    closeModal();
+    showTitle();
+  };
 }
 
 /* Tasten neu belegen: Zeile anklicken, dann die gewuenschte Taste druecken.
@@ -11244,23 +11388,73 @@ function kampfLaeuft() {
     Math.hypot(a.x - p.x, a.y - p.y) < 9);
 }
 
-function aufTreppe() {
+/* Der Schacht, in dem man gerade steht - oder nichts. */
+function schachtHier() {
   const p = G.player;
-  return !!G.map.stairs &&
-    Math.hypot(mitte(G.map.stairs[0]) - p.x, mitte(G.map.stairs[1]) - p.y) < .9;
+  for (const sch of (G.schaechte || []))
+    if (Math.hypot(mitte(sch.x) - p.x, mitte(sch.y) - p.y) < .95) return sch;
+  return null;
 }
 
+/* Wie lange ein Aufstieg dauert. Lang genug, dass die Etage aufwacht und
+   ankommt - das ist der Preis dafuer, dass man geht. */
+const AUFSTIEG_DAUER = 8;
+const AUFSTIEG_LAERM = 7.5;      // je Verwaltungstakt
+
+function aufTreppe() { return !!schachtHier(); }
+
+/* Den Aufstieg beginnen. Er laeuft dann von selbst weiter, solange man
+   stehen bleibt und niemand trifft. */
 function steigeAuf() {
   if (mode.kind !== "play") return false;
-  if (!aufTreppe()) { log("Hinauf geht es nur an einer Treppe.", "system"); return false; }
-  if (kampfLaeuft()) {
-    log("Nicht, solange hier noch etwas wach ist.", "bad");
+  if (G.aufstieg) { brichAufstiegAb("Du hältst inne."); return false; }
+  const sch = schachtHier();
+  if (!sch) {
+    log("Hinauf geht es nur an einem Aufstiegsschacht.", "system");
     Sfx.spiel("nein");
     return false;
   }
+  if (G.player.zuletztGetroffen != null && G.time - G.player.zuletztGetroffen < 3) {
+    log("Nicht mit dem Rücken zum Kampf. Erst Ruhe, dann hinauf.", "bad");
+    Sfx.spiel("nein");
+    return false;
+  }
+  G.aufstieg = { bis: G.time + AUFSTIEG_DAUER, x: G.player.x, y: G.player.y };
   Sfx.spiel("treppe");
+  log(`Du beginnst den Aufstieg. ${AUFSTIEG_DAUER} Sekunden — und es hallt.`, "alert");
+  banner("Aufstieg", "Bleib stehen, bis du oben bist", "good");
+  return true;
+}
+
+function brichAufstiegAb(warum) {
+  if (!G.aufstieg) return;
+  G.aufstieg = null;
+  log(warum, "bad");
+  Sfx.spiel("nein");
+  clearBanners();
+}
+
+/* Jeder Verwaltungstakt schaut, ob der Aufstieg noch laeuft. */
+function tickAufstieg() {
+  const p = G.player;
+  if (!G.aufstieg) return;
+  if (Math.hypot(p.x - G.aufstieg.x, p.y - G.aufstieg.y) > .8)
+    return brichAufstiegAb("Du verlässt den Schacht — der Aufstieg bricht ab.");
+  if (p.zuletztGetroffen != null && G.time - p.zuletztGetroffen < .5)
+    return brichAufstiegAb("Ein Treffer reißt dich zurück.");
+  // Der Aufstieg hallt durch die Etage - wer geht, wird gehoert
+  p.laerm = Math.min(100, (p.laerm || 0) + AUFSTIEG_LAERM);
+  for (const a of G.actors) {
+    if (a.isPlayer || !a.alive || a.wach) continue;
+    if (Math.hypot(a.x - p.x, a.y - p.y) > 16) continue;
+    a.wach = true;
+  }
+  if (G.time >= G.aufstieg.bis) { G.aufstieg = null; vollendeAufstieg(); }
+}
+
+function vollendeAufstieg() {
+  Sfx.spiel("sieg");
   const bilanz = verbucheLauf(true);
-  clearSave();
   mode = { kind: "won" };
   overlay._noEscape = false;
   openModal(`<h2>Zurück ans Licht</h2>
@@ -11355,7 +11549,6 @@ function showVictory() {
 // Lauf mit Sieg abschliessen: die Beute kommt mit hinauf.
 function beendeLauf() {
   const bilanz = verbucheLauf(true);
-  clearSave();
   overlay._noEscape = false;
   openModal(`<h2>Zurück ans Licht</h2>
     <p class="epitaph">Du steigst die zehn Etagen wieder hinauf, und keine davon hält dich auf.</p>
@@ -11398,7 +11591,7 @@ function steigeTiefer() {
   Sfx.spiel("treppe");
   log("Wo der Namenlose stand, klafft eine Treppe. Sie führt nur nach unten.", "alert");
   banner("Der Schlund", "Ab hier gibt es kein Zurück", "bad");
-  updateFov(); refreshUI(); saveGame();
+  updateFov(); refreshUI();
 }
 
 /* Das Lager zwischen zwei Abstiegen: hier wird Asche zu Ausdauer. */
@@ -11410,10 +11603,6 @@ function loescheFortschritt() {
            mitnahme: [], anlegen: {}, gesehen: [], laden: null, ladenRang: -1,
            stufe: 1, xp: 0, punkte: 0, skills: {}, erweiterungen: [] };
   speichereMeta(META);
-  clearSave();
-  for (const i of [1, 2, 3]) {
-    try { localStorage.removeItem(PLATZ_KEY(i)); } catch (e) {}
-  }
   Sfx.spiel("nein");
 }
 
@@ -11652,6 +11841,28 @@ function bindeBaum() {
 
 let lagerReiter = "verkaufen";
 
+/* Welche Kachel im Verkaufsraum gewaehlt ist. */
+let verkaufWahl = null;
+
+function verkaufTafel() {
+  const b = verkaufWahl;
+  if (!b) return '<p class="quiet">Kachel anklicken · <b>Rechtsklick verkauft sofort</b></p>';
+  const e = ausBestand(b);
+  const d = e.def;
+  const m = kachelMass(b);
+  const werkstoff = d.kind === "material";
+  return `<div class="tafelkopf">
+      <b style="color:${lesbar(seltenFarbe(b))}">${escapeHtml(d.name)}${
+        b.menge > 1 ? ` \u00d7${b.menge}` : ""}</b>
+      <span>${seltenName(b)} \u00b7 ${m.w}\u00d7${m.h} \u00b7 ${last(gewicht(b))}</span>
+    </div>
+    <p class="tafeltext">${escapeHtml(d.slot ? bonusText(d) : (d.note || ""))}${
+      werkstoff ? '<em class="sage">Werkstoff \u2014 den brauchst du zum Aufwerten.</em>' : ""}</p>
+    <div class="tafeltaten">
+      <button class="bag-act drop" id="verkaufBtn">Verkaufen \u00b7 ${verkaufPreis(e)} M</button>
+    </div>`;
+}
+
 function showCamp(reiter) {
   if (reiter) lagerReiter = reiter;
   const rang = haendlerRang();
@@ -11670,15 +11881,20 @@ function showCamp(reiter) {
 
   let inhalt = "";
   if (lagerReiter === "verkaufen") {
-    inhalt = bestand.length ? bestand.map(({ e, i }) => zeile(
-      `<span style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(e.def.name)}${
-          e.menge > 1 ? ` ×${e.menge}` : ""}</span>`,
-      escapeHtml(e.def.slot ? bonusText(e.def) : (e.def.note || "")),
-      `<button class="bag-act" data-verkauf="${i}">${verkaufPreis(e)} M</button>`
-    )).join("") + `
-      <button class="choice" id="allesBtn" style="margin-top:10px">
-        <span>Alles verkaufen</span>
-        <span class="note">${bestand.reduce((a, x) => a + verkaufPreis(x.e), 0)} Münzen</span></button>`
+    /* Verkauft wird aus dem Lager selbst, nicht aus einer Liste daneben. Man
+       sieht dieselben Kacheln wie im Aufbruch und weiss deshalb sofort, was
+       man weggibt - und was danach an Platz frei wird. */
+    const lm = lagerRaster();
+    const wert = bestand.filter(x => vorlage(x.b).kind !== "material")
+      .reduce((a, x) => a + verkaufPreis(x.e), 0);
+    inhalt = META.lager.length
+      ? `<div class="verkaufsraum">
+          ${rasterMarkup(META.lager, lm.spalten, lm.reihen, "lager", verkaufWahl, 46)}
+          <div class="tafel">${verkaufTafel()}</div>
+        </div>
+        <button class="choice" id="allesBtn">
+          <span class="key" aria-hidden="true">·</span><span>Alles verkaufen</span>
+          <span class="note">${wert} Münzen — Werkstoff bleibt liegen</span></button>`
       : '<p class="quiet" style="padding:14px 0">Dein Lager ist leer. Bring etwas herauf.</p>';
   } else if (lagerReiter === "kaufen") {
     inhalt = waren.map(({ w, e }) => {
@@ -11741,15 +11957,11 @@ function showCamp(reiter) {
     <div class="reiterzeile" role="tablist" aria-label="Bereiche des Händlers">${reiterZeile}</div>
     ${inhalt}
     <div class="ausgang">
-    <button class="choice" id="skillBtn">
-      <span>Können</span>
-      <span class="note">Stufe ${META.stufe | 0}${offenePunkte()
-        ? ` · <b style="color:var(--verdigris)">${offenePunkte()} Punkte frei</b>` : ""}</span></button>
-    <button class="choice" id="zurueckBtn" style="margin-top:4px">
-      <span class="key">Esc</span><span>Zurück zum Titelbild</span><span class="note"></span></button>
+    <button class="choice" id="zurueckBtn">
+      <span class="key">Esc</span><span>Zurück</span><span class="note"></span></button>
     <button class="choice gefahr" id="loeschBtn" style="margin-top:4px">
       <span class="key" aria-hidden="true">×</span><span id="loeschWort">Fortschritt löschen</span>
-      <span class="note" id="loeschNote">Münzen, Lager, Bestwerte und alle Speicherplätze</span></button>
+      <span class="note" id="loeschNote">Münzen, Lager, Stufe, Können — alles</span></button>
     </div>`,
     key => { if (key === "Escape") { showTitle(); return true; } return false; });
   zwingend();
@@ -11758,8 +11970,25 @@ function showCamp(reiter) {
 
   overlay.querySelectorAll("[data-reiter]").forEach(b =>
     b.onclick = () => showCamp(b.dataset.reiter));
-  overlay.querySelectorAll("[data-verkauf]").forEach(b =>
-    b.onclick = () => { verkaufe(+b.dataset.verkauf); showCamp(); });
+  /* Linksklick waehlt, Rechtsklick verkauft. Das ist der schnelle Weg durch
+     ein volles Lager, ohne dass man dafuer irgendwo hinzielen muss. */
+  overlay.querySelectorAll('[data-feld="lager"]').forEach(el => {
+    const nr = +el.dataset.nr;
+    el.onclick = () => { verkaufWahl = META.lager[nr]; showCamp(); };
+    el.oncontextmenu = ev => {
+      ev.preventDefault();
+      verkaufWahl = null;
+      verkaufe(nr);
+      showCamp();
+    };
+  });
+  const vk = $("verkaufBtn");
+  if (vk) vk.onclick = () => {
+    const i = META.lager.indexOf(verkaufWahl);
+    verkaufWahl = null;
+    if (i >= 0) verkaufe(i);
+    showCamp();
+  };
   overlay.querySelectorAll("[data-kauf]").forEach(b =>
     b.onclick = () => { kaufe(b.dataset.kauf); showCamp(); });
   overlay.querySelectorAll("[data-erw]").forEach(b =>
@@ -11769,7 +11998,6 @@ function showCamp(reiter) {
   const alles = $("allesBtn");
   if (alles) alles.onclick = () => { verkaufeAlles(); showCamp(); };
 
-  $("skillBtn").onclick = () => showSkills();
   $("zurueckBtn").onclick = () => showTitle();
   let sicher = false;
   $("loeschBtn").onclick = () => {
@@ -11953,6 +12181,9 @@ function ladeMarkup() {
         <span class="key">N</span><span>Mit Notausrüstung hinab</span>
         <span class="note">rostiger Dolch und ein Ölfläschchen — alles Gepackte
           bleibt im Lager</span></button>
+      <button class="choice" id="notBtn">
+        <span class="key" aria-hidden="true">∅</span><span>Nur mit Notausrüstung hinab</span>
+        <span class="note">rostiger Dolch und ein Ölfläschchen — alles andere bleibt im Lager</span></button>
       <button class="choice" id="ladeRaeum">
         <span class="key" aria-hidden="true">↺</span><span>Lager aufräumen</span>
         <span class="note">packt das Sperrigste zuerst</span></button>
@@ -12054,6 +12285,28 @@ function ladeDrehen() {
   ladeFrisch();
 }
 
+/* Alles zurueck ins Lager und mit dem Notbehelf hinab. Wer nichts zu
+   verlieren hat, verliert auch nichts - das ist der Weg zurueck aus einer
+   Pechstraehne, ohne dass man dafuer erst muehsam alles auspacken muss. */
+function nurNotausruestung() {
+  const zurueck = [];
+  for (const b of (META.mitnahme || [])) zurueck.push(b);
+  for (const slot of LADE_PLAETZE) {
+    if (META.anlegen[slot]) zurueck.push(META.anlegen[slot]);
+    META.anlegen[slot] = null;
+  }
+  META.mitnahme = [];
+  let blieb = 0;
+  for (const b of zurueck) {
+    b.gx = null; b.gy = null; b.dreh = false;
+    if (!insLager(b)) blieb++;
+  }
+  lagerEinraeumen();
+  speichereMeta(META);
+  if (blieb) log(`${blieb} ${blieb === 1 ? "Stück passte" : "Stücke passten"} nicht mehr ins Lager.`, "system");
+  ladeAufbruch();
+}
+
 function ladeAufbruch() {
   if (mitnahmeGewicht() > traglast()) { Sfx.spiel("nein"); return; }
   speichereMeta(META);
@@ -12111,6 +12364,7 @@ function ladeBinde() {
   knopf("notBtn", () => ladeNotaufbruch());
   knopf("zurueckLade", () => showTitle());
   knopf("ladeRaeum", () => { lagerEinraeumen(); speichereMeta(META); Sfx.spiel("aufheben"); ladeFrisch(); });
+  knopf("notBtn", () => nurNotausruestung());
   knopf("tafelAn", () => { if (ladeAnlegen(ladeWahl)) { speichereMeta(META); Sfx.spiel("ausruesten"); } ladeFrisch(); });
   knopf("tafelAb", () => { if (ladeAblegen(ladeWahl, "lager")) speichereMeta(META); ladeFrisch(); });
   knopf("tafelHin", () => {
@@ -12241,58 +12495,50 @@ function ladeBinde() {
 }
 
 function showTitle() {
-  const saved = hasSave();
   const stufe = META.stufe | 0, punkte = offenePunkte();
-  const mit = (META.mitnahme || []).length +
-    LADE_PLAETZE.filter(sl => (META.anlegen || {})[sl]).length;
+  const mit = (META.mitnahme || []).length;
+  const angelegt = LADE_PLAETZE.filter(sl => (META.anlegen || {})[sl]);
   const modul = (META.anlegen || {})["Modul"];
 
   openModal(`<div class="titlecard">
       <h2>Der Abstieg</h2>
       <p class="tagline">Zehn Etagen. Eine Fackel. Kein Weg zurück.</p>
+
       <button class="choice gross" id="aufbruchBtn">
         <span class="key">A</span><span>Aufbruch vorbereiten</span>
-        <span class="note">${mit
-          ? `${mit} ${mit === 1 ? "Stück" : "Stücke"} gepackt${
+        <span class="note">${mit || angelegt.length
+          ? `${angelegt.length} angelegt, ${mit} im Rucksack${
               modul ? ` · ${escapeHtml(vorlage(modul).name)}` : " · kein Modul"}`
-          : "noch nichts gepackt — du steigst mit dem Notbehelf hinab"}</span></button>
-      <button class="choice" id="notBtn2">
-        <span class="key">N</span><span>Sofort hinab, mit Notausrüstung</span>
-        <span class="note">rostiger Dolch und ein Ölfläschchen — nichts zu verlieren</span></button>
-      <button class="choice" id="contBtn" ${saved ? "" : "disabled"}>
-        <span class="key">W</span><span>Weiterspielen</span>
-        <span class="note">${saved ? "gespeicherter Abstieg" : "kein Spielstand"}</span></button>
-      <button class="choice" id="lagerBtn2">
-        <span class="key">H</span><span>Zum Händler</span>
+          : "noch nichts gepackt"}</span></button>
+      <button class="choice gross" id="lagerBtn2">
+        <span class="key">H</span><span>Händler und Lager</span>
         <span class="note">${META.muenzen} Münzen · ${META.lager.length} im Lager</span></button>
-      <button class="choice" id="koennenBtn">
+      <button class="choice gross" id="koennenBtn">
         <span class="key">K</span><span>Können</span>
         <span class="note">Stufe ${stufe}${punkte
           ? ` · <b style="color:var(--verdigris-lit)">${punkte} ${
-              punkte === 1 ? "Punkt" : "Punkte"} frei</b>` : ""}</span></button>
+              punkte === 1 ? "Punkt" : "Punkte"} frei</b>` : " · alles verteilt"}</span></button>
+
       <div class="legend">
-        <p><b>Drei Tiefen und eine Kammer:</b> der Kerker, die Pilzhöhle, die Schmelze —
-        und ganz unten Der Namenlose. Auf halbem Weg steht jeweils einer mit Namen.</p>
-        <p><b>Dein Öl ist deine Uhr.</b> Es brennt beim Gehen und beim Rasten, und wie
-        weit du siehst, hängt daran.</p>
-        <p><b>Was du unten lässt, ist weg.</b> Stufe und Können bleiben dir — was du
-        im Rucksack trägst, nur wenn du selbst wieder hinaufsteigst. Deine Fähigkeit
-        steckt in einem <b>Modul</b>, und Module findet man unten.</p>
+        <p><b>Ein Lauf lässt sich nicht speichern.</b> Was du im Rucksack trägst, ist
+        weg, wenn du unten bleibst — und gehört dir, wenn du es durch einen
+        Aufstiegsschacht wieder hinaufträgst. Stufe, Können und alles im Lager
+        bleiben dir in jedem Fall.</p>
+        <p><b>Der Weg zurück ist Teil des Laufs.</b> Der Schacht, durch den du auf eine
+        Etage kommst, bringt dich auch wieder hinaus. Weitere liegen irgendwo in
+        der Tiefe. Der Aufstieg dauert acht Sekunden und hallt durch die ganze Etage.</p>
+        <p><b>Deine Fähigkeit steckt in einem Modul</b>, und Module findet man unten.</p>
       </div>
     </div>`, key => {
     if (key === "a" || key === "enter") { showLoadout(); return true; }
-    if (key === "n") { ladeNotaufbruch(); return true; }
-    if (key === "w" && saved) { if (loadGame()) { closeModal(); afterLoad(); } return true; }
     if (key === "h" || key === "l") { showCamp(); return true; }
     if (key === "k") { showSkills(); return true; }
     return false;
   });
   zwingend();
   $("aufbruchBtn").onclick = () => showLoadout();
-  $("notBtn2").onclick = () => ladeNotaufbruch();
   $("lagerBtn2").onclick = () => showCamp();
   $("koennenBtn").onclick = () => showSkills();
-  if (saved) $("contBtn").onclick = () => { if (loadGame()) { closeModal(); afterLoad(); } };
 }
 
 /* ═══════════════════════════════════════════════════════ Zielauswahl */
@@ -12321,211 +12567,6 @@ function cancelTarget() {
 }
 
 /* ══════════════════════════════════════════════════════════ Spielstand */
-function saveGame() {
-  if (!G || !G.player.alive) return;
-  // Nach dem Sieg nur weiter sichern, wenn der Lauf im Schlund weitergeht.
-  if (G.won && !G.endless) return;
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(serialize()));
-  } catch (e) { /* privater Modus o.ä. - dann eben ohne Speichern */ }
-}
-
-function hasSave() {
-  try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
-}
-
-function clearSave() {
-  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-}
-
-function serialize() {
-  return {
-    v: 5,
-    floor: G.floor, deepest: G.deepest, turns: G.turns, seed, laune: G.laune || null,
-    vault: G.vault || null, legenden: G.legenden || [],
-    tiles: Array.from(G.map.tiles),
-    room: Array.from(G.map.room),
-    explored: Array.from(G.map.explored),
-    stairs: G.map.stairs,
-    circle: G.map.circle || null,
-    veil: G.map.veil || null, sealed: !!G.map.sealed,
-    veilRoom: G.map.veilRoom ? Array.from(G.map.veilRoom) : null,
-    gateBoss: !!G.map.gateBoss,
-    time: G.time, upkeepAt: G.upkeepAt,
-    quest: G.quest, questLog: G.questLog,
-    won: G.won, endless: G.endless, siegRunden: G.siegRunden,
-    braziers: G.braziers, decals: G.decals, chests: G.chests,
-    traps: G.traps, secrets: G.secrets, saeulen: G.saeulen,
-    player: {
-      x: G.player.x, y: G.player.y, hp: G.player.hp, level: G.player.level, xp: G.player.xp,
-      baseAtk: G.player.baseAtk, baseDef: G.player.baseDef, baseMaxHp: G.player.baseMaxHp,
-      oil: G.player.oil, oilMax: G.player.oilMax, oilTick: G.player.oilTick,
-      flamme: G.player.flamme, finsternis: G.player.finsternis, laerm: G.player.laerm,
-      revive: G.player.revive,
-      modul: (() => { const f = faehigkeitVon(G.player);
-                      return f && ABILITIES[f] ? ABILITIES[f].name : null; })(),
-      abilityCd: G.player.abilityCd,
-      oilSteps: G.player.oilSteps, fovBonus: G.player.fovBonus,
-      scrollPower: G.player.scrollPower, crit: G.player.crit, evade: G.player.evade,
-      speedMult: G.player.speedMult, swingHaste: G.player.swingHaste,
-      reachMult: G.player.reachMult, abilityHaste: G.player.abilityHaste,
-      killHeal: G.player.killHeal, restHeal: G.player.restHeal,
-      lootLuck: G.player.lootLuck, brazierBonus: G.player.brazierBonus,
-      trotz: G.player.trotz,
-      statuses: G.player.statuses,
-      // ax = Affix, q = Name eines Auftragsgegenstands (der hat keine feste Vorlage)
-      // alsBestand/ausBestand kennen auch die Aufwertungsstufe - ohne sie
-      // wurde aus einer Hellebarde +3 beim Laden wieder eine gewoehnliche.
-      bag: G.player.bag.map(e =>
-        Object.assign(alsBestand(e), { gx: e.gx, gy: e.gy, dreh: !!e.dreh })),
-      equipped: Object.fromEntries(Object.entries(G.player.equipped)
-        .map(([k, v]) => [k, v ? G.player.bag.indexOf(v) : -1])),
-    },
-    actors: G.actors.filter(a => !a.isPlayer && a.alive).map(a => ({
-      id: a.id, x: a.x, y: a.y, hp: a.hp, confused: a.confused,
-      statuses: a.statuses, summons: a.summons, stunned: a.stunned || 0,
-      elite: a.eliteFloor || 0, enraged: !!a.enraged, cooldown: a.cooldown || 0,
-      skala: a.skala || null,
-      phase2: !!a.phase2, saeulen: a.saeulen || null, echo: !!a.echo,
-      seen: !!a.seen, maff: a.maff || null,
-    })),
-    ground: G.ground.map(i => ({
-      id: i.id, x: i.x, y: i.y, ax: i.ax || null, name: i.def.quest ? i.def.name : null,
-    })),
-    logEntries: G.logEntries.slice(-60),
-  };
-}
-
-function loadGame() {
-  let data;
-  try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return false; }
-  if (!data || data.v !== 5) return false;
-  try {
-    seed = data.seed >>> 0;
-    G = freshState();
-    G.floor = data.floor; G.deepest = data.deepest; G.turns = data.turns;
-    G.logEntries = data.logEntries || [];
-    G.time = data.time || 0;
-    G.upkeepAt = data.upkeepAt || 0;
-    G.won = !!data.won;
-    G.endless = !!data.endless;
-    G.siegRunden = data.siegRunden || 0;
-    G.quest = data.quest || null;
-    G.questLog = data.questLog || [];
-    G.braziers = data.braziers || [];
-    G.laune = data.laune || null;
-    G.vault = data.vault || null;
-    G.legenden = data.legenden || [];
-    G.chests = data.chests || [];
-    G.traps = data.traps || [];
-    G.secrets = data.secrets || [];
-    G.saeulen = data.saeulen || {};
-    G.decals = data.decals || [];
-    G.map = newMap();
-    G.map.tiles.set(data.tiles);
-    if (data.room) G.map.room.set(data.room);
-    G.hasLava = G.map.tiles.includes(LAVA);
-    G.map.explored.set(data.explored);
-    G.map.stairs = data.stairs;
-    G.map.circle = data.circle || null;
-    G.map.veil = data.veil || null;
-    G.map.sealed = !!data.sealed;
-    G.map.gateBoss = !!data.gateBoss;
-    if (data.veilRoom) {
-      G.map.veilRoom = new Uint8Array(MAP_W * MAP_H);
-      G.map.veilRoom.set(data.veilRoom);
-    }
-
-    const p = G.player;
-    Object.assign(p, {
-      x: data.player.x, y: data.player.y, ax: data.player.x, ay: data.player.y,
-      hp: data.player.hp, level: data.player.level, xp: data.player.xp,
-      baseAtk: data.player.baseAtk, baseDef: data.player.baseDef,
-      baseMaxHp: data.player.baseMaxHp, statuses: data.player.statuses || {},
-      oil: data.player.oil != null ? data.player.oil : OIL_MAX,
-      oilMax: data.player.oilMax || OIL_MAX,
-      revive: data.player.revive || 0,
-      oilTick: data.player.oilTick || 0,
-      wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0, blutzollBis: 0,
-      abilityCd: data.player.abilityCd || 0,
-      flamme: data.player.flamme || "normal",
-      finsternis: data.player.finsternis || 0,
-      laerm: data.player.laerm || 0,
-      oilSteps: data.player.oilSteps || 4,
-      fovBonus: data.player.fovBonus || 0,
-      scrollPower: data.player.scrollPower || 1,
-      crit: data.player.crit || 0,
-      evade: data.player.evade || 0,
-      speedMult: data.player.speedMult || 1,
-      swingHaste: data.player.swingHaste || 1,
-      reachMult: data.player.reachMult || 1,
-      abilityHaste: data.player.abilityHaste || 1,
-      killHeal: data.player.killHeal || 0,
-      restHeal: data.player.restHeal || 0,
-      lootLuck: data.player.lootLuck || 0,
-      brazierBonus: data.player.brazierBonus || 1,
-      trotz: data.player.trotz || 0,
-    });
-    p.bag = data.player.bag.map(b => {
-      const e = ausBestand(b);
-      e.gx = b.gx == null ? null : b.gx;
-      e.gy = b.gy == null ? null : b.gy;
-      e.dreh = !!b.dreh;
-      return e;
-    });
-    p.equipped = { "Waffe": null, "Rüstung": null, "Amulett": null, "Modul": null };
-    for (const [slot, i] of Object.entries(data.player.equipped))
-      if (i >= 0 && p.bag[i]) p.equipped[slot] = p.bag[i];
-    // Was ohne gueltige Kachel ankommt - alter Stand, neues Raster - bekommt eine
-    for (const e of imRucksack(p)) {
-      if (e.gx != null && passtHin(p, e, e.gx, e.gy)) continue;
-      const platz = suchePlatz(p, e);
-      if (platz) setzeAuf(e, platz);
-      else { e.gx = null; e.gy = null; }
-    }
-
-    G.actors = [p];
-    for (const a of data.actors) {
-      const m = a.elite ? makeElite(a.elite, a.x, a.y, a.skala || undefined)
-                        : makeMonster(a.id, a.x, a.y, a.maff);
-      if (!m) continue;
-      // Der Namenlose traegt seinen Massstab ebenfalls im Stand
-      if (!a.elite && a.skala && m.spec.boss) {
-        m.skala = a.skala;
-        m.spec = Object.assign({}, m.spec, {
-          hp: Math.round(m.spec.hp * a.skala),
-          atk: Math.max(1, Math.round(m.spec.atk * a.skala)),
-        });
-        m.maxhp = m.spec.hp;
-      }
-      m.hp = a.hp; m.confused = a.confused || 0;
-      m.statuses = a.statuses || {}; m.summons = a.summons || 0;
-      m.cooldown = a.cooldown || 0;
-      m.phase2 = !!a.phase2;
-      if (a.saeulen) m.saeulen = a.saeulen;
-      if (a.echo) m.echo = true;
-      m.stunned = a.stunned || 0;
-      m.seen = !!a.seen;
-      if (a.elite) m.enraged = !!a.enraged;
-      G.actors.push(m);
-    }
-    G.ground = data.ground.map(i =>
-      i.name ? makeRelic(i.name, i.x, i.y) : makeItem(i.id, i.x, i.y, i.ax));
-    return true;
-  } catch (e) {
-    console.error(e);
-    return false;
-  }
-}
-
-function afterLoad() {
-  mode = { kind: "play" };
-  updateFov();
-  renderLog();
-  refreshUI();
-  log("Du nimmst den Abstieg wieder auf.", "system");
-}
-
 /* ══════════════════════════════════════════════════════════ Spielstart */
 function freshState() {
   const player = {
@@ -12546,6 +12587,7 @@ function freshState() {
   return {
     player, actors: [player], ground: [], map: newMap(),
     braziers: [], decals: [], chests: [], traps: [], secrets: [], saeulen: {},
+    schaechte: [], aufstieg: null,
     quest: null, questLog: [],
     time: 0, upkeepAt: 0, laune: null, finsterBrut: 0, vault: null, legenden: [],
     floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
@@ -12652,7 +12694,6 @@ function startNewGame() {
   log("Drücke ? für die Steuerung.", "system");
   startQuest(1);
   refreshUI();
-  saveGame();
 }
 
 /* ══════════════════════════════════════════════════════════════ Eingabe */
@@ -13024,11 +13065,13 @@ function loop(now) {
   if (G) {
     tickWorld(dt);
     zeichneKarte(now);
+    zeigeAufstieg();
     blickZumZeiger();
     if (schlagen && mausWelt && mode.kind === "play" && !modalOpen)
       schwingen(mausWelt[0] - G.player.x, mausWelt[1] - G.player.y);
     schritt(dt);
     drawFrame(dt);
+    zeigeStandNach();
     // Untermalung: die eigene Fackel und, wenn Lava in Sicht ist, ihr Grollen
     if (Sfx.an && mode.kind === "play" && !modalOpen && G.player.alive) {
       if (G.player.oil > 0 && now > naechstesKnistern) {
