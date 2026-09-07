@@ -23,18 +23,20 @@
 
 <style>
 :root {
-  --stone-950: #14110E;
-  --stone-900: #1E1A15;
-  --stone-850: #262119;
-  --zeile: #26211A;             /* Grund einer Menuezeile */
-  --zeile-hoch: #302921;        /* dieselbe Zeile unter dem Zeiger */
-  --stone-800: #2E2820;
-  --stone-700: #3B3229;
-  --stone-600: #4E4335;
-  --vellum:     #E8DCC4;
-  --vellum-dim: #A2957C;
-  --vellum-faint: #948773;      /* 4,54:1 auf dem Zeilengrund, 4,92 auf dem Blatt */
-  --vellum-leise: #7C7160;      /* nur fuer Beilaeufiges und Linien */
+  /* Kuehler Grund. Das Verlies auf der Leinwand bleibt warm - der Rahmen
+     darum soll sich davon absetzen, sonst verschwimmt beides ineinander. */
+  --stone-950: #0C0E13;
+  --stone-900: #12151C;
+  --stone-850: #191D26;
+  --zeile: #191D26;             /* Grund einer Menuezeile */
+  --zeile-hoch: #222834;        /* dieselbe Zeile unter dem Zeiger */
+  --stone-800: #222834;
+  --stone-700: #2F3745;
+  --stone-600: #414B5E;
+  --vellum:     #E6EAF1;
+  --vellum-dim: #A9B2C1;
+  --vellum-faint: #8B95A6;      /* noch ueber 4,5:1 auf allen Gruenden */
+  --vellum-leise: #6B7486;      /* nur fuer Beilaeufiges und Linien */
   --torch:      #E8A94B;
   --torch-deep: #C4823A;
   --madder:     #B03A2E;
@@ -44,11 +46,20 @@
   --ink:        #4A5B72;
 
   --display: "Grenze Gotisch", "Trajan Pro", Georgia, serif;
-  --body: "Spectral", Georgia, "Times New Roman", serif;
+  /* Zahlen und Beschriftungen sind zum Ablesen da, nicht zum Lesen. Der
+     System-Stack laedt sofort und sieht genau so technisch aus, wie er soll. */
+  --body: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui,
+          -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --prosa: "Spectral", Georgia, "Times New Roman", serif;
   --rubric: "Cinzel", Georgia, serif;
 
   --gap: 18px;
   --radius: 3px;
+
+  /* Was der Fackelschein noch bedeuten darf: Auswahl, Haupthandlung, Warnung.
+     Sonst nichts - ein Akzent, der ueberall liegt, hebt nichts mehr hervor. */
+  --tat: #F0B429;
+  --tat-tief: #C08A18;
 }
 
 * { box-sizing: border-box; }
@@ -568,9 +579,43 @@ body {
 
 .quiet {
   font-size: 12px;
-  color: var(--vellum-faint);
+  color: var(--vellum-dim);
   font-style: italic;
 }
+
+/* Marken fuer den Werkstoffvorrat: der Name klein, die Zahl gross. */
+.stoffreihe { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+
+.stoffmarke {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--tint) 40%, var(--stone-700));
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--tint) 12%, transparent), transparent),
+    var(--stone-850);
+  font-size: 12.5px;
+  color: var(--vellum-dim);
+}
+
+.stoffmarke b {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--vellum);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Leer heisst ruhiger, nicht blasser: Deckung auf ohnehin schwachem Text
+   ergibt gemessen 3,33:1 - derselbe Fehler wie einst bei den gesperrten
+   Knoten. Der Ton wird gedaempft, die Lesbarkeit nicht. */
+.stoffmarke.leer {
+  border-color: var(--stone-700);
+  background: var(--stone-900);
+  color: var(--vellum-dim);
+}
+.stoffmarke.leer b { color: var(--vellum-dim); }
 
 .keys {
   font-size: 11px;
@@ -680,8 +725,77 @@ body {
 .sheet-kopf > :last-child { margin-bottom: 0; }
 
 /* Der Beutel traegt rechts die Ausruestung und braucht dafuer Platz. */
-.sheet.weit { width: min(880px, 100%); }
+/* Der Lagerbildschirm braucht Platz fuer drei Raster nebeneinander. Das
+   schmale Blatt bleibt fuer alles, was wirklich ein Fenster ist - Tod, Sieg,
+   Hilfe, Tastenbelegung. */
+.sheet.weit { width: min(1280px, 100%); max-height: min(92vh, 960px); }
 .sheet.breit { width: min(1080px, 100%); }
+
+/* ── Randlos ──────────────────────────────────────────────────────────────
+   Der Lagerbildschirm ist kein Fenster, sondern die Oberflaeche. Kein Rahmen,
+   keine abgerundete Ecke, kein Schatten - er faengt oben links an und hoert
+   unten rechts auf. */
+/* Die Ueberlagerung zentriert ihr Kind. Randlos soll es sich stattdessen in
+   beide Richtungen strecken, sonst bleibt es so hoch wie sein Inhalt. */
+.overlay.voll {
+  padding: 0;
+  background: var(--stone-950);
+  backdrop-filter: none;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.sheet.voll {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.sheet.voll .schirm {
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+/* Kopf und Fuss stehen, der Leib dazwischen laeuft. */
+.sheet.voll .schirmkopf {
+  padding: 16px clamp(18px, 3vw, 44px) 14px;
+  margin: 0;
+}
+
+.sheet.voll .pillen {
+  padding: 0 clamp(18px, 3vw, 44px) 14px;
+  border-bottom: 1px solid var(--stone-800);
+}
+
+.sheet.voll .schirmleib {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px clamp(18px, 3vw, 44px) 20px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--stone-600) transparent;
+}
+
+.sheet.voll .schirmfuss {
+  position: static;
+  margin: 0;
+  padding: 14px clamp(18px, 3vw, 44px) 16px;
+  background: var(--stone-900);
+  backdrop-filter: none;
+}
+
+/* Es gibt nichts zu schliessen - das hier ist der Grund, auf dem man steht. */
+.sheet.voll .sheet-close { display: none; }
 
 /* ── Der Aufbruch: zwei Raster nebeneinander ──────────────────────────── */
 .lade {
@@ -899,14 +1013,14 @@ body {
 
 .knoten {
   position: absolute;
-  width: 104px;
-  height: 52px;
+  width: 152px;
+  height: 74px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas: "rang name" "rang text";
-  gap: 0 6px;
+  gap: 1px 8px;
   align-items: center;
-  padding: 5px 7px;
+  padding: 8px 10px;
   text-align: left;
   overflow: hidden;
   background: var(--stone-900);
@@ -941,22 +1055,23 @@ body {
 
 .knotenrang {
   grid-area: rang;
-  font-family: var(--rubric);
-  font-size: 14px;
+  font-family: var(--body);
+  font-size: 16px;
   font-weight: 600;
   color: var(--vellum);
   line-height: 1;
 }
 
 .knoten.zu .knotenrang { color: var(--vellum-dim); }
-.knotenrang i { font-style: normal; font-size: 9px; color: var(--vellum-faint); }
+.knotenrang i { font-style: normal; font-size: 11px; color: var(--vellum-faint); }
 
 .knotenname {
   grid-area: name;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--vellum);
-  line-height: 1.2;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
 .knoten.zu .knotenname { color: var(--vellum-dim); }
@@ -968,8 +1083,8 @@ body {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 10px;
-  line-height: 1.22;
+  font-size: 11.5px;
+  line-height: 1.25;
   color: var(--vellum-dim);
 }
 
@@ -1024,11 +1139,16 @@ body {
   justify-content: center;
   gap: 2px;
   padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--tint) 45%, var(--stone-700));
-  border-radius: 2px;
+  /* Die Seltenheit fuellt die Kachel, statt nur ihren Rand zu faerben. Auf
+     einem 44er Feld sieht man einen Pixel Farbe nicht - eine Ecke, aus der
+     es herausleuchtet, sieht man auch beim Ueberfliegen. */
+  border: 1px solid color-mix(in srgb, var(--tint) 40%, var(--stone-700));
+  border-radius: 6px;
   background:
-    linear-gradient(160deg, color-mix(in srgb, var(--tint) 13%, transparent), transparent 62%),
-    var(--stone-900);
+    radial-gradient(115% 95% at 0% 100%,
+      color-mix(in srgb, var(--tint) 38%, transparent), transparent 68%),
+    linear-gradient(200deg, color-mix(in srgb, var(--tint) 10%, transparent), transparent 55%),
+    var(--stone-850);
   color: var(--vellum-dim);
   font: inherit;
   cursor: grab;
@@ -1036,7 +1156,7 @@ body {
   touch-action: none;
 }
 
-.kachel:hover { border-color: var(--tint); background-color: var(--stone-850); }
+.kachel:hover { border-color: var(--tint); background-color: var(--stone-800); }
 .kachel.gewaehlt { border-color: var(--tint); box-shadow: 0 0 0 1px var(--tint), 0 0 12px -4px var(--tint); }
 .kachel.legendaer { box-shadow: inset 0 0 14px -4px var(--tint); }
 .kachel.hebt { opacity: .28; cursor: grabbing; }
@@ -1066,12 +1186,15 @@ body {
 .kachelmenge {
   position: absolute;
   right: 3px;
-  bottom: 1px;
-  font-family: var(--rubric);
-  font-size: 10px;
-  font-weight: 600;
+  bottom: 2px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(6,8,12,.82);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.5;
   color: var(--vellum);
-  text-shadow: 0 0 4px #000, 0 0 4px #000;
+  font-variant-numeric: tabular-nums;
 }
 
 .kachelgeist {
@@ -1214,7 +1337,15 @@ body {
   transition: border-color .12s ease, background-color .12s ease;
 }
 
-.gplatz.leer { border-style: dashed; cursor: default; }
+.gplatz.leer { border-style: dashed; }
+
+/* Waehrend man etwas darueber haelt, das hineingehoert. */
+.gplatz.nimmt {
+  border-color: var(--tat);
+  border-style: solid;
+  background: rgba(240,180,41,.14);
+  box-shadow: 0 0 0 2px rgba(240,180,41,.25);
+}
 .gplatz:not(.leer) {
   border-color: color-mix(in srgb, var(--tint) 50%, var(--stone-700));
   background:
@@ -1258,6 +1389,336 @@ body {
 }
 
 .guertelreihe .gplatz { width: 46px; height: 46px; aspect-ratio: auto; }
+
+/* ═══════════════════════════════════════════ Bausteine des Lagerbildschirms
+   Ein Bildschirm statt sechs Fenster: oben eine Kopfzeile mit dem, was immer
+   gilt, darunter Reiter, darunter zwei Spalten - links das Lager, rechts der
+   Bereich. Unten eine Leiste mit den Tasten und der Haupthandlung. */
+
+.schirm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: min(86vh, 860px);
+}
+
+/* Die Kopfzeile: Name links, Zahlen rechts. Sie steht immer, egal welcher
+   Reiter offen ist - man soll nie erst irgendwohin klicken muessen, um zu
+   sehen, wie viele Muenzen man hat. */
+.schirmkopf {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--stone-700);
+}
+
+.schirmkopf h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--torch);
+  letter-spacing: .01em;
+}
+
+.kopfzahlen {
+  display: flex;
+  gap: 18px;
+  margin-left: auto;
+  align-items: center;
+}
+
+.kopfzahl {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.1;
+}
+
+.kopfzahl span {
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--vellum-faint);
+}
+
+.kopfzahl b {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vellum);
+  font-variant-numeric: tabular-nums;
+}
+
+.kopfzahl.gold b { color: var(--tat); }
+
+/* Reiter als Pillen. Der offene ist gefuellt, die anderen sind sichtbar da -
+   ein Reiter, den man nicht sieht, ist kein Reiter. */
+.pillen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pille {
+  min-height: 36px;
+  padding: 8px 16px;
+  border: 1px solid var(--stone-700);
+  border-radius: 999px;
+  background: var(--stone-850);
+  color: var(--vellum-dim);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.pille:hover { background: var(--zeile-hoch); color: var(--vellum); }
+
+.pille.an {
+  background: var(--tat);
+  border-color: var(--tat);
+  color: #14110E;
+}
+
+.pille b { margin-left: 6px; font-weight: 600; opacity: .75; }
+
+/* Zwei Spalten: links immer das Lager, rechts der Bereich. */
+.schirmleib {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.schirmleib.breit { grid-template-columns: minmax(0, 1fr); }
+
+/* Ohne min-width:0 kann eine Rasterzelle nicht schmaler werden als ihr
+   Inhalt - die zweite Unterspalte wurde dadurch aus dem Blatt geschoben. */
+.schirmleib > .bereich { min-width: 0; }
+
+/* Rucksack links, Koerper und Guertel rechts daneben - untereinander wurde
+   die Spalte hoeher als das Blatt. */
+.aufbruchspalten {
+  display: grid;
+  grid-template-columns: auto minmax(200px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/* Wird es eng, stapeln sie sich wieder. */
+@media (max-width: 1180px) {
+  .aufbruchspalten { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Abschnittskopf: kleine graue Beschriftung, weisse Zahl daneben. Das ist
+   das Muster fuer alles - LAGER 42/60, RUCKSACK 4/24, GUERTEL 3/5. */
+.feldkopf {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 9px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--vellum-faint);
+}
+
+.feldkopf b {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--vellum);
+  font-variant-numeric: tabular-nums;
+}
+
+.feldkopf .rechts { margin-left: auto; text-transform: none; letter-spacing: .02em; }
+.feldkopf.warn b { color: var(--madder-lit); }
+
+/* Die Fussleiste: Tasten als Pillen, dann die Haupthandlung rechts. */
+/* Die Haupthandlung darf man nicht suchen muessen - gemessen lag sie bei
+   1033 px in einem 839 px hohen Blatt, also unter der Falte. */
+.schirmfuss {
+  position: sticky;
+  bottom: -20px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: auto -24px -20px;
+  padding: 14px 24px 18px;
+  border-top: 1px solid var(--stone-700);
+  background: linear-gradient(rgba(18,21,28,.86), var(--stone-900) 40%);
+  backdrop-filter: blur(4px);
+}
+
+.tastenleiste {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--vellum-dim);
+}
+
+.tastenleiste span { display: inline-flex; align-items: center; gap: 6px; }
+
+.tastenpille {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--stone-600);
+  border-radius: 5px;
+  background: var(--stone-850);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--vellum);
+}
+
+/* Die Haupthandlung. Eine je Bildschirm, rechts unten, im Akzent - man soll
+   sie finden, ohne zu suchen. */
+.haupttat {
+  margin-left: auto;
+  min-height: 52px;
+  padding: 12px 34px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--tat);
+  color: #14110E;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color .12s ease, transform .08s ease;
+}
+
+.haupttat:hover:not(:disabled) { background: #FFC94D; }
+.haupttat:active:not(:disabled) { transform: translateY(1px); }
+
+.haupttat:disabled {
+  background: var(--stone-800);
+  color: var(--vellum-faint);
+  cursor: not-allowed;
+}
+
+.haupttat em {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  text-transform: none;
+  opacity: .8;
+}
+
+/* ── Die Uebersicht ───────────────────────────────────────────────────── */
+.uebersicht {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 26px;
+  align-items: stretch;
+  height: 100%;
+}
+
+@media (max-width: 900px) {
+  .uebersicht { grid-template-columns: minmax(0, 1fr); }
+}
+
+.zahlenliste {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--stone-700);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--stone-700);
+}
+
+.zahlenzeile {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 14px;
+  background: var(--stone-850);
+  font-size: 13px;
+  color: var(--vellum-dim);
+}
+
+.zahlenzeile b {
+  margin-left: auto;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vellum);
+  font-variant-numeric: tabular-nums;
+}
+
+.zahlenzeile.gold b { color: var(--tat); }
+
+/* Der Fortschritt zum naechsten Haendlerrang. */
+.rangbalken {
+  height: 6px;
+  margin: 10px 0 0;
+  border: 1px solid var(--stone-700);
+  border-radius: 4px;
+  background: var(--stone-950);
+  overflow: hidden;
+}
+
+.rangbalken i { display: block; height: 100%; background: var(--tat-tief); }
+
+/* Die Kulisse: eine Leinwand, auf der die Figur steht. */
+.kulissenrahmen {
+  position: relative;
+  min-height: 320px;
+  border: 1px solid var(--stone-700);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #07090C;
+}
+
+.kulissenrahmen canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kulissenschild {
+  position: absolute;
+  left: 20px;
+  bottom: 18px;
+  right: 20px;
+  pointer-events: none;
+}
+
+.kulissenschild h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--vellum);
+  text-shadow: 0 2px 16px rgba(0,0,0,.9);
+}
+
+.kulissenschild p {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--vellum-dim);
+  text-shadow: 0 1px 10px rgba(0,0,0,.9);
+}
 
 .gear-text { min-width: 0; line-height: 1.35; }
 
@@ -1508,6 +1969,10 @@ body {
 }
 
 .sheet .foot b { color: var(--torch); font-weight: 600; }
+
+/* Was wirklich Text ist - Sagen, Grabinschriften, Erzaehltes - bleibt in der
+   Buchschrift. Alles andere ist Beschriftung. */
+.epitaph, .sage, .tafeltext .sage, .quest-desc { font-family: var(--prosa); }
 
 .choice {
   display: grid;
@@ -3717,7 +4182,7 @@ const PASSIVE = {
 
 
 /* ── Was den Tod überlebt ─────────────────────────────────────────────────
-   Münzen, Lager, Stufe und Können gehören dem Charakter, nicht dem Lauf.
+   Münzen, Lager, Stufe und Fertigkeiten gehören dem Charakter, nicht dem Lauf.
    Der Schlüssel heißt noch nach der Asche, die es einmal gab - er bleibt so,
    damit alte Spielstände weiter geladen werden. */
 const META_KEY = "der-abstieg-asche-v1";
@@ -11313,6 +11778,9 @@ let sheetNr = 0;
 function openModal(html, onKey) {
   const schonOffen = modalOpen;
   modalOpen = true;
+  // Jedes Fenster ist erst einmal ein Fenster - nur der Lagerbildschirm
+  // schaltet sich danach selbst auf randlos.
+  overlay.classList.remove("voll");
   // Jedes Fenster startet schliessbar - wer das nicht will, setzt es danach.
   overlay._noEscape = false;
   if (!schonOffen) {
@@ -11573,9 +12041,9 @@ function rasterMarkup(liste, spalten, reihen, feld, gewaehlt, kachelPx) {
       style="grid-column:${e.gx + 1}/span ${m.w};grid-row:${e.gy + 1}/span ${m.h};
              --tint:${seltenFarbe(e)}">
       <span class="kachelbild">${kachelBild(e)}</span>
-      <span class="kachelname">${escapeHtml(kachelName(e))}</span>
+      ${m.w >= 2 ? `<span class="kachelname">${escapeHtml(kachelName(e))}</span>` : ""}
       ${e.stufe ? `<span class="kachelstufe">+${e.stufe}</span>` : ""}
-      ${e.menge > 1 ? `<span class="kachelmenge">${e.menge}</span>` : ""}
+      ${e.menge > 1 ? `<span class="kachelmenge">×${e.menge}</span>` : ""}
     </button>`;
   }).join("");
 
@@ -11631,9 +12099,9 @@ function bagMarkup() {
       style="grid-column:${e.gx + 1}/span ${m.w};grid-row:${e.gy + 1}/span ${m.h};
              --tint:${seltenFarbe(e)}">
       <span class="kachelbild">${kachelBild(e)}</span>
-      <span class="kachelname">${escapeHtml(kachelName(e))}</span>
+      ${m.w >= 2 ? `<span class="kachelname">${escapeHtml(kachelName(e))}</span>` : ""}
       ${e.stufe ? `<span class="kachelstufe">+${e.stufe}</span>` : ""}
-      ${e.menge > 1 ? `<span class="kachelmenge">${e.menge}</span>` : ""}
+      ${e.menge > 1 ? `<span class="kachelmenge">×${e.menge}</span>` : ""}
     </button>`;
   }).join("");
 
@@ -11652,18 +12120,25 @@ function bagMarkup() {
   }).join("");
 
   return `<h2>Rucksack</h2>
-    <p class="sub">${spalten}×${reihen} Kacheln · <b class="${schwer ? "schwerbeladen" : ""}">${
-      last(kg)}</b> von ${last(max)}${
-      schwer ? ` · <b class="schwerbeladen">schwer beladen, ${
-        Math.round((1 - lastTempo(p)) * 100)} % langsamer</b>` : ""}.
-      Angelegtes trägst du am Körper — es liegt weder im Raster noch auf der Waage.</p>
-    <div class="lastbalken"><i class="${schwer ? "voll" : ""}" style="width:${
-      Math.round(anteil * 100)}%"></i><u style="left:80%"></u></div>
     <div class="bag-wrap">
-      <div class="raster" style="--sp:${spalten};--re:${reihen}">${zellen}${kacheln}</div>
+      <div>
+        <p class="feldkopf">Raster <b>${p.bag.length - Object.values(p.equipped)
+          .filter(Boolean).length}/${spalten * reihen}</b>
+          <span class="rechts">${spalten}×${reihen} Kacheln</span></p>
+        <div class="raster" style="--sp:${spalten};--re:${reihen}">${zellen}${kacheln}</div>
+        <div class="lastbalken" style="margin-top:10px"><i class="${schwer ? "voll" : ""}"
+          style="width:${Math.round(anteil * 100)}%"></i><u style="left:80%"></u></div>
+        <p class="feldkopf${schwer ? " warn" : ""}" style="margin-top:6px">Last
+          <b>${last(kg)} / ${last(max)}</b>
+          <span class="rechts">${schwer
+            ? `schwer beladen — ${Math.round((1 - lastTempo(p)) * 100)} % langsamer`
+            : "Angelegtes wiegt nicht mit"}</span></p>
+      </div>
       <aside class="gear">
-        <h3>Angelegt</h3>${gear}
-        <h3 style="margin-top:14px">Gürtel</h3>
+        <p class="feldkopf">Am Körper <b>${Object.values(p.equipped)
+          .filter(Boolean).length}/4</b></p>${gear}
+        <p class="feldkopf" style="margin-top:16px">Gürtel
+          <b>${guertel(p).filter(Boolean).length}/${GUERTEL_PLAETZE}</b></p>
         ${guertelReihe(guertel(p), "gband")}
       </aside>
     </div>
@@ -11673,9 +12148,9 @@ function bagMarkup() {
       <span>Aufräumen</span>
       <span class="note">packt das Sperrigste zuerst — schafft Platz für Rüstung</span></button>
     </div>
-    <div class="foot">Kacheln verschieben · <b>R</b> dreht · Klick benutzt oder legt an ·
-      auf ein Ausrüstungsfeld ziehen legt an · Flaschen gehören an den Gürtel,
-      dort liegen sie auf <b>1</b>–<b>5</b> · Esc schließt</div>`;
+    <div class="foot"><b>Ziehen</b> verschiebt · <b>R</b> dreht · <b>Klick</b> benutzt
+      oder legt an · auf einen Ausrüstungsplatz oder den Gürtel ziehen legt dorthin ·
+      am Gürtel liegen sie auf <b>1</b>–<b>5</b> · <b>Esc</b> schließt</div>`;
 }
 
 /* Die Tafel unter dem Raster: alles zum gewaehlten Stueck. */
@@ -11789,7 +12264,10 @@ function bagBinde() {
         geist.style.top = `${ev2.clientY - griffY}px`;
         const ziel = zielZelle(ev2, griffX, griffY);
         const gut = ziel && passtHin(p, e, ziel.gx, ziel.gy);
-        geist.classList.toggle("nein", !gut && !ueberGear(ev2, e));
+        const amGuertel = ueberGuertel(ev2, e);
+        overlay.querySelectorAll(".gplatz.nimmt").forEach(g => g.classList.remove("nimmt"));
+        if (amGuertel) amGuertel.classList.add("nimmt");
+        geist.classList.toggle("nein", !gut && !ueberGear(ev2, e) && !amGuertel);
       };
 
       /* R dreht mitten im Zug. Das ist die Stelle, an der man es braucht:
@@ -11817,6 +12295,14 @@ function bagBinde() {
         el.classList.remove("hebt");
         if (!geist) {                       // war doch nur ein Klick
           bagWahl = e;
+          bagFrisch();
+          return;
+        }
+        overlay.querySelectorAll(".gplatz.nimmt").forEach(g => g.classList.remove("nimmt"));
+        if (ueberGuertel(ev2, e)) {
+          if (inDenGuertel(p, e)) Sfx.spiel("ausruesten");
+          else Sfx.spiel("nein");
+          bagWahl = null;
           bagFrisch();
           return;
         }
@@ -11877,6 +12363,12 @@ function bagBinde() {
     return { gx, gy };
   }
 
+  function ueberGuertel(ev, e) {
+    if (!istFlasche(vorlage(e))) return null;
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    return el && el.closest ? el.closest("[data-gband]") : null;
+  }
+
   function ueberGear(ev, e) {
     if (!e.def.slot) return null;
     const el = document.elementFromPoint(ev.clientX, ev.clientY);
@@ -11908,14 +12400,13 @@ function showChest(kiste) {
   }).join("") : '<p class="quiet" style="padding:14px 0">Die Kiste ist leer.</p>';
 
   openModal(`<h2>Kiste</h2>
-    <p class="sub">${kiste.loot.length} ${kiste.loot.length === 1 ? "Stück" : "Stücke"} darin ·
-      du trägst ${last(getragen(p))} von ${last(traglast())}.
-      Was du liegen lässt, bleibt in der Kiste.</p>
+    <p class="feldkopf">Darin <b>${kiste.loot.length}</b>
+      <span class="rechts">du trägst ${last(getragen(p))} von ${last(traglast())}</span></p>
     ${zeilen}
     ${kiste.loot.length ? `<button class="choice" id="allesBtn" style="margin-top:12px">
       <span>Alles nehmen</span>
       <span class="note"></span></button>` : ""}
-    <div class="foot">Mit der Maus nehmen · Esc schließt</div>`);
+    <div class="foot">Was du liegen lässt, bleibt in der Kiste · <b>Esc</b> schließt</div>`);
 
   overlay.querySelectorAll("[data-i]").forEach(btn => {
     btn.onclick = () => nimmAusKiste(kiste, +btn.dataset.i);
@@ -12122,7 +12613,7 @@ function showCharacter() {
     ${kopf("Wie es steht")}<div class="grid2">${lage}</div>
     ${kopf("Am Körper")}<div class="grid2">${koerper}</div>
     ${kopf("Wer du bist")}<div class="einspaltig">${wer}</div>
-    ${linien ? kopf("Können") + linien : ""}
+    ${linien ? kopf("Fertigkeiten") + linien : ""}
     <div class="foot">Esc schließt</div>`);
 }
 
@@ -12154,7 +12645,7 @@ function lieCode(text) {
     overlay._noEscape = false;
     closeModal();
     Sfx.spiel("treppe");
-    banner("Übernommen", "Lager, Münzen und Können sind wieder da", "good");
+    banner("Übernommen", "Lager, Münzen und Fertigkeiten sind wieder da", "good");
     showTitle();
     return null;
   } catch (e) { return "Der Code ist beschädigt."; }
@@ -12809,8 +13300,12 @@ function ladenWaren() {
 
    Das Layout ist ein einfacher Tidy-Tree: Blaetter bekommen die naechste
    freie Spalte, ein Elternteil die Mitte seiner Kinder. */
-const KNOTEN_B = 116;      // Spaltenbreite in Pixeln
-const KNOTEN_H = 78;       // Reihenhoehe
+/* Gemessen war ein Knoten 104x52 px gross und trug darin einen Namen in
+   12 px und eine Bedingung in 10 px, auf zwei Zeilen beschnitten - dabei kam
+   "Narbengewe" und "Unverwuestlic" heraus. Wer seinen Baum planen soll, muss
+   die Knoten lesen koennen, auf die er hinarbeitet. */
+const KNOTEN_B = 168;      // Spaltenbreite in Pixeln
+const KNOTEN_H = 104;      // Reihenhoehe
 const AST_LUECKE = 26;     // Abstand zwischen zwei Aesten
 const BAUM_RAND = 14;
 
@@ -12928,26 +13423,29 @@ function baumMarkup() {
 
 function showSkills() {
   const punkte = offenePunkte();
-  openModal(`<h2>Können</h2>
-    <p class="sub">Stufe <b style="color:var(--torch)">${META.stufe | 0}</b> ·
-      ${META.xp | 0} / ${xpNeeded()} Erfahrung ·
-      <b style="color:${punkte ? "var(--verdigris-lit)" : "var(--vellum-faint)"}">${punkte}
-      ${punkte === 1 ? "Punkt" : "Punkte"} frei</b>.
-      Erfahrung bleibt dir, auch wenn du unten stirbst — nur die Ausrüstung nicht.
-      Ein Klick auf einen offenen Knoten lernt einen Rang.</p>
-    <div class="baumrahmen">${baumMarkup()}</div>
-    <div class="ausgang">
-    <button class="choice" id="zurueckSkill">
-      <span class="key">Esc</span><span>Zurück</span><span class="note"></span></button>
-    <button class="choice gefahr" id="vergissBtn">
-      <span class="key" aria-hidden="true">×</span><span id="vergissWort">Alles neu verteilen</span>
-      <span class="note" id="vergissNote">gibt alle Punkte zurück, kostet nichts</span></button>
-    </div>`,
-    key => { if (key === "Escape") { skillZurueck(); return true; } return false; });
+  openModal(lagerSchirm("koennen", baumBereich(), {
+    breit: true,
+    tasten: [["Klick", "einen Rang lernen"]],
+  }));
   zwingend();
-  const blatt = overlay.querySelector(".sheet");
-  if (blatt) blatt.classList.add("breit");
+  lagerBindePillen();
   bindeBaum();
+}
+
+/* Der Baum braucht die volle Breite - er ist der einzige Bereich, der das
+   Lager beiseiteschiebt. */
+function baumBereich() {
+  const punkte = offenePunkte();
+  return `<p class="feldkopf">Fertigkeiten
+      <b>Stufe ${META.stufe | 0}</b>
+      <span class="rechts">${META.xp | 0} / ${xpNeeded()} Erfahrung · ${
+        punkte} ${punkte === 1 ? "Punkt" : "Punkte"} frei</span></p>
+    <div class="baumrahmen">${baumMarkup()}</div>
+    <div class="ausgang" style="margin-top:12px">
+      <button class="choice gefahr" id="vergissBtn">
+        <span class="key" aria-hidden="true">×</span><span id="vergissWort">Alles neu verteilen</span>
+        <span class="note" id="vergissNote">gibt alle Punkte zurück, kostet nichts</span></button>
+    </div>`;
 }
 
 /* Nur den Baum neu zeichnen - dann bleibt der Scrollstand stehen, und man
@@ -12958,22 +13456,16 @@ function baumFrisch() {
   const links = rahmen.scrollLeft, oben = rahmen.scrollTop;
   rahmen.innerHTML = baumMarkup();
   rahmen.scrollLeft = links; rahmen.scrollTop = oben;
-  const kopf = overlay.querySelector(".sheet .sub");
+  const kopf = overlay.querySelector(".bereich .feldkopf");
   const punkte = offenePunkte();
-  if (kopf) kopf.innerHTML = `Stufe <b style="color:var(--torch)">${META.stufe | 0}</b> ·
-      ${META.xp | 0} / ${xpNeeded()} Erfahrung ·
-      <b style="color:${punkte ? "var(--verdigris-lit)" : "var(--vellum-faint)"}">${punkte}
-      ${punkte === 1 ? "Punkt" : "Punkte"} frei</b>.
-      Erfahrung bleibt dir, auch wenn du unten stirbst — nur die Ausrüstung nicht.
-      Ein Klick auf einen offenen Knoten lernt einen Rang.`;
+  if (kopf) kopf.innerHTML = `Fertigkeiten <b>Stufe ${META.stufe | 0}</b>
+      <span class="rechts">${META.xp | 0} / ${xpNeeded()} Erfahrung · ${
+        punkte} ${punkte === 1 ? "Punkt" : "Punkte"} frei</span>`;
   bindeBaum();
 }
 
 /* Wohin das Fenster entlaesst: aus dem Lauf ins Spiel, sonst zum Titelbild. */
-function skillZurueck() {
-  if (typeof mode === "object" && mode.kind === "menu") showCamp();
-  else showTitle();
-}
+function skillZurueck() { showLoadout(); }
 
 function bindeBaum() {
   overlay.querySelectorAll("[data-skill]").forEach(el => {
@@ -13023,6 +13515,303 @@ function verkaufTafel() {
     </div>`;
 }
 
+/* == Der Lagerbildschirm =================================================
+   Die Huelle, die alle Bereiche teilen. Jeder Bereich liefert nur noch, was
+   rechts steht - Kopfzeile, Reiter, Lager und Fussleiste kommen von hier. */
+const LAGER_REITER = [
+  ["uebersicht", "Übersicht"],
+  ["aufbruch",  "Aufbruch"],
+  ["verkaufen", "Verkaufen"],
+  ["kaufen",    "Kaufen"],
+  ["aufwerten", "Aufwerten"],
+  ["rucksack",  "Ausbauten"],
+  ["koennen",   "Fertigkeiten"],
+];
+
+function lagerKopf() {
+  const rang = haendlerRang();
+  const lm = lagerRaster();
+  const belegt = belegungIn(META.lager, lm.spalten, lm.reihen).filter(Boolean).length;
+  const zahl = (wort, wert, gold) =>
+    `<div class="kopfzahl${gold ? " gold" : ""}"><span>${wort}</span><b>${wert}</b></div>`;
+  return `<div class="schirmkopf">
+      <h2>Das Lager</h2>
+      <div class="kopfzahlen">
+        ${zahl("Münzen", META.muenzen, true)}
+        ${zahl("Stufe", META.stufe | 0)}
+        ${(META.punkte | 0) ? zahl("Punkte frei", META.punkte | 0, true) : ""}
+        ${zahl("Händler", rangName(rang))}
+        ${zahl("Lager", `${belegt}/${lm.spalten * lm.reihen}`)}
+      </div>
+    </div>`;
+}
+
+function lagerPillen(offen) {
+  return `<div class="pillen" role="tablist">${LAGER_REITER.map(([k, wort]) =>
+    `<button class="pille${k === offen ? " an" : ""}" data-reiter="${k}"
+      role="tab" aria-selected="${k === offen}">${wort}${
+      k === "koennen" && (META.punkte | 0)
+        ? `<b>${META.punkte | 0}</b>` : ""}</button>`).join("")}</div>`;
+}
+
+/* Das Lager links. Es steht auf jedem Reiter, damit man beim Kaufen sieht,
+   wohin das Gekaufte soll, und beim Aufbruch, was noch da ist. */
+function lagerSpalte(gewaehlt, kachelPx) {
+  const lm = lagerRaster();
+  const frei = belegungIn(META.lager, lm.spalten, lm.reihen).filter(x => !x).length;
+  return `<section class="lagerseite">
+      <p class="feldkopf">Lager <b>${META.lager.length}</b>
+        <span class="rechts">${frei} Kacheln frei</span></p>
+      ${rasterMarkup(META.lager, lm.spalten, lm.reihen, "lager", gewaehlt, kachelPx || 44)}
+    </section>`;
+}
+
+function lagerFuss(tasten, tat) {
+  const pille = t => `<b class="tastenpille">${t}</b>`;
+  return `<div class="schirmfuss">
+      <div class="tastenleiste">${(tasten || []).map(([k, wort]) =>
+        `<span>${pille(k)} ${escapeHtml(wort)}</span>`).join("")}</div>
+      ${tat || ""}
+    </div>`;
+}
+
+/* Hinabsteigen steht auf jedem Reiter - man soll nicht erst zum Aufbruch
+   zurueckwechseln muessen, um loszuziehen. */
+function lagerAufbruchTat() {
+  const kg = mitnahmeGewicht(), max = traglast();
+  const zuSchwer = kg > max;
+  const dabei = (META.mitnahme || []).length +
+                LADE_PLAETZE.filter(sl => META.anlegen[sl]).length +
+                (META.guertel || []).filter(Boolean).length;
+  return `<button class="haupttat" id="abBtn" ${zuSchwer ? "disabled" : ""}>
+      Hinabsteigen
+      <em>${zuSchwer ? "zu schwer beladen" : `${dabei} ${
+        dabei === 1 ? "Stück" : "Stücke"} dabei · ${last(kg)}`}</em>
+    </button>`;
+}
+
+/* == Die Uebersicht =======================================================
+   Der Ort, an dem man zwischen zwei Abstiegen steht: die Figur gross in
+   ihrer Kulisse, daneben, was man bisher geschafft hat. */
+function showUebersicht() {
+  openModal(lagerSchirm("uebersicht", uebersichtBereich(), {
+    breit: true,
+    tasten: [["↵", "hinabsteigen"]],
+  }));
+  zwingend();
+  lagerBindePillen();
+  kulisseLeinwand = document.getElementById("kulisse");
+}
+
+function uebersichtBereich() {
+  const rang = haendlerRang();
+  const naechste = RANG_SCHWELLEN[rang + 1];
+  const umsatz = META.umsatz | 0;
+  const vorige = RANG_SCHWELLEN[rang] || 0;
+  const anteil = naechste
+    ? Math.max(0, Math.min(1, (umsatz - vorige) / (naechste - vorige))) : 1;
+
+  const zeile = (wort, wert, gold) =>
+    `<div class="zahlenzeile${gold ? " gold" : ""}"><span>${wort}</span><b>${wert}</b></div>`;
+
+  const angelegt = LADE_PLAETZE.filter(sl => (META.anlegen || {})[sl]).length;
+  const modul = (META.anlegen || {})["Modul"];
+
+  return `<div class="uebersicht">
+      <section>
+        <p class="feldkopf">Deine Zahlen</p>
+        <div class="zahlenliste">
+          ${zeile("Abstiege", META.laeufe | 0)}
+          ${zeile("Tiefste Etage", META.beste | 0, true)}
+          ${zeile("Siege", META.siege | 0)}
+          ${zeile("Umsatz", `${umsatz} M`)}
+          ${zeile("Händlerrang", rangName(rang))}
+        </div>
+        <div class="rangbalken"><i style="width:${Math.round(anteil * 100)}%"></i></div>
+        <p class="quiet" style="margin:6px 0 0">${naechste
+          ? `noch ${naechste - umsatz} Umsatz bis zum nächsten Rang`
+          : "höchster Rang erreicht"}</p>
+
+        <p class="feldkopf" style="margin-top:20px">Bereit?</p>
+        <div class="zahlenliste">
+          ${zeile("Am Körper", `${angelegt}/4`)}
+          ${zeile("Im Rucksack", (META.mitnahme || []).length)}
+          ${zeile("Am Gürtel", `${(META.guertel || []).filter(Boolean).length}/${GUERTEL_PLAETZE}`)}
+          ${zeile("Fähigkeit", modul ? escapeHtml(vorlage(modul).name) : "keine")}
+        </div>
+      </section>
+
+      <div class="kulissenrahmen">
+        <canvas id="kulisse" width="900" height="620" aria-hidden="true"></canvas>
+        <div class="kulissenschild">
+          <h3>Stufe ${META.stufe | 0}</h3>
+          <p>${(META.punkte | 0)
+            ? `${META.punkte | 0} ${(META.punkte | 0) === 1 ? "Punkt" : "Punkte"} zu vergeben`
+            : "alles verteilt"} · ${META.muenzen} Münzen im Beutel</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ── Die Kulisse ──────────────────────────────────────────────────────────
+   Gemalt wird mit denselben Pinseln wie im Spiel. drawHero zeichnet
+   allerdings auf die Spielleinwand und liest dabei G.player direkt aus -
+   also steht waehrend des Malens ein Stellvertreter bereit, und danach wird
+   das Ergebnis herueberkopiert. */
+let kulisseLeinwand = null;
+
+function kulisseHeld() {
+  const angelegt = {};
+  for (const slot of LADE_PLAETZE) {
+    const b = (META.anlegen || {})[slot];
+    if (b) angelegt[slot] = ausBestand(b);
+  }
+  return { equipped: angelegt, gehen: 0, gang: 0, facing: [0, 1], blick: 1,
+           hieb: null, statuses: {}, flash: 0, oil: 96 };
+}
+
+function zeichneKulisse(now) {
+  const ziel = kulisseLeinwand;
+  if (!ziel || !ziel.isConnected) { kulisseLeinwand = null; return; }
+  const zc = ziel.getContext("2d");
+  const W = ziel.width, H = ziel.height;
+  const t = now / 1000;
+  const puls = .82 + Math.sin(t * 2.3) * .1 + Math.sin(t * 5.7) * .05;
+
+  // --- Der Raum. Ein Gewoelbe aus Quadern, zwei Schalen, ein Boden.
+  zc.fillStyle = "#07090C";
+  zc.fillRect(0, 0, W, H);
+
+  const horizont = H * .62;
+  // Rueckwand
+  const wand = zc.createLinearGradient(0, 0, 0, horizont);
+  wand.addColorStop(0, "#0A0C11");
+  wand.addColorStop(1, "#1B1712");
+  zc.fillStyle = wand;
+  zc.fillRect(0, 0, W, horizont);
+  // Quaderfugen
+  zc.strokeStyle = "rgba(0,0,0,.45)";
+  zc.lineWidth = 2;
+  const qh = 54, qb = 96;
+  for (let y = horizont - qh; y > -qh; y -= qh) {
+    zc.beginPath(); zc.moveTo(0, y); zc.lineTo(W, y); zc.stroke();
+    const versatz = ((horizont - y) / qh) % 2 ? qb / 2 : 0;
+    for (let x = versatz; x < W; x += qb) {
+      zc.beginPath(); zc.moveTo(x, y); zc.lineTo(x, y + qh); zc.stroke();
+    }
+  }
+  // Boden
+  const boden = zc.createLinearGradient(0, horizont, 0, H);
+  boden.addColorStop(0, "#221C15");
+  boden.addColorStop(1, "#0B0C0F");
+  zc.fillStyle = boden;
+  zc.fillRect(0, horizont, W, H - horizont);
+  zc.strokeStyle = "rgba(0,0,0,.5)";
+  zc.lineWidth = 1.5;
+  zc.beginPath(); zc.moveTo(0, horizont); zc.lineTo(W, horizont); zc.stroke();
+
+  // --- Zwei Fackelschalen, links und rechts
+  for (const fx of [W * .17, W * .83]) {
+    const fy = horizont - 96;
+    zc.save();
+    zc.globalCompositeOperation = "lighter";
+    const schein = zc.createRadialGradient(fx, fy, 6, fx, fy, 260);
+    schein.addColorStop(0, `rgba(232,169,75,${.5 * puls})`);
+    schein.addColorStop(1, "rgba(0,0,0,0)");
+    zc.fillStyle = schein;
+    zc.beginPath(); zc.arc(fx, fy, 260, 0, 6.283); zc.fill();
+    zc.restore();
+    // Schale
+    zc.fillStyle = "#3A342A";
+    zc.beginPath();
+    zc.moveTo(fx - 22, fy + 4); zc.lineTo(fx + 22, fy + 4);
+    zc.lineTo(fx + 13, fy + 26); zc.lineTo(fx - 13, fy + 26);
+    zc.closePath(); zc.fill();
+    zc.fillRect(fx - 4, fy + 26, 8, 74);
+    // Flamme
+    zc.save();
+    zc.globalCompositeOperation = "lighter";
+    for (let i = 0; i < 3; i++) {
+      const hh = 34 + Math.sin(t * 6 + i * 2.1) * 10 + i * 6;
+      zc.fillStyle = ["rgba(232,120,40,.85)", "rgba(240,180,60,.8)", "rgba(255,232,170,.75)"][i];
+      zc.beginPath();
+      zc.moveTo(fx - 15 + i * 5, fy + 2);
+      zc.quadraticCurveTo(fx - 4, fy - hh * .6, fx + Math.sin(t * 4 + i) * 4, fy - hh);
+      zc.quadraticCurveTo(fx + 5, fy - hh * .55, fx + 15 - i * 5, fy + 2);
+      zc.closePath(); zc.fill();
+    }
+    zc.restore();
+  }
+
+  // --- Der Held. Erst auf die Spielleinwand, dann herueber.
+  const K = 7;
+  const heldB = Math.round(TILE * 2 * K), heldH = Math.round(TILE * 1.9 * K);
+  if (canvas.width >= heldB && canvas.height >= heldH) {
+    const echt = G;
+    try {
+      G = { player: kulisseHeld(), floor: Math.max(1, META.beste | 0) };
+      ctx.save();
+      ctx.setTransform(K, 0, 0, K, 0, 0);
+      ctx.clearRect(0, 0, heldB / K, heldH / K);
+      // Innerhalb des Kastens so setzen, dass Kopf und Fuesse hineinpassen
+      drawHero(ctx, TILE * .5, TILE * .75, 1, t, G.player);
+      ctx.restore();
+    } catch (e) {
+      // Lieber ohne Figur als ohne Bildschirm
+    } finally { G = echt; }
+    const zb = Math.round(heldB * 1.35), zh = Math.round(heldH * 1.35);
+    zc.drawImage(canvas, 0, 0, heldB, heldH,
+                 Math.round(W / 2 - zb / 2), Math.round(horizont - zh * .78), zb, zh);
+  }
+
+  // --- Schatten unter der Figur und ein Schleier ringsum
+  zc.save();
+  zc.fillStyle = "rgba(0,0,0,.45)";
+  zc.beginPath();
+  zc.ellipse(W / 2, horizont + 12, 96, 20, 0, 0, 6.283);
+  zc.fill();
+  zc.restore();
+
+  const rand = zc.createRadialGradient(W / 2, H * .5, H * .28, W / 2, H * .5, H * .92);
+  rand.addColorStop(0, "rgba(0,0,0,0)");
+  rand.addColorStop(1, "rgba(4,5,8,.92)");
+  zc.fillStyle = rand;
+  zc.fillRect(0, 0, W, H);
+}
+
+function lagerSchirm(reiter, rechts, opt) {
+  opt = opt || {};
+  return `<div class="schirm">
+      ${lagerKopf()}
+      ${lagerPillen(reiter)}
+      <div class="schirmleib${opt.breit ? " breit" : ""}">
+        ${opt.breit ? "" : lagerSpalte(opt.wahl, opt.kachelPx)}
+        <div class="bereich">${rechts}</div>
+      </div>
+      ${lagerFuss(opt.tasten, opt.tat === null ? "" : (opt.tat || lagerAufbruchTat()))}
+    </div>`;
+}
+
+/* Die Reiter schalten um. Jeder Bereich bringt sein eigenes Fenster mit -
+   von aussen sieht es aus wie ein Bildschirm, weil Kopf, Lager und Fuss
+   ueberall dieselben sind. */
+function lagerBindePillen() {
+  overlay.querySelectorAll("[data-reiter]").forEach(el => {
+    el.onclick = () => {
+      const k = el.dataset.reiter;
+      if (k === "uebersicht") showUebersicht();
+      else if (k === "aufbruch") showLoadout();
+      else if (k === "koennen") showSkills();
+      else showCamp(k);
+    };
+  });
+  const blatt = overlay.querySelector(".sheet");
+  if (blatt) blatt.classList.add("weit", "voll");
+  overlay.classList.add("voll");
+  const ab = $("abBtn");
+  if (ab) ab.onclick = () => ladeAufbruch();
+}
+
 function showCamp(reiter) {
   if (reiter) lagerReiter = reiter;
   const rang = haendlerRang();
@@ -13047,12 +13836,12 @@ function showCamp(reiter) {
     const lm = lagerRaster();
     const wert = bestand.filter(x => vorlage(x.b).kind !== "material")
       .reduce((a, x) => a + verkaufPreis(x.e), 0);
+    /* Das Raster steht links in der Huelle - hier rechts steht nur noch, was
+       an der gewaehlten Kachel haengt. */
     inhalt = META.lager.length
-      ? `<div class="verkaufsraum">
-          ${rasterMarkup(META.lager, lm.spalten, lm.reihen, "lager", verkaufWahl, 46)}
-          <div class="tafel">${verkaufTafel()}</div>
-        </div>
-        <button class="choice" id="allesBtn">
+      ? `<p class="feldkopf">Verkaufen <span class="rechts">Linksklick wählt · Rechtsklick verkauft sofort</span></p>
+        <div class="tafel">${verkaufTafel()}</div>
+        <button class="choice" id="allesBtn" style="margin-top:12px">
           <span class="key" aria-hidden="true">·</span><span>Alles verkaufen</span>
           <span class="note">${wert} Münzen — Werkstoff bleibt liegen</span></button>`
       : '<p class="quiet" style="padding:14px 0">Dein Lager ist leer. Bring etwas herauf.</p>';
@@ -13081,14 +13870,25 @@ function showCamp(reiter) {
               : `<button class="bag-act" data-erw="${k}" ${
                   META.muenzen < w.preis ? "disabled" : ""}>${w.preis} M</button>`,
           hat);
-      }).join("");
+      }).join("") +
+      `<div class="ausgang" style="margin-top:18px">
+        <button class="choice gefahr" id="loeschBtn">
+          <span class="key" aria-hidden="true">×</span><span id="loeschWort">Fortschritt löschen</span>
+          <span class="note" id="loeschNote">Münzen, Lager, Stufe, Fertigkeiten — alles</span></button>
+      </div>`;
   } else if (lagerReiter === "aufwerten") {
     const passend = bestand.filter(({ e }) => e.def.slot && !e.def.quest);
-    const vorrat = WERKSTOFF_TIEFE.map(w =>
-      `<span style="color:${lesbar(ITEMS[w.id].tint)}">${escapeHtml(ITEMS[w.id].name)}
-        <b>${werkstoffVorrat(w.id)}</b></span>`).join(" · ");
-    inhalt = `<p class="quiet" style="padding:2px 0 12px">Aufwerten kostet Werkstoff
-      aus der Tiefe, keine Münzen. Im Lager: ${vorrat}.</p>` +
+    /* Der Vorrat ist die Zahl, an der hier alles haengt - er stand als
+       kursive Fussnote im schwaechsten Ton der Palette. Jetzt sind es Marken,
+       in denen die Zahl gross ist und die Farbe den Werkstoff bezeichnet. */
+    const vorrat = WERKSTOFF_TIEFE.map(w => {
+      const n = werkstoffVorrat(w.id);
+      return `<span class="stoffmarke${n ? "" : " leer"}"
+        style="--tint:${ITEMS[w.id].tint}">${escapeHtml(ITEMS[w.id].name)}<b>${n}</b></span>`;
+    }).join("");
+    inhalt = `<p class="feldkopf">Werkstoff im Lager
+        <span class="rechts">kostet Werkstoff aus der Tiefe, keine Münzen</span></p>
+      <div class="stoffreihe">${vorrat}</div>` +
       (passend.length ? passend.map(({ e, b, i }) => {
         const voll = (b.stufe || 0) >= AUFWERT_MAX;
         const kosten = aufwertKosten(b);
@@ -13103,33 +13903,16 @@ function showCamp(reiter) {
         : '<p class="quiet" style="padding:14px 0">Nichts im Lager, was sich schärfen ließe.</p>');
   }
 
-  const reiterZeile = [["verkaufen", "Verkaufen"], ["kaufen", "Kaufen"],
-                       ["aufwerten", "Aufwerten"], ["rucksack", "Ausbauten"]]
-    .map(([k, n]) => `<button class="reiter${k === lagerReiter ? " an" : ""}" role="tab" aria-selected="${k === lagerReiter}" data-reiter="${k}">${n}</button>`)
-    .join("");
+  const tasten = lagerReiter === "verkaufen"
+    ? [["Klick", "wählen"], ["Rechts", "sofort verkaufen"]]
+    : [["Klick", "wählen"]];
 
-  openModal(`<h2>Der Händler</h2>
-    <p class="sub"><b style="color:var(--torch)">${META.muenzen} Münzen</b> ·
-      ${rangName(rang)} (Rang ${rang})${naechste
-        ? ` · noch ${naechste - (META.umsatz | 0)} Umsatz bis zum nächsten`
-        : " · höchster Rang"}.
-      ${META.laeufe} ${META.laeufe === 1 ? "Abstieg" : "Abstiege"}, tiefste Etage ${META.beste}.</p>
-    <div class="reiterzeile" role="tablist" aria-label="Bereiche des Händlers">${reiterZeile}</div>
-    ${inhalt}
-    <div class="ausgang">
-    <button class="choice" id="zurueckBtn">
-      <span class="key">Esc</span><span>Zurück</span><span class="note"></span></button>
-    <button class="choice gefahr" id="loeschBtn" style="margin-top:4px">
-      <span class="key" aria-hidden="true">×</span><span id="loeschWort">Fortschritt löschen</span>
-      <span class="note" id="loeschNote">Münzen, Lager, Stufe, Können — alles</span></button>
-    </div>`,
-    key => { if (key === "Escape") { showTitle(); return true; } return false; });
+  openModal(lagerSchirm(lagerReiter, inhalt, {
+    wahl: lagerReiter === "verkaufen" ? verkaufWahl : null,
+    tasten,
+  }));
   zwingend();
-  const blatt = overlay.querySelector(".sheet");
-  if (blatt) blatt.classList.add("weit");
-
-  overlay.querySelectorAll("[data-reiter]").forEach(b =>
-    b.onclick = () => showCamp(b.dataset.reiter));
+  lagerBindePillen();
   /* Linksklick waehlt, Rechtsklick verkauft. Das ist der schnelle Weg durch
      ein volles Lager, ohne dass man dafuer irgendwo hinzielen muss. */
   overlay.querySelectorAll('[data-feld="lager"]').forEach(el => {
@@ -13158,9 +13941,9 @@ function showCamp(reiter) {
   const alles = $("allesBtn");
   if (alles) alles.onclick = () => { verkaufeAlles(); showCamp(); };
 
-  $("zurueckBtn").onclick = () => showTitle();
   let sicher = false;
-  $("loeschBtn").onclick = () => {
+  const loesch = $("loeschBtn");
+  if (loesch) loesch.onclick = () => {
     if (!sicher) {
       sicher = true;
       $("loeschWort").textContent = "Wirklich alles löschen?";
@@ -13345,24 +14128,30 @@ function showLoadout() {
   META.anlegen = META.anlegen || {};
   if (ladeWahl && !META.lager.includes(ladeWahl) && !META.mitnahme.includes(ladeWahl) &&
       !LADE_PLAETZE.some(sl => META.anlegen[sl] === ladeWahl)) ladeWahl = null;
-  openModal(ladeMarkup(), key => {
-    if (key === "Escape") { showTitle(); return true; }
+  openModal(lagerSchirm("aufbruch", ladeMarkup(), {
+    wahl: ladeWahl,
+    tasten: [["Ziehen", "verschieben"], ["Klick", "wählen"], ["R", "drehen"],
+             ["N", "Notausrüstung"], ["↵", "hinab"]],
+  }), key => {
     if (key === "enter") { ladeAufbruch(); return true; }
     if (key === "r") { ladeDrehen(); return true; }
     if (key === "n") { ladeNotaufbruch(); return true; }
     return false;
   });
   zwingend();
-  const blatt = overlay.querySelector(".sheet");
-  if (blatt) blatt.classList.add("breit");
+  lagerBindePillen();
   ladeBinde();
 }
 
 function ladeFrisch() {
-  const blatt = overlay.querySelector(".sheet");
-  if (!blatt) { showLoadout(); return; }
-  blatt.innerHTML = ladeMarkup();
-  blatt.classList.add("breit");
+  const schirm = overlay.querySelector(".schirm");
+  if (!schirm) { showLoadout(); return; }
+  schirm.outerHTML = lagerSchirm("aufbruch", ladeMarkup(), {
+    wahl: ladeWahl,
+    tasten: [["Ziehen", "verschieben"], ["Klick", "wählen"], ["R", "drehen"],
+             ["N", "Notausrüstung"], ["↵", "hinab"]],
+  });
+  lagerBindePillen();
   ladeBinde();
 }
 
@@ -13386,47 +14175,41 @@ function ladeMarkup() {
     </button>`;
   }).join("");
 
-  return `<h2>Der Aufbruch</h2>
-    <p class="sub">Was rechts liegt, geht mit hinab — und ist weg, wenn du unten
-      bleibst. Was links bleibt, ist sicher. Kacheln lassen sich zwischen beiden
-      Seiten ziehen, <b>R</b> dreht sie quer.</p>
-    <div class="lade">
-      <section class="ladeseite bleibt">
-        <h3>Lager <em>${lm.spalten}×${lm.reihen} · bleibt oben</em></h3>
-        ${rasterMarkup(META.lager, lm.spalten, lm.reihen, "lager", ladeWahl, 44)}
-        <p class="quiet">${META.muenzen} Münzen · ${META.lager.length} Stücke ·
-          ${belegungIn(META.lager, lm.spalten, lm.reihen).filter(x => !x).length} Kacheln frei</p>
-      </section>
+  /* Nur noch die rechte Spalte: das Lager steht in der Huelle und ist auf
+     jedem Reiter dasselbe. Was hier steht, ist das, was mit hinabgeht. */
+  return `<div class="aufbruchspalten">
       <section class="ladeseite geht">
-        <h3>Rucksack <em>${rm.spalten}×${rm.reihen} · geht mit hinab</em></h3>
+        <p class="feldkopf">Rucksack <b>${META.mitnahme.length}/${rm.spalten * rm.reihen}</b>
+          <span class="rechts">geht mit hinab</span></p>
         ${rasterMarkup(META.mitnahme, rm.spalten, rm.reihen, "mit", ladeWahl, 50)}
-        <div class="lastbalken"><i class="${zuSchwer ? "voll" : ""}" style="width:${
-          Math.round(Math.min(1, kg / max) * 100)}%"></i><u style="left:80%"></u></div>
-        <p class="quiet"><b class="${schwer ? "schwerbeladen" : ""}">${last(kg)}</b>
-          von ${last(max)}${zuSchwer ? " — zu schwer" : schwer ? " — schwer beladen" : ""}</p>
-        <div class="ladeplaetze">${plaetze}</div>
-        <h3 style="margin-top:16px">Gürtel <em>Flaschen, Tasten 1–5</em></h3>
-        ${guertelReihe(META.guertel || [], "gplatz")}
-        <p class="quiet">Was hier steckt, belegt keine Kachel — wiegt aber mit.</p>
+        <div class="lastbalken" style="margin-top:10px"><i class="${zuSchwer ? "voll" : ""}"
+          style="width:${Math.round(Math.min(1, kg / max) * 100)}%"></i><u style="left:80%"></u></div>
+        <p class="feldkopf${zuSchwer ? " warn" : ""}" style="margin-top:6px">Last
+          <b>${last(kg)} / ${last(max)}</b>
+          <span class="rechts">${zuSchwer ? "zu schwer" : schwer ? "schwer beladen" : ""}</span></p>
+        <div class="tafel" style="margin-top:14px">${ladeTafel()}</div>
       </section>
-    </div>
-    <div class="tafel">${ladeTafel()}</div>
-    <div class="ausgang" style="margin-top:14px;padding-top:12px">
-      <button class="choice gross" id="abBtn" ${zuSchwer ? "disabled" : ""}>
-        <span class="key">↵</span><span>Hinabsteigen</span>
-        <span class="note">${zuSchwer
-          ? "zu schwer beladen — leg etwas zurück"
-          : `${META.mitnahme.length} im Rucksack · ${
-              LADE_PLAETZE.filter(sl => META.anlegen[sl]).length} angelegt`}</span></button>
-      <button class="choice" id="notBtn">
-        <span class="key">N</span><span>Mit Notausrüstung hinab</span>
-        <span class="note">rostiger Dolch und ein Ölfläschchen — alles Gepackte
-          bleibt im Lager</span></button>
-      <button class="choice" id="ladeRaeum">
-        <span class="key" aria-hidden="true">↺</span><span>Lager aufräumen</span>
-        <span class="note">packt das Sperrigste zuerst</span></button>
-      <button class="choice" id="zurueckLade">
-        <span class="key">Esc</span><span>Zurück</span><span class="note"></span></button>
+
+      <section>
+        <p class="feldkopf">Am Körper
+          <b>${LADE_PLAETZE.filter(sl => META.anlegen[sl]).length}/4</b></p>
+        <div class="ladeplaetze">${plaetze}</div>
+
+        <p class="feldkopf" style="margin-top:18px">Gürtel
+          <b>${(META.guertel || []).filter(Boolean).length}/${GUERTEL_PLAETZE}</b></p>
+        ${guertelReihe(META.guertel || [], "gplatz")}
+        <p class="quiet" style="margin:8px 0 0">Flaschen, Tasten 1–5. Belegt keine
+          Kachel, wiegt aber mit.</p>
+
+        <div class="ausgang" style="margin-top:18px;padding-top:14px">
+          <button class="choice" id="notBtn">
+            <span class="key">N</span><span>Mit Notausrüstung hinab</span>
+            <span class="note">rostiger Dolch und ein Ölfläschchen</span></button>
+          <button class="choice" id="ladeRaeum">
+            <span class="key" aria-hidden="true">↺</span><span>Lager aufräumen</span>
+            <span class="note">packt das Sperrigste zuerst</span></button>
+        </div>
+      </section>
     </div>`;
 }
 
@@ -13597,7 +14380,6 @@ function ladeBinde() {
   const knopf = (id, tun) => { const k = $(id); if (k) k.onclick = tun; };
   knopf("abBtn", () => ladeAufbruch());
   knopf("notBtn", () => ladeNotaufbruch());
-  knopf("zurueckLade", () => showTitle());
   knopf("ladeRaeum", () => { lagerEinraeumen(); speichereMeta(META); Sfx.spiel("aufheben"); ladeFrisch(); });
   knopf("tafelAn", () => { if (ladeAnlegen(ladeWahl)) { speichereMeta(META); Sfx.spiel("ausruesten"); } ladeFrisch(); });
   knopf("tafelAb", () => { if (ladeAblegen(ladeWahl, "lager")) speichereMeta(META); ladeFrisch(); });
@@ -13656,7 +14438,10 @@ function ladeBinde() {
         geist.style.left = `${ev2.clientX - griffX}px`;
         geist.style.top = `${ev2.clientY - griffY}px`;
         const z = zielVon(ev2, griffX, griffY);
-        geist.classList.toggle("nein", !z && !ueberPlatz(ev2, b));
+        const amGuertel = ueberGuertel(ev2, b);
+        overlay.querySelectorAll(".gplatz.nimmt").forEach(g => g.classList.remove("nimmt"));
+        if (amGuertel) amGuertel.classList.add("nimmt");
+        geist.classList.toggle("nein", !z && !ueberPlatz(ev2, b) && !amGuertel);
       };
 
       // R dreht mitten im Zug - dort merkt man ja erst, dass es quer hineingeht
@@ -13679,6 +14464,15 @@ function ladeBinde() {
         ladeWahl = b;
         if (!geist) { ladeFrisch(); return; }
 
+        overlay.querySelectorAll(".gplatz.nimmt").forEach(g => g.classList.remove("nimmt"));
+        if (ueberGuertel(ev2, b)) {
+          const von = META.lager.includes(b) ? "lager" : "mit";
+          if (ladeAnGuertel(b, von)) { speichereMeta(META); Sfx.spiel("ausruesten"); }
+          else Sfx.spiel("nein");
+          ladeWahl = null;
+          ladeFrisch();
+          return;
+        }
         if (ueberPlatz(ev2, b)) {
           if (ladeAnlegen(b)) { speichereMeta(META); Sfx.spiel("ausruesten"); }
           ladeFrisch();
@@ -13733,54 +14527,22 @@ function ladeBinde() {
     const feld = el && el.closest ? el.closest("[data-platz]") : null;
     return feld && feld.dataset.platz === d.slot ? feld : null;
   }
+
+  /* Ein Platz, auf den man etwas legen soll, muss auch ein Ablegeziel sein.
+     Vorher konnte man nichts in den Guertel packen, weil das Naheliegende -
+     eine Flasche daraufziehen - nichts tat. */
+  function ueberGuertel(ev, b) {
+    if (!istFlasche(vorlage(b))) return null;
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    return el && el.closest ? el.closest("[data-gplatz]") : null;
+  }
 }
 
-function showTitle() {
-  const stufe = META.stufe | 0, punkte = offenePunkte();
-  const mit = (META.mitnahme || []).length;
-  const angelegt = LADE_PLAETZE.filter(sl => (META.anlegen || {})[sl]);
-  const modul = (META.anlegen || {})["Modul"];
-
-  openModal(`<div class="titlecard">
-      <h2>Der Abstieg</h2>
-      <p class="tagline">Zehn Etagen. Eine Fackel. Kein Weg zurück.</p>
-
-      <button class="choice gross" id="aufbruchBtn">
-        <span class="key">A</span><span>Aufbruch vorbereiten</span>
-        <span class="note">${mit || angelegt.length
-          ? `${angelegt.length} angelegt, ${mit} im Rucksack${
-              modul ? ` · ${escapeHtml(vorlage(modul).name)}` : " · kein Modul"}`
-          : "noch nichts gepackt"}</span></button>
-      <button class="choice gross" id="lagerBtn2">
-        <span class="key">H</span><span>Händler und Lager</span>
-        <span class="note">${META.muenzen} Münzen · ${META.lager.length} im Lager</span></button>
-      <button class="choice gross" id="koennenBtn">
-        <span class="key">K</span><span>Können</span>
-        <span class="note">Stufe ${stufe}${punkte
-          ? ` · <b style="color:var(--verdigris-lit)">${punkte} ${
-              punkte === 1 ? "Punkt" : "Punkte"} frei</b>` : " · alles verteilt"}</span></button>
-
-      <div class="legend">
-        <p><b>Ein Lauf lässt sich nicht speichern.</b> Was du im Rucksack trägst, ist
-        weg, wenn du unten bleibst — und gehört dir, wenn du es durch einen
-        Aufstiegsschacht wieder hinaufträgst. Stufe, Können und alles im Lager
-        bleiben dir in jedem Fall.</p>
-        <p><b>Der Weg zurück ist Teil des Laufs.</b> Der Schacht, durch den du auf eine
-        Etage kommst, bringt dich auch wieder hinaus. Weitere liegen irgendwo in
-        der Tiefe. Der Aufstieg dauert acht Sekunden und hallt durch die ganze Etage.</p>
-        <p><b>Deine Fähigkeit steckt in einem Modul</b>, und Module findet man unten.</p>
-      </div>
-    </div>`, key => {
-    if (key === "a" || key === "enter") { showLoadout(); return true; }
-    if (key === "h" || key === "l") { showCamp(); return true; }
-    if (key === "k") { showSkills(); return true; }
-    return false;
-  });
-  zwingend();
-  $("aufbruchBtn").onclick = () => showLoadout();
-  $("lagerBtn2").onclick = () => showCamp();
-  $("koennenBtn").onclick = () => showSkills();
-}
+/* Es gibt kein Titelbild mehr. Der Lagerbildschirm ist der Ort, an dem man
+   zwischen zwei Abstiegen steht - man landet dort, statt erst durch ein
+   Fenster zu klicken, das nichts tut ausser drei Wege anzubieten. Der Name
+   bleibt als Weiterleitung, damit kein Aufrufer ins Leere laeuft. */
+function showTitle() { showUebersicht(); }
 
 /* ═══════════════════════════════════════════════════════ Zielauswahl */
 function beginTargeting(entry) {
@@ -14354,6 +15116,7 @@ function loop(now) {
       }
     }
   }
+  if (kulisseLeinwand) zeichneKulisse(now);
   requestAnimationFrame(loop);
 }
 
