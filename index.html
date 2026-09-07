@@ -1720,6 +1720,185 @@ body {
   text-shadow: 0 1px 10px rgba(0,0,0,.9);
 }
 
+/* ── Die Karte der Welt ───────────────────────────────────────────────── */
+.kartenfeld {
+  position: relative;
+  flex: 1;
+  min-height: 380px;
+  border: 1px solid var(--stone-700);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #070A0F;
+}
+
+.kartenfeld svg { display: block; width: 100%; height: 100%; }
+
+/* Eine Marke auf der Karte: Punkt, Linie, Schild - wie bei einer Legende. */
+.ortsmarke {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ortsschild {
+  padding: 9px 16px;
+  border: 1px solid var(--stone-600);
+  border-radius: 8px;
+  background: rgba(14,18,26,.92);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--vellum);
+  white-space: nowrap;
+  transition: border-color .12s ease, background-color .12s ease;
+}
+
+.ortsmarke:hover:not(:disabled) .ortsschild,
+.ortsmarke.an .ortsschild { border-color: var(--tat); color: var(--tat); }
+
+/* Was noch kommt: kleiner, ruhiger, nicht anklickbar - aber lesbar. */
+.ortsmarke.bald { cursor: default; }
+
+.ortsmarke.bald .ortsschild {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px;
+  border-color: var(--stone-700);
+  background: rgba(12,15,21,.88);
+  font-size: 12px;
+  color: var(--vellum-dim);
+}
+
+.baldmarke {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(240,180,41,.16);
+  border: 1px solid rgba(240,180,41,.42);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--tat);
+}
+
+.ortsmarke.bald .ortsnote { font-size: 11px; color: var(--vellum-faint); }
+.ortsmarke.bald .ortsstrich { height: 18px; background: var(--stone-700); }
+
+.ortsmarke.bald .ortspunkt {
+  width: 10px;
+  height: 10px;
+  border: 2px dashed var(--stone-600);
+  background: none;
+  box-shadow: none;
+}
+
+.ortsnote {
+  margin-top: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(14,18,26,.86);
+  font-size: 11.5px;
+  color: var(--vellum-dim);
+  white-space: nowrap;
+}
+
+.ortsstrich { width: 1px; height: 26px; background: var(--stone-600); }
+
+.ortspunkt {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--tat);
+  border-radius: 50%;
+  background: rgba(240,180,41,.22);
+  box-shadow: 0 0 0 4px rgba(240,180,41,.12), 0 0 18px rgba(240,180,41,.4);
+}
+
+/* Wo noch nichts ist. Ehrlich leer, nicht als Versprechen verkleidet. */
+.leerstelle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  /* Gemessen 4,22:1 in --vellum-leise - der Ton ist fuer Linien gedacht,
+     nicht fuer Text. Beilaeufig heisst nicht unlesbar. */
+  color: var(--vellum-faint);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  pointer-events: none;
+  text-shadow: 0 1px 6px rgba(0,0,0,.9);
+}
+
+.leerstelle i {
+  width: 10px;
+  height: 10px;
+  border: 1px dashed var(--stone-600);
+  border-radius: 50%;
+}
+
+/* Wie tief es losgeht - je Etage ein Seil. */
+.tiefenwahl {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.tiefenknopf {
+  border: 1px solid var(--stone-700);
+  border-radius: 8px;
+  background: var(--stone-850);
+  color: var(--vellum);
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tiefenknopf:hover:not(:disabled) { border-color: var(--tat); color: var(--tat); }
+.tiefenknopf:disabled { color: var(--vellum-leise); cursor: not-allowed; }
+
+.tiefenwert {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--stone-700);
+  border-radius: 8px;
+  background: var(--stone-850);
+}
+
+.tiefenwert b { font-size: 16px; font-weight: 700; color: var(--vellum); }
+.tiefenwert span { font-size: 11.5px; color: var(--vellum-dim); }
+
+.tiefenliste { display: flex; flex-direction: column; gap: 1px; }
+
+.tiefenzeile {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--stone-850);
+  border-left: 3px solid var(--tint, var(--stone-600));
+  font-size: 13px;
+  color: var(--vellum);
+}
+
+.tiefenzeile span { margin-left: auto; color: var(--vellum-dim); font-size: 12px; }
+
 .gear-text { min-width: 0; line-height: 1.35; }
 
 .gear-text b {
@@ -3253,6 +3432,11 @@ const ITEMS = {
                  note: "versetzt dich zufällig" },
   chart:       { name: "Rolle der Kartografie", kind: "scroll", tint: "#C6C6E2", use: "chart",
                  note: "deckt die Etage auf" },
+  /* Kein Fund aus der Tiefe, sondern Handelsware: es laesst dich eine Etage
+     tiefer einsteigen. Verbrauchsgut, damit es eine Entscheidung bleibt. */
+  seil:        { name: "Abstiegsseil",          kind: "seil",   tint: "#C8A878",
+                 stapel: 4, note: "eine Etage tiefer einsteigen" },
+
   oil:         { name: "Ölfläschchen",          kind: "oil",    tint: "#E8B65A", use: "oil",
                  amount: 30, stapel: 3, note: "füllt 30 Öl nach" },
   bigoil:      { name: "Ölkrug",                kind: "oil",    tint: "#F0C86A", use: "oil",
@@ -3352,7 +3536,7 @@ const ITEMS = {
 
 /* Voreinstellung je Art, danach die Ausreisser. [breite, hoehe, gewicht] */
 const KACHEL_ART = {
-  potion: [1, 1, .5], scroll: [1, 1, .2], oil: [1, 1, .8],
+  potion: [1, 1, .5], scroll: [1, 1, .2], oil: [1, 1, .8], seil: [1, 1, 1.2],
   weapon: [1, 3, 3.5], armor: [2, 3, 8], amulet: [1, 1, .3], relic: [1, 1, 1],
   material: [1, 1, .35], modul: [1, 1, .6],
 };
@@ -4270,6 +4454,7 @@ function wert(eintrag) {
                     confuse: 50, poison: 50, blink: 45, chart: 40 }[d.use] || 30;
     w = d.amount ? Math.round(grund * d.amount) : grund;
   }
+  if (d.kind === "seil") w = 150;
   if (d.kind === "material") w = [0, 9, 26, 70, 180][d.rang || 1] * (eintrag.menge || 1);
   /* Drei Heiltraenke auf einer Kachel sind drei Heiltraenke wert. Ohne das
      verschenkte man beim Verkaufen zwei davon. */
@@ -4312,6 +4497,26 @@ function aufwertKosten(b) {
 }
 
 /* Wie viel von einem Werkstoff im Lager liegt. */
+/* Wie viele Abstiegsseile im Lager liegen - so tief darf man einsteigen. */
+function seilVorrat() {
+  return (META.lager || []).reduce((a, b) =>
+    a + (b.id === "seil" ? (b.menge || 1) : 0), 0);
+}
+
+/* Verbraucht so viele Seile, wie das Ueberspringen kostet. */
+function zahleSeile(anzahl) {
+  let offen = anzahl;
+  for (let i = META.lager.length - 1; i >= 0 && offen > 0; i--) {
+    const b = META.lager[i];
+    if (b.id !== "seil") continue;
+    const nimmt = Math.min(offen, b.menge || 1);
+    b.menge = (b.menge || 1) - nimmt;
+    offen -= nimmt;
+    if (b.menge <= 0) META.lager.splice(i, 1);
+  }
+  return offen === 0;
+}
+
 function werkstoffVorrat(id) {
   return (META.lager || []).reduce(
     (a, b) => a + (b.id === id ? (b.menge || 1) : 0), 0);
@@ -6095,6 +6300,24 @@ function schachtHinweis() {
   } else setHint(null);
 }
 
+/* Aus einem Schacht zieht es. Wer nah genug herankommt, spuert den Zug -
+   auch ohne ihn zu sehen. Ohne diesen vierten Weg waere ein einzelner
+   versteckter Ausgang auf einer verwinkelten Etage schlicht Gluecksache. */
+const ZUG_WEITE = 8.5;
+let zugGespuert = false;
+
+function spuereZug() {
+  const p = G.player;
+  const nah = (G.schaechte || []).some(sch =>
+    !sch.bekannt && Math.hypot(mitte(sch.x) - p.x, mitte(sch.y) - p.y) <= ZUG_WEITE);
+  if (nah === zugGespuert) return;
+  zugGespuert = nah;
+  if (nah) {
+    log("Ein Zug streift dein Gesicht. Der Schacht ist nah.", "good");
+    Sfx.spiel("treppe");
+  }
+}
+
 function entdeckeSchaechte() {
   for (const sch of (G.schaechte || [])) {
     if (sch.bekannt) continue;
@@ -6435,6 +6658,7 @@ function populateFloor(floor) {
   G.saeulen = {};
   G.schaechte = [];
   G.aufstieg = null;             // laufender Aufstieg, falls einer begonnen hat
+  zugGespuert = false;           // der Zug meldet sich auf jeder Etage neu
   G.player.finsternis = 0;      // eine neue Etage beginnt im Reinen
   G.player.laerm = 0;
   G.stilleGenutzt = false;
@@ -6459,22 +6683,37 @@ function populateFloor(floor) {
      "reicht das Oel noch fuer den Rueckweg" gab es nicht, weil es keinen
      Rueckweg gab.
 
-     Jetzt ist der Schacht, durch den du hereingekommen bist, dein sicherer
-     Ausgang - und der liegt am Anfang der Etage. Je tiefer du hineingehst,
-     desto weiter ist es zurueck. Dazu kommen ein oder zwei weitere Schaechte
-     irgendwo in der Tiefe: wer sie findet, spart sich den Rueckweg. */
-  G.schaechte = [{ x: sx, y: sy, bekannt: true }];
-  const weitWeg = zones.slice(2).filter(z => {
+     Es gibt genau einen, er ist unbekannt, und er liegt nicht dort, wo du
+     ankommst. Vorher waren es zwei bis vier, einer davon der Ankunftspunkt -
+     damit war der Rueckweg keine Frage, man lief einfach dorthin zurueck, wo
+     man angefangen hatte. Jetzt weiss man nicht, wie weit es ist, waehrend
+     das Oel sinkt. */
+  G.schaechte = [];
+  const weitWeg = zones.slice(1).filter(z => {
     const d = Math.hypot(z.center[0] - sx, z.center[1] - sy);
-    return d > 14 && isWalkable(z.center[0], z.center[1]);
+    return d > 13 && isWalkable(z.center[0], z.center[1]);
   });
   for (let i = weitWeg.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [weitWeg[i], weitWeg[j]] = [weitWeg[j], weitWeg[i]];
   }
-  const zusaetzlich = rng() < .55 ? 2 : 1;
-  for (const z of weitWeg.slice(0, zusaetzlich))
-    G.schaechte.push({ x: z.center[0], y: z.center[1], bekannt: false });
+  // Notfalls irgendein begehbares Feld weit genug weg - ohne Ausgang kein Lauf
+  const platz = weitWeg[0] && weitWeg[0].center;
+  if (platz) G.schaechte.push({ x: platz[0], y: platz[1], bekannt: false });
+  else {
+    /* Keine Zone weit genug weg - das kommt auf kleinen Etagen vor, etwa in
+       der Arena. Dann eben das entfernteste begehbare Feld, statt das erste
+       beste: gemessen landete der Schacht sonst achteinhalb Kacheln neben
+       dem Einstieg. */
+    let best = null, bw = -1;
+    for (const zone of zones.slice(1))
+      for (const [x, y] of zone.tiles) {
+        if (!isWalkable(x, y) || (x === sx && y === sy)) continue;
+        const w = Math.hypot(x - sx, y - sy);
+        if (w > bw) { bw = w; best = [x, y]; }
+      }
+    if (best) G.schaechte.push({ x: best[0], y: best[1], bekannt: false });
+  }
 
   const last = zones[zones.length - 1];
   const monsterChances = chancesFor(MONSTER_TABLE, floor);
@@ -6750,16 +6989,19 @@ function rettteSchaechte() {
   }
   for (const sch of G.schaechte) {
     if (erreichbar[idx(sch.x, sch.y)]) continue;
-    // Auf das naechste Feld ruecken, zu dem man von hier aus wirklich hinkommt
-    let best = null, bd = 1e9;
+    /* Auf ein Feld ruecken, zu dem man von hier aus wirklich hinkommt - und
+       zwar auf ein weit entferntes. Vorher wurde das naechstgelegene genommen,
+       und gemessen landete ein Schacht dadurch achteinhalb Kacheln neben dem
+       Einstieg: der Rueckweg waere ein paar Schritte gewesen. */
+    let best = null, bw = -1;
     for (let y = 1; y < MAP_H - 1; y++)
       for (let x = 1; x < MAP_W - 1; x++) {
         if (!erreichbar[idx(x, y)]) continue;
         if (G.map.tiles[idx(x, y)] === STAIRS) continue;
         if (G.schaechte.some(o => o !== sch && o.x === x && o.y === y)) continue;
         if (G.chests.some(k => k.x === x && k.y === y)) continue;
-        const d = Math.hypot(x - sch.x, y - sch.y);
-        if (d < bd) { bd = d; best = [x, y]; }
+        const w = Math.hypot(x - px, y - py);
+        if (w > bw) { bw = w; best = [x, y]; }
       }
     if (best) { sch.x = best[0]; sch.y = best[1]; }
   }
@@ -8633,6 +8875,7 @@ function tickWorld(dt) {
   entdeckeGeheimnisse();
   entdeckeSchatzkammer();
   entdeckeSchaechte();
+  spuereZug();
   schachtHinweis();
 
   // Stufenlose Bewegung jedes Wesens
@@ -11972,6 +12215,10 @@ function slotBild(slot, farbe) {
 /* Sinnbilder fuer die Kacheln - dieselben wie in den Ausruestungsfeldern,
    dazu welche fuer das, was man verbraucht. */
 const ART_BILD = {
+  seil: '<g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">' +
+        '<path d="M8 4c4 1.2 4 3.2 0 4.4S4 11.6 8 12.8s4 3.2 0 4.4"/>' +
+        '<path d="M16 4c-4 1.2-4 3.2 0 4.4s4 3.2 0 4.4-4 3.2 0 4.4"/>' +
+        '<path d="M6 20h12"/></g>',
   weapon: SLOT_BILD["Waffe"],
   armor: SLOT_BILD["Rüstung"],
   amulet: SLOT_BILD["Amulett"],
@@ -13259,12 +13506,12 @@ function loescheFortschritt() {
    stehen, damit man sparen kann statt auf Glueck zu warten. */
 const SORTIMENT = {
   0: ["potion", "oil", "dagger", "leather"],   // Traenke gibt es auf jedem Rang
-  1: ["potion", "oil", "dagger", "sword", "leather", "chart"],
-  2: ["greatPotion", "bigoil", "sword", "spiess", "chain", "lightning", "might"],
-  3: ["greatPotion", "bigoil", "axe", "spiess", "chain", "kolben", "ward", "fireball"],
-  4: ["greatPotion", "bigoil", "axe", "kolben", "plate", "guard", "regen", "blink"],
-  5: ["greatPotion", "bigoil", "runeblade", "hellebarde", "plate", "vitality", "wrath"],
-  6: ["greatPotion", "bigoil", "runeblade", "hellebarde", "plate", "vitality", "wrath", "guard"],
+  1: ["potion", "oil", "dagger", "sword", "leather", "chart", "seil"],
+  2: ["greatPotion", "bigoil", "sword", "spiess", "chain", "lightning", "might", "seil"],
+  3: ["greatPotion", "bigoil", "axe", "spiess", "chain", "kolben", "ward", "fireball", "seil"],
+  4: ["greatPotion", "bigoil", "axe", "kolben", "plate", "guard", "regen", "blink", "seil"],
+  5: ["greatPotion", "bigoil", "runeblade", "hellebarde", "plate", "vitality", "wrath", "seil"],
+  6: ["greatPotion", "bigoil", "runeblade", "hellebarde", "plate", "vitality", "wrath", "guard", "seil"],
 };
 
 function sortimentFuer(rang) {
@@ -13779,6 +14026,336 @@ function zeichneKulisse(now) {
   zc.fillRect(0, 0, W, H);
 }
 
+/* == Die Karte ===========================================================
+   Hinabsteigen fuehrt nicht mehr geradewegs ins Verlies, sondern erst hierher:
+   wohin geht es? Vorerst gibt es einen Ort - das Schloss, mit seinen drei
+   Tiefen. Die Karte hat Platz fuer mehr. */
+const ORTE = [
+  {
+    key: "schloss",
+    name: "Das Schloss",
+    x: 38, y: 46,
+    note: "Zehn Etagen · Kerker, Pilzhöhle, Schmelze",
+    zeichen: "burg",
+    tiefen: [
+      ["Kerker", "1–3", "#B08A5A"],
+      ["Pilzhöhle", "4–6", "#6BA37C"],
+      ["Schmelze", "7–9", "#C4703A"],
+      ["Kammer des Namenlosen", "10", "#A83430"],
+      ["Der Schlund", "ab 11", "#8A6BB0"],
+    ],
+  },
+
+  /* Was noch kommt. Sichtbar gesperrt und nicht anklickbar - die Karte darf
+     etwas versprechen, aber sie soll es nicht als vorhanden verkleiden. */
+  { key: "erzgruben", name: "Die Erzgruben", x: 13, y: 36, bald: true,
+    zeichen: "grube", note: "Stollen, Loren, und etwas, das dort gräbt" },
+  { key: "eisspalt", name: "Der Eisspalt", x: 47, y: 17, bald: true,
+    zeichen: "spalt", note: "Wo der Grat aufreißt" },
+  { key: "totenstadt", name: "Die Totenstadt", x: 84, y: 50, bald: true,
+    zeichen: "gruft", note: "Gassen aus Grabmälern" },
+  { key: "moorfeste", name: "Die Moorfeste", x: 60, y: 78, bald: true,
+    zeichen: "turm", note: "Ein Turm, halb im Schlamm" },
+];
+
+let ortWahl = "schloss";
+
+function showKarte() {
+  const ort = ORTE.find(o => o.key === ortWahl) || ORTE[0];
+  const marken = ORTE.map(o => `<button class="ortsmarke${
+      o.key === ortWahl && !o.bald ? " an" : ""}${o.bald ? " bald" : ""}"
+      ${o.bald ? "disabled" : `data-ort="${o.key}"`}
+      style="left:${o.x}%;top:${o.y}%">
+      <span class="ortsschild">${escapeHtml(o.name)}${
+        o.bald ? '<b class="baldmarke">Bald</b>' : ""}</span>
+      <span class="ortsnote">${escapeHtml(o.note)}</span>
+      <span class="ortsstrich"></span>
+      <span class="ortspunkt"></span>
+    </button>`).join("");
+
+  const tiefen = ort.tiefen.map(([n, t, farbe]) =>
+    `<div class="tiefenzeile" style="--tint:${farbe}">${escapeHtml(n)}
+      <span>Etage ${t}</span></div>`).join("");
+
+  const seile = seilVorrat();
+  if (einstiegTiefe > seile + 1) einstiegTiefe = seile + 1;
+  const kg = mitnahmeGewicht();
+  const dabei = (META.mitnahme || []).length +
+                LADE_PLAETZE.filter(sl => META.anlegen[sl]).length +
+                (META.guertel || []).filter(Boolean).length;
+
+  openModal(`<div class="schirm">
+      ${lagerKopf()}
+      ${lagerPillen("")}
+      <div class="schirmleib" style="grid-template-columns:minmax(260px,340px) minmax(0,1fr)">
+        <section>
+          <p class="feldkopf">${escapeHtml(ort.name)}</p>
+          <div class="tiefenliste">${tiefen}</div>
+          <p class="quiet" style="margin:10px 0 0">Du beginnst immer oben. Ein
+            Aufstiegsschacht liegt auf jeder Etage — aber nicht dort, wo du
+            ankommst, und du musst ihn finden.</p>
+
+          <p class="feldkopf" style="margin-top:20px">Einstieg
+            <span class="rechts">${seile
+              ? seile + " " + (seile === 1 ? "Seil" : "Seile") + " im Lager"
+              : "Seile gibt es beim Händler"}</span></p>
+          <div class="tiefenwahl">
+            <button class="tiefenknopf" id="tieferMinus"
+              ${einstiegTiefe <= 1 ? "disabled" : ""} aria-label="höher einsteigen">−</button>
+            <div class="tiefenwert"><b>Etage ${einstiegTiefe}</b>
+              <span>${einstiegTiefe > 1
+                ? `kostet ${einstiegTiefe - 1} ${einstiegTiefe - 1 === 1 ? "Seil" : "Seile"}`
+                : "von ganz oben"}</span></div>
+            <button class="tiefenknopf" id="tieferPlus"
+              ${einstiegTiefe > seile || einstiegTiefe >= MAX_FLOOR ? "disabled" : ""}
+              aria-label="tiefer einsteigen">+</button>
+          </div>
+
+          <p class="feldkopf" style="margin-top:20px">Dein Aufbruch</p>
+          <div class="zahlenliste">
+            <div class="zahlenzeile"><span>Dabei</span><b>${dabei} ${
+              dabei === 1 ? "Stück" : "Stücke"}</b></div>
+            <div class="zahlenzeile"><span>Last</span><b>${last(kg)}</b></div>
+            <div class="zahlenzeile gold"><span>Tiefste Etage bisher</span><b>${
+              META.beste | 0}</b></div>
+          </div>
+        </section>
+
+        <div class="kartenfeld">
+          ${kartenBild()}
+          ${marken}
+
+        </div>
+      </div>
+      ${lagerFuss([["Esc", "zurück ins Lager"], ["↵", "hinabsteigen"]],
+        `<button class="haupttat" id="losBtn">Hinabsteigen
+          <em>${escapeHtml(ort.name)} · Etage ${einstiegTiefe}</em></button>`)}
+    </div>`,
+    key => {
+      if (key === "Escape") { showLoadout(); return true; }
+      if (key === "enter") { ladeAufbruch(); return true; }
+      return false;
+    });
+  const blatt = overlay.querySelector(".sheet");
+  if (blatt) blatt.classList.add("weit", "voll");
+  overlay.classList.add("voll");
+  overlay.querySelectorAll("[data-ort]").forEach(el => {
+    el.onclick = () => { ortWahl = el.dataset.ort; showKarte(); };
+  });
+  overlay.querySelectorAll("[data-reiter]").forEach(el => {
+    el.onclick = () => {
+      const k = el.dataset.reiter;
+      if (k === "uebersicht") showUebersicht();
+      else if (k === "aufbruch") showLoadout();
+      else if (k === "koennen") showSkills();
+      else showCamp(k);
+    };
+  });
+  const los = $("losBtn");
+  if (los) los.onclick = () => ladeAufbruch();
+  const minus = $("tieferMinus"), plus = $("tieferPlus");
+  if (minus) minus.onclick = () => { einstiegTiefe = Math.max(1, einstiegTiefe - 1); showKarte(); };
+  if (plus) plus.onclick = () => {
+    einstiegTiefe = Math.min(seilVorrat() + 1, MAX_FLOOR, einstiegTiefe + 1);
+    Sfx.spiel("aufheben");
+    showKarte();
+  };
+}
+
+/* Die Karte als gezeichnetes Blatt: schraffierte Berge, Wald, ein Fluss mit
+   Zufluessen, Wege, Hoehenringe um den Schlossberg, eine Windrose. Alles aus
+   Schleifen mit festem Keim - kurz im Quelltext, dicht im Bild, und bei jedem
+   Aufruf dasselbe. */
+function kartenBild() {
+  let saat = 20260907;
+  const zuf = () => ((saat = (saat * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const um = (m) => (zuf() - .5) * 2 * m;
+  const teile = [];
+
+  // ── Hoehenlinien: verschachtelte, leicht zittrige Kurven ───────────────
+  for (let r = 0; r < 9; r++) {
+    const y0 = 60 + r * 34;
+    let d = `M -20 ${y0}`;
+    for (let x = 40; x <= 800; x += 60)
+      d += ` Q ${x - 30} ${y0 + um(26)}, ${x} ${y0 + um(14)}`;
+    teile.push(`<path d="${d}" fill="none" stroke="rgba(146,166,196,${
+      .07 + (r % 3) * .035})" stroke-width="${r % 3 === 0 ? 1.4 : 1}"/>`);
+  }
+
+  /* Der Grat. Eine gleichmaessig durchlaufende Reihe sah aus wie ein Kamm,
+     nicht wie ein Gebirge - Berge stehen in Gruppen, mit Luecken dazwischen. */
+  const gruppen = [[70, 118, 7], [200, 84, 9], [372, 74, 6],
+                   [500, 96, 8], [648, 132, 5]];
+  for (const [gx, gy, n] of gruppen)
+  for (let i = 0; i < n; i++) {
+    const x = gx + i * 26 + um(9);
+    const y = gy - Math.sin(i / n * 3.1) * 20 + um(8);
+    const h = 17 + zuf() * 20, b = 14 + zuf() * 10;
+    teile.push(`<path d="M ${x - b} ${y + h} L ${x} ${y} L ${x + b} ${y + h}"
+      fill="none" stroke="rgba(178,192,214,.34)" stroke-width="1.4"
+      stroke-linejoin="round"/>`);
+    // Schattenseite schraffiert
+    for (let k = 1; k <= 3; k++) {
+      const f = k / 4;
+      teile.push(`<path d="M ${x + b * f * .82} ${y + h * f} L ${x + b * f} ${y + h * f * 1.28}"
+        stroke="rgba(178,192,214,.22)" stroke-width="1"/>`);
+    }
+  }
+
+  // ── Wald im Tiefland: kleine Nadelbaumzeichen ──────────────────────────
+  for (let i = 0; i < 90; i++) {
+    const x = 40 + zuf() * 260, y = 300 + zuf() * 120;
+    if (y > 430 || x < 30) continue;
+    const h = 6 + zuf() * 4;
+    teile.push(`<path d="M ${x} ${y - h} L ${x - h * .5} ${y} M ${x} ${y - h} L ${
+      x + h * .5} ${y} M ${x} ${y - h * .3} L ${x} ${y + 2}"
+      stroke="rgba(118,158,132,.34)" stroke-width="1"/>`);
+  }
+
+  // ── Der Fluss mit zwei Zufluessen ──────────────────────────────────────
+  teile.push(`<path d="M 250 120 C 300 190, 360 210, 430 250
+    S 560 320, 700 336" fill="none" stroke="rgba(96,152,186,.40)"
+    stroke-width="3.2" stroke-linecap="round"/>`);
+  teile.push(`<path d="M 250 120 C 300 190, 360 210, 430 250
+    S 560 320, 700 336" fill="none" stroke="rgba(150,200,230,.16)"
+    stroke-width="1.2"/>`);
+  teile.push(`<path d="M 470 150 C 470 200, 440 220, 432 248" fill="none"
+    stroke="rgba(96,152,186,.28)" stroke-width="2" stroke-linecap="round"/>`);
+  teile.push(`<path d="M 560 190 C 545 240, 520 268, 486 282" fill="none"
+    stroke="rgba(96,152,186,.24)" stroke-width="1.8" stroke-linecap="round"/>`);
+  // See unten rechts
+  teile.push(`<path d="M 640 330 C 690 316, 742 330, 742 356
+    C 742 382, 686 392, 652 376 C 626 364, 618 340, 640 330 Z"
+    fill="rgba(96,152,186,.13)" stroke="rgba(96,152,186,.34)" stroke-width="1.6"/>`);
+
+  // ── Wege: gestrichelt, vom Schloss weg ─────────────────────────────────
+  for (const d of ["M 296 214 C 220 250, 150 268, 70 262",
+                   "M 296 214 C 380 206, 470 186, 556 152",
+                   "M 296 214 C 330 280, 380 330, 452 372"])
+    teile.push(`<path d="${d}" fill="none" stroke="rgba(206,178,132,.30)"
+      stroke-width="1.6" stroke-dasharray="7 6" stroke-linecap="round"/>`);
+
+  // ── Hoehenringe um den Schlossberg ─────────────────────────────────────
+  for (let r = 0; r < 4; r++) {
+    const rr = 34 + r * 17;
+    teile.push(`<ellipse cx="296" cy="212" rx="${rr * 1.35}" ry="${rr * .72}"
+      fill="none" stroke="rgba(206,178,132,${.24 - r * .045})" stroke-width="1.2"/>`);
+  }
+
+  // ── Das Schloss selbst, in Aufsicht gezeichnet wie auf alten Karten ────
+  const burg = `
+    <g stroke="rgba(232,206,158,.85)" stroke-width="1.6" fill="rgba(30,26,22,.85)"
+       stroke-linejoin="round">
+      <path d="M 274 214 L 274 194 L 280 194 L 280 200 L 286 200 L 286 194
+               L 292 194 L 292 214 Z"/>
+      <path d="M 300 214 L 300 188 L 306 188 L 306 195 L 312 195 L 312 188
+               L 318 188 L 318 214 Z"/>
+      <path d="M 288 214 L 288 202 L 304 202 L 304 214 Z"/>
+      <path d="M 293 214 L 293 206 L 299 206 L 299 214 Z" fill="rgba(240,180,41,.5)"
+            stroke="none"/>
+    </g>
+    <path d="M 268 215 L 324 215" stroke="rgba(232,206,158,.5)" stroke-width="1.4"/>`;
+
+  /* Die Zeichen der Orte, die noch kommen. Sie stehen gestrichelt da - man
+     sieht, dass dort etwas ist, und man sieht, dass es noch nicht offen ist. */
+  const kalt = 'stroke="rgba(150,170,200,.45)" fill="none" stroke-width="1.4"';
+  const gestrichelt = kalt + ' stroke-dasharray="4 3"';
+  const zeichen = {
+    // Foerdergeruest ueber einem Stollen
+    grube: (x, y) => `<g ${gestrichelt}>
+      <path d="M ${x - 11} ${y} L ${x - 5} ${y - 17} L ${x + 5} ${y - 17} L ${x + 11} ${y}"/>
+      <path d="M ${x - 7} ${y - 8} L ${x + 7} ${y - 8}"/>
+      <circle cx="${x}" cy="${y - 20}" r="4"/>
+      <path d="M ${x - 13} ${y} L ${x + 13} ${y}"/></g>`,
+    // Ein Riss zwischen zwei Zacken
+    spalt: (x, y) => `<g ${gestrichelt}>
+      <path d="M ${x - 15} ${y} L ${x - 6} ${y - 16} L ${x - 2} ${y - 6}"/>
+      <path d="M ${x + 2} ${y - 6} L ${x + 6} ${y - 16} L ${x + 15} ${y}"/>
+      <path d="M ${x} ${y - 12} L ${x - 3} ${y - 4} L ${x + 2} ${y + 2} L ${x - 1} ${y + 9}"/></g>`,
+    // Grabmaeler unter einem Bogen
+    gruft: (x, y) => `<g ${gestrichelt}>
+      <path d="M ${x - 14} ${y} L ${x - 14} ${y - 9} A 5 5 0 0 1 ${x - 4} ${y - 9} L ${x - 4} ${y}"/>
+      <path d="M ${x + 3} ${y} L ${x + 3} ${y - 13} A 6 6 0 0 1 ${x + 15} ${y - 13} L ${x + 15} ${y}"/>
+      <path d="M ${x - 17} ${y} L ${x + 18} ${y}"/></g>`,
+    // Ein Turm, halb im Schlamm
+    turm: (x, y) => `<g ${gestrichelt}>
+      <path d="M ${x - 8} ${y} L ${x - 6} ${y - 22} L ${x + 6} ${y - 22} L ${x + 8} ${y}"/>
+      <path d="M ${x - 7} ${y - 22} L ${x - 7} ${y - 26} L ${x - 3} ${y - 26}
+               L ${x - 3} ${y - 22} M ${x + 3} ${y - 22} L ${x + 3} ${y - 26}
+               L ${x + 7} ${y - 26} L ${x + 7} ${y - 22}"/>
+      <path d="M ${x - 15} ${y + 1} Q ${x} ${y + 6}, ${x + 15} ${y + 1}"/></g>`,
+  };
+  const geplant = [["grube", 101, 158], ["spalt", 367, 75],
+                   ["gruft", 655, 220], ["turm", 468, 343]];
+  const kuenftig = geplant.map(([art, x, y]) => zeichen[art](x, y)).join("");
+
+  // ── Windrose ───────────────────────────────────────────────────────────
+  const rose = `
+    <g transform="translate(706 96)" fill="none" stroke="rgba(180,196,220,.42)">
+      <circle r="22" stroke-width="1"/>
+      <circle r="14" stroke-width="1" stroke-dasharray="2 4"/>
+      <path d="M 0 -26 L 5 0 L 0 26 L -5 0 Z" fill="rgba(180,196,220,.22)"
+        stroke-width="1"/>
+      <path d="M -26 0 L 0 -4 L 26 0 L 0 4 Z" stroke-width="1"/>
+      <text x="0" y="-30" text-anchor="middle" font-size="11"
+        fill="rgba(200,214,234,.6)" stroke="none" font-family="serif">N</text>
+    </g>`;
+
+  // ── Alterung: Sprenkel und ein paar Flecken ────────────────────────────
+  for (let i = 0; i < 70; i++)
+    teile.push(`<circle cx="${zuf() * 780}" cy="${zuf() * 440}"
+      r="${.6 + zuf() * 1.4}" fill="rgba(160,180,210,.09)"/>`);
+  for (let i = 0; i < 6; i++) {
+    const x = zuf() * 780, y = zuf() * 440;
+    teile.push(`<ellipse cx="${x}" cy="${y}" rx="${20 + zuf() * 40}"
+      ry="${14 + zuf() * 26}" fill="rgba(120,100,70,.05)"/>`);
+  }
+
+  // ── Rahmen mit Teilstrichen ────────────────────────────────────────────
+  const striche = [];
+  for (let x = 24; x <= 756; x += 24)
+    striche.push(`<path d="M ${x} 10 L ${x} 17 M ${x} 430 L ${x} 423"
+      stroke="rgba(150,170,200,.22)" stroke-width="1"/>`);
+  for (let y = 24; y <= 416; y += 24)
+    striche.push(`<path d="M 10 ${y} L 17 ${y} M 770 ${y} L 763 ${y}"
+      stroke="rgba(150,170,200,.22)" stroke-width="1"/>`);
+
+  const schrift = (x, y, wort, gr, deck) =>
+    `<text x="${x}" y="${y}" fill="rgba(196,212,234,${deck})" font-size="${gr}"
+      letter-spacing="${gr * .34}" font-family="serif"
+      style="text-transform:uppercase">${wort}</text>`;
+
+  return `<svg viewBox="0 0 780 440" preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true">
+      <defs>
+        <radialGradient id="kgrund" cx="38%" cy="48%" r="78%">
+          <stop offset="0%" stop-color="#161C27"/>
+          <stop offset="62%" stop-color="#0D1119"/>
+          <stop offset="100%" stop-color="#070A0F"/>
+        </radialGradient>
+        <linearGradient id="kwarm" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="rgba(232,169,75,.05)"/>
+          <stop offset="100%" stop-color="rgba(232,169,75,0)"/>
+        </linearGradient>
+      </defs>
+      <rect width="780" height="440" fill="url(#kgrund)"/>
+      <rect width="780" height="440" fill="url(#kwarm)"/>
+      ${teile.join("")}
+      ${kuenftig}
+      ${burg}
+      ${rose}
+      <rect x="10" y="10" width="760" height="420" fill="none"
+        stroke="rgba(150,170,200,.28)" stroke-width="1.4"/>
+      <rect x="16" y="16" width="748" height="408" fill="none"
+        stroke="rgba(150,170,200,.14)" stroke-width="1"/>
+      ${striche.join("")}
+      ${schrift(52, 46, "Der Grat", 18, .28)}
+      ${schrift(74, 352, "Aschewald", 15, .24)}
+      ${schrift(628, 402, "Stiller See", 13, .22)}
+      ${schrift(452, 168, "Nebeltal", 13, .18)}
+    </svg>`;
+}
+
 function lagerSchirm(reiter, rechts, opt) {
   opt = opt || {};
   return `<div class="schirm">
@@ -13809,7 +14386,7 @@ function lagerBindePillen() {
   if (blatt) blatt.classList.add("weit", "voll");
   overlay.classList.add("voll");
   const ab = $("abBtn");
-  if (ab) ab.onclick = () => ladeAufbruch();
+  if (ab) ab.onclick = () => showKarte();
 }
 
 function showCamp(reiter) {
@@ -14133,7 +14710,7 @@ function showLoadout() {
     tasten: [["Ziehen", "verschieben"], ["Klick", "wählen"], ["R", "drehen"],
              ["N", "Notausrüstung"], ["↵", "hinab"]],
   }), key => {
-    if (key === "enter") { ladeAufbruch(); return true; }
+    if (key === "enter") { showKarte(); return true; }
     if (key === "r") { ladeDrehen(); return true; }
     if (key === "n") { ladeNotaufbruch(); return true; }
     return false;
@@ -14311,8 +14888,18 @@ function ladeDrehen() {
 /* Alles zurueck ins Lager und mit dem Notbehelf hinab. Wer nichts zu
    verlieren hat, verliert auch nichts - das ist der Weg zurueck aus einer
    Pechstraehne, ohne dass man dafuer erst muehsam alles auspacken muss. */
+/* Wie tief der naechste Lauf beginnt. Steht auf der Karte und wird beim
+   Aufbruch in Seile umgerechnet. */
+let einstiegTiefe = 1;
+
 function ladeAufbruch() {
   if (mitnahmeGewicht() > traglast()) { Sfx.spiel("nein"); return; }
+  /* So tief, wie die Seile reichen. Vorher wurde bei zu wenig Seil gar nichts
+     getan - man drueckte auf Hinabsteigen und es passierte nichts, ohne dass
+     irgendwo stand, warum. */
+  einstiegTiefe = Math.max(1, Math.min(einstiegTiefe | 0, seilVorrat() + 1, MAX_FLOOR));
+  const kosten = einstiegTiefe - 1;
+  if (kosten) zahleSeile(kosten);
   speichereMeta(META);
   startNewGame();
 }
@@ -14378,7 +14965,10 @@ function ladeBinde() {
   });
 
   const knopf = (id, tun) => { const k = $(id); if (k) k.onclick = tun; };
-  knopf("abBtn", () => ladeAufbruch());
+  /* Hinabsteigen gehoert der Huelle, nicht dem Aufbruch: es fuehrt auf die
+     Karte. Hier stand dieselbe Bindung noch einmal auf ladeAufbruch, und
+     weil ladeBinde() nach lagerBindePillen() laeuft, gewann sie - vom
+     Aufbruchsreiter aus landete man direkt im Raid statt auf der Karte. */
   knopf("notBtn", () => ladeNotaufbruch());
   knopf("ladeRaeum", () => { lagerEinraeumen(); speichereMeta(META); Sfx.spiel("aufheben"); ladeFrisch(); });
   knopf("tafelAn", () => { if (ladeAnlegen(ladeWahl)) { speichereMeta(META); Sfx.spiel("ausruesten"); } ladeFrisch(); });
@@ -14630,8 +15220,12 @@ function startNewGame() {
   p.revive = 0;
   p.hp = p.baseMaxHp;
 
-  G.floor = 1; G.deepest = 1;
-  populateFloor(1);
+  /* Wer Seile mitbringt, faengt tiefer an. Sie sind beim Aufbruch schon
+     verbraucht - hier steht nur noch, wie tief es losgeht. */
+  const start = Math.max(1, Math.min(MAX_FLOOR, einstiegTiefe | 0 || 1));
+  einstiegTiefe = 1;
+  G.floor = start; G.deepest = start;
+  populateFloor(start);
 
   /* Was im Aufbruchsfenster im Rucksack und an den Plaetzen lag, geht mit
      hinab - stirbst du, ist es weg. Das Lager hat es beim Einpacken bereits
