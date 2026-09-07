@@ -3355,13 +3355,6 @@ const THEMES = [
     rock: "#140A07", decor: "ember", gen: "forge", style: "iron",
   },
   {
-    from: 11, name: "Der Schlund",
-    wallDim: "#1A1424", wallLit: "#463A62", wallTop: "#66558C",
-    floorDim: "#100C18", floorLit: "#251E38",
-    speck: "196,170,246", glow: "150,110,224", mote: "#C6A8F0",
-    rock: "#0C0812", decor: "ash", gen: "cycle", style: "cave",
-  },
-  {
     from: 10, name: "Kammer des Namenlosen",
     wallDim: "#241A1C", wallLit: "#5A4046", wallTop: "#7A555C",
     floorDim: "#1C1416", floorLit: "#3A2A2E",
@@ -4934,6 +4927,9 @@ function makeMonster(id, x, y, affixKey) {
 
 // Wie oft ein Gegner besonders ist, steigt mit der Tiefe.
 // Jenseits von Etage zehn wird alles zäher und schlägt härter.
+/* Tiefer als das Schloss geht es nicht mehr - der Schlund ist weg. Die
+   Funktion bleibt, weil ein kuenftiger Ort wieder eigene Tiefen bringen kann;
+   sie tut derzeit nichts. */
 function depthScale(floor) {
   return floor <= MAX_FLOOR ? 1 : 1 + (floor - MAX_FLOOR) * .14;
 }
@@ -5056,7 +5052,7 @@ function makeElite(floor, x, y, festerMass) {
       hp: Math.round(e.hp * mass * skala),
       atk: Math.max(1, Math.round(e.atk * mass * skala)),
       xp: Math.round(e.xp * (1 + (skala - 1) * 1.6)),
-      name: `${e.name} aus dem Schlund`,
+      name: `${e.name}, verwachsen`,
     });
   }
   m.hp = m.spec.hp;
@@ -5071,22 +5067,8 @@ function makeElite(floor, x, y, festerMass) {
 }
 
 /* --- Aufträge --------------------------------------------------------- */
-// Im Schlund gibt es keine geschriebenen Aufträge mehr - sie werden gewürfelt.
-function würfelAuftrag(floor) {
-  const kandidaten = chancesFor(MONSTER_TABLE, MAX_FLOOR).map(e => e[0]);
-  const ziel = kandidaten.length ? pick(kandidaten) : "orc";
-  const anzahl = 3 + Math.floor((floor - MAX_FLOOR) / 3);
-  const lohn = 200 + (floor - MAX_FLOOR) * 60;
-  return {
-    type: "slay", target: ziel, count: anzahl,
-    title: `Ausdünnen: ${MONSTERS[ziel].name}`,
-    desc: `Erschlage ${anzahl} ${MONSTERS[ziel].name}.`,
-    reward: { xp: lohn, items: [rng() < .5 ? "greatPotion" : "bigoil"] },
-  };
-}
-
 function startQuest(floor) {
-  const template = QUESTS[floor] || (floor > MAX_FLOOR ? würfelAuftrag(floor) : null);
+  const template = QUESTS[floor] || null;
   if (!template) { G.quest = null; return; }
   G.quest = Object.assign({}, template, { floor, progress: 0, done: false });
 
@@ -5178,8 +5160,6 @@ function generateFloor(floor) {
   const map = newMap();
   // Jede Tiefe wird anders gebaut, nicht nur anders gefärbt.
   let art = themeFor(floor).gen;
-  // Im Schlund wechseln die Bauarten durch, damit es nicht eintönig wird.
-  if (art === "cycle") art = ["built", "cave", "forge"][(floor - 11) % 3];
   if (art === "cave") return generateCave(floor);
   if (art === "forge") return generateForge(floor);
   if (art === "arena") return generateArena(floor);
@@ -6896,10 +6876,10 @@ function populateFloor(floor) {
 
   // Namentliche kommen zuletzt: erst wenn Treppe und Boss stehen, laesst sich
   // pruefen, ob ihr Bossraum den Weg dorthin abschneiden wuerde.
-  // Im Schlund taucht alle drei Etagen einer der Namentlichen erneut auf
-  const eliteEtage = ELITES[floor] ? floor
-    : (floor > MAX_FLOOR && (floor - MAX_FLOOR) % 3 === 0
-        ? [3, 5, 7, 9][Math.floor(rng() * 4)] : null);
+  /* Die Nummer, nicht die Definition: stelleNamentlichen schlaegt damit
+     selbst in ELITES nach. Mit dem Objekt statt der Zahl stuerzte es auf
+     jeder Etage ab, auf der ein Namentlicher steht. */
+  const eliteEtage = ELITES[floor] ? floor : null;
   if (eliteEtage) {
     const gegner = stelleNamentlichen(map, zones, floor, eliteEtage, sx, sy);
     if (gegner) {
@@ -13413,85 +13393,34 @@ function showDeath() {
 
 
 function showVictory() {
-  mode = { kind: "won" };
-  
+  /* Kein Ende, sondern der Anfang des Rueckwegs. Vorher stand hier ein Knopf,
+     der die Extraktion geschenkt hat - ein Klick, und alles war oben. Das
+     widersprach allem anderen: der ganze Sinn des Schachts ist, dass man den
+     Weg zurueck gehen muss. Jetzt erst recht, denn gerade war es laut. */
+  mode = { kind: "play" };
+  const schacht = (G.schaechte || [])[0];
   openModal(`<h2>Der Namenlose ist gefallen</h2>
-    <p class="epitaph">Zehn Etagen tief. Der Weg nach oben steht offen —
-      aber unter der Kammer geht es weiter, und dort unten liegt mehr.</p>
+    <p class="epitaph">Zehn Etagen tief, und die Kammer ist still. Was du
+      trägst, gehört dir — sobald du es nach oben trägst.</p>
     <div class="grid2">
       <div class="line"><span>Stufe</span><span>${G.player.level}</span></div>
       <div class="line"><span>Runden</span><span>${G.turns}</span></div>
       <div class="line"><span>Im Rucksack</span><span style="color:var(--torch)">${
         imRucksack(G.player).length} Stücke · ${last(getragen(G.player))}</span></div>
+      <div class="line"><span>Der Schacht</span><span>${schacht && schacht.bekannt
+        ? "steht auf deiner Karte" : "noch zu finden"}</span></div>
     </div>
-    <button class="choice" id="lichtBtn" style="margin-top:18px">
-      <span class="key">A</span><span>Ans Licht zurückkehren</span>
-      <span class="note">Lauf beenden, Asche sichern</span></button>
-    <button class="choice" id="tieferBtn">
-      <span class="key">T</span><span>Tiefer steigen</span>
-      <span class="note">Der Schlund — härter, mehr Asche, kein Zurück</span></button>`,
+    <button class="choice gross" id="weiterBtn" style="margin-top:18px">
+      <span class="key">↵</span><span>Den Rückweg antreten</span>
+      <span class="note">der Sieg zählt erst, wenn du oben ankommst</span></button>`,
     key => {
-      if (key === "a" || key === "enter") { beendeLauf(); return true; }
-      if (key === "t") { steigeTiefer(); return true; }
+      if (key === "enter" || key === " ") { closeModal(); return true; }
       return false;
     });
   zwingend();
-  $("lichtBtn").onclick = beendeLauf;
-  $("tieferBtn").onclick = steigeTiefer;
+  $("weiterBtn").onclick = () => closeModal();
 }
 
-// Lauf mit Sieg abschliessen: die Beute kommt mit hinauf.
-function beendeLauf() {
-  const bilanz = verbucheLauf(true);
-  overlay._noEscape = false;
-  openModal(`<h2>Zurück ans Licht</h2>
-    <p class="epitaph">Du steigst die zehn Etagen wieder hinauf, und keine davon hält dich auf.</p>
-    <div class="grid2">
-      <div class="line"><span>Tiefste Etage</span><span>${G.deepest}</span></div>
-      <div class="line"><span>Runden</span><span>${G.turns}</span></div>
-      <div class="line"><span>Ins Lager</span><span style="color:var(--torch)">${bilanz.stuecke} ${
-        bilanz.stuecke === 1 ? "Stück" : "Stücke"}</span></div>${bilanz.verkauft
-        ? `<div class="line"><span>Lager voll</span><span>${bilanz.verkauft} ${
-            bilanz.verkauft === 1 ? "Stück" : "Stücke"} sofort verkauft · ${
-            bilanz.erloes} Münzen</span></div>` : ""}
-      <div class="line"><span>Siege insgesamt</span><span>${META.siege}</span></div>
-    </div>
-    <button class="choice" id="lagerBtn" style="margin-top:12px">
-      <span class="key">L</span><span>Zum Händler</span>
-      <span class="note">${META.muenzen} Münzen</span></button>
-    <button class="choice" id="againBtn" style="margin-top:4px">
-      <span class="key">N</span><span>Noch einmal hinabsteigen</span><span class="note"></span></button>`,
-    key => {
-      if (key === "n" || key === "enter") { showTitle(); return true; }
-      if (key === "l") { showCamp(); return true; }
-      return false;
-    });
-  zwingend();
-  $("lagerBtn").onclick = () => showCamp();
-  $("againBtn").onclick = () => showTitle();
-}
-
-// Weiter nach unten: eine Treppe öffnet sich, wo der Namenlose stand.
-function steigeTiefer() {
-  overlay._noEscape = false;
-  closeModal();
-  G.endless = true;
-  mode = { kind: "play" };
-  const p = G.player;
-  let ziel = G.map.circle ? [G.map.circle.cx, G.map.circle.cy] : [p.x, p.y];
-  if (!isWalkable(ziel[0], ziel[1])) ziel = [p.x, p.y];
-  G.map.tiles[idx(ziel[0], ziel[1])] = STAIRS;
-  G.map.stairs = ziel;
-  Sfx.spiel("treppe");
-  log("Wo der Namenlose stand, klafft eine Treppe. Sie führt nur nach unten.", "alert");
-  banner("Der Schlund", "Ab hier gibt es kein Zurück", "bad");
-  updateFov(); refreshUI();
-}
-
-/* Das Lager zwischen zwei Abstiegen: hier wird Asche zu Ausdauer. */
-/* Alles zurueck auf Anfang: Asche, gekaufte Verbesserungen, Bestwerte,
-   Speicherplaetze und der laufende Abstieg. Zwei Klicks, weil es nicht
-   rueckgaengig zu machen ist. */
 function loescheFortschritt() {
   META = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
            mitnahme: [], anlegen: {}, gesehen: [], laden: null, ladenRang: -1,
@@ -14042,7 +13971,6 @@ const ORTE = [
       ["Pilzhöhle", "4–6", "#6BA37C"],
       ["Schmelze", "7–9", "#C4703A"],
       ["Kammer des Namenlosen", "10", "#A83430"],
-      ["Der Schlund", "ab 11", "#8A6BB0"],
     ],
   },
 
@@ -15184,7 +15112,7 @@ function freshState() {
     schaechte: [], aufstieg: null,
     quest: null, questLog: [],
     time: 0, upkeepAt: 0, laune: null, finsterBrut: 0, vault: null, legenden: [],
-    floor: 0, deepest: 0, turns: 0, won: false, endless: false, siegRunden: 0,
+    floor: 0, deepest: 0, turns: 0, won: false, siegRunden: 0,
     logEntries: [],
   };
 }
