@@ -1780,6 +1780,39 @@ body {
   color: var(--vellum-dim);
 }
 
+.stufenmarke {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.stufenmarke.leicht {
+  background: rgba(124,192,138,.16);
+  border: 1px solid rgba(124,192,138,.45);
+  color: #8FD8A0;
+}
+
+.stufenmarke.mittel {
+  background: rgba(240,180,41,.16);
+  border: 1px solid rgba(240,180,41,.45);
+  color: var(--tat);
+}
+
+.stufenmarke.schwer {
+  background: rgba(216,90,72,.16);
+  border: 1px solid rgba(216,90,72,.48);
+  color: #E88878;
+}
+
+.baldmarke.zu {
+  background: rgba(139,149,166,.14);
+  border-color: rgba(139,149,166,.42);
+  color: var(--vellum-dim);
+}
+
 .baldmarke {
   padding: 2px 7px;
   border-radius: 999px;
@@ -3363,10 +3396,34 @@ const THEMES = [
   },
 ];
 
-const THEMES_SORT = [...THEMES].sort((a, b) => a.from - b.from);
+/* == Die Orte ============================================================
+   Jeder Ort bringt seine eigenen Tabellen mit und zaehlt wieder ab Etage
+   eins. Die Eintraege des Schlosses zeigen auf die Tabellen, die es schon
+   gibt - am bestehenden Spiel aendert sich dadurch nichts. Der zweite Ort
+   traegt seine eigenen ein, weiter unten. */
+const ORT_INHALT = {
+  schloss: {
+    name: "Das Schloss",
+    themes: THEMES,
+    maxFloor: 10,
+  },
+};
+
+/* Welcher Ort gerade gilt. Waehrend eines Laufs steht er in G, davor in der
+   Auswahl auf der Karte. */
+function ortSchluessel() {
+  if (G && G.ort && ORT_INHALT[G.ort]) return G.ort;
+  if (typeof ortWahl === "string" && ORT_INHALT[ortWahl]) return ortWahl;
+  return "schloss";
+}
+const ort = () => ORT_INHALT[ortSchluessel()];
+const maxFloor = () => ort().maxFloor;
+
 function themeFor(floor) {
-  let t = THEMES_SORT[0];
-  for (const kandidat of THEMES_SORT) if (kandidat.from <= floor) t = kandidat;
+  const reihe = ort().themesSort ||
+    (ort().themesSort = [...ort().themes].sort((a, b) => a.from - b.from));
+  let t = reihe[0];
+  for (const kandidat of reihe) if (kandidat.from <= floor) t = kandidat;
   return t;
 }
 const theme = () => themeFor(G ? G.floor : 1);
@@ -3397,6 +3454,36 @@ const MONSTERS = {
   wraith:  { name: "Grabwicht", g: "m",       hp: 150, def: 4, atk: 15, xp: 300, ai: "melee", hieb: 1.5, lichtscheu: true,
              art: "wraith",   body: "#8AA8CE", dark: "#33455C", size: 1.14, eye: "#BFE4FF",
              glow: "#7FB0DE", float: true },
+  /* ── Die Totenstadt ──────────────────────────────────────────────────
+     Zwei mit eigener Zeichnung, der Rest aus vorhandenen Formen in
+     Grabfarben. Sie schlagen haerter als das Getier des Schlosses und halten
+     mehr aus - die Totenstadt steht eine Stufe darueber. */
+  leichnam: { name: "Leichnam", g: "m",       hp: 85, def: 2, atk: 11, xp: 130, ai: "melee", hieb: 1.25,
+             art: "leiche",   body: "#7E8470", dark: "#33372C", size: 1.08, eye: "#C8E0A0" },
+  knochen: { name: "Knochenschwarm", g: "m",  hp: 54, def: 1, atk: 9,  xp: 110, ai: "melee", hieb: .70,
+             art: "knochen",  body: "#DCD6C0", dark: "#807A66", size: 1.04, eye: "#FFF4D8",
+             tempo: 1.22 },
+  klageweib: { name: "Klageweib", g: "f",     hp: 108, def: 4, atk: 13, xp: 190, ai: "ranged", hieb: 1.1,
+             ratk: 16, range: 6.5, keep: 4.5, nachladen: 1.4, lichtscheu: true,
+             art: "robe",     body: "#5E6478", dark: "#22262F", size: 1.14, eye: "#CFE0FF",
+             glow: "#6E7A96", float: true },
+  grabwache: { name: "Grabwache", g: "f",     hp: 240, def: 8, atk: 19, xp: 380, ai: "melee", hieb: 1.85,
+             art: "golem",    body: "#8C8578", dark: "#3A362E", size: 1.28, eye: "#D8E8B0",
+             glow: "#B0C088" },
+  aasratte: { name: "Aasratte", g: "f",       hp: 44, def: 1, atk: 8,  xp: 60,  ai: "melee", hieb: .78,
+             art: "rat",      body: "#6E6A5A", dark: "#3A382E", size: 1.04, eye: "#C8E0A0" },
+  gebein:  { name: "Gebeinschütze", g: "m",   hp: 96, def: 3, atk: 11, xp: 170, ai: "ranged", hieb: 1.0,
+             ratk: 14, range: 6, keep: 3.8, nachladen: 1.2,
+             art: "skeleton", body: "#D8D2BC", dark: "#7E7866", size: 1.06, eye: "#B8E890" },
+
+  /* Er hebt waehrend des Kampfes Graeber aus, und was darin liegt, steht auf.
+     Wer zu lange braucht, kaempft irgendwann gegen den halben Friedhof - die
+     Uhr ist hier der eigentliche Gegner. */
+  totengraeber: { name: "Der Totengräber", g: "m", hp: 1150, def: 8, atk: 23, xp: 2400,
+             ai: "boss", hieb: 1.35, hebt: "leichnam",
+             art: "leiche",   body: "#6E7458", dark: "#2A2E20", size: 1.56, eye: "#C8E8A0",
+             glow: "#A8C880", boss: true },
+
   boss:    { name: "Der Namenlose", g: "m",   hp: 950, def: 7, atk: 21, xp: 1800, ai: "boss", hieb: 1.25,
              art: "boss",     body: "#A83430", dark: "#3F100F", size: 1.52, eye: "#FF7A50",
              glow: "#E8503C", boss: true },
@@ -3435,6 +3522,27 @@ const ITEMS = {
   bigoil:      { name: "Ölkrug",                kind: "oil",    tint: "#F0C86A", use: "oil",
                  amount: 60, stapel: 2, note: "füllt 60 Öl nach" },
 
+  /* ── Verfluchtes Geraet aus der Totenstadt ───────────────────────────
+     Staerker als alles im Schloss, aber jedes Stueck nimmt sich etwas: Leben,
+     Oel, Ausweichen. Man entscheidet, welchen Preis man zahlt - das ist der
+     ganze Reiz daran. Rein rechnerisch lohnt es sich; es fuehlt sich nur
+     nicht danach an, und das soll es auch nicht. */
+  grabklinge: { name: "Grabklinge", g: "f", kind: "weapon", tint: "#9FD8B0", slot: "Waffe",
+                atk: 12, maxhp: -14, verflucht: true,
+                note: "zehrt an dir", sage: "Sie schneidet gut. Du wirst weniger." },
+  totenaxt:   { name: "Totenaxt", g: "f", kind: "weapon", tint: "#8FC8A0", slot: "Waffe",
+                atk: 16, hast: -.20, oilSteps: -2, verflucht: true,
+                note: "frisst Öl", sage: "Der Schein wird kurz, der Schlag lang." },
+  knochenhemd:{ name: "Knochenhemd", g: "n", kind: "armor", tint: "#D8D2BC", slot: "Rüstung",
+                def: 7, tempo: .10, evade: .05, maxhp: -18, verflucht: true,
+                note: "leicht, aber es zehrt" },
+  salzpanzer: { name: "Salzpanzer", g: "m", kind: "armor", tint: "#A8E8C0", slot: "Rüstung",
+                def: 11, oilSteps: -1, verflucht: true,
+                note: "schwer und durstig" },
+  grabmal:    { name: "Grabmal", g: "n", kind: "amulet", tint: "#9FD8B0", slot: "Amulett",
+                atk: 4, def: 2, maxhp: -12, verflucht: true,
+                note: "nimmt Leben, gibt Wucht" },
+
   /* Faehigkeitsmodule. Sie sind der einzige Weg zu einer Faehigkeit, seit es
      keine Klassen mehr gibt: was du kannst, haengt daran, was du gefunden
      hast - und wer stirbt, verliert es. Ein Modul belegt seinen eigenen Platz
@@ -3449,6 +3557,8 @@ const ITEMS = {
                 faehig: "donner",   note: "Fähigkeit: Donnerschlag" },
   modZoll:    { name: "Blutsiegel",    kind: "modul", tint: "#D9634F", slot: "Modul",
                 faehig: "zoll",     note: "Fähigkeit: Blutzoll" },
+  modZehr:    { name: "Zehrstein",     kind: "modul", tint: "#9FD8B0", slot: "Modul",
+                faehig: "zehren",   note: "Fähigkeit: Lebensentzug" },
 
   /* Werkstoffe. Sie tun nichts, solange man sie traegt - erst beim Haendler
      werden sie zu besserer Ausruestung. Damit hat Aufheben auch dann einen
@@ -3460,6 +3570,10 @@ const ITEMS = {
               note: "Werkstoff — beim Händler zum Aufwerten" },
   silber:   { name: "Silberdraht", kind: "material", tint: "#9FD8E8", rang: 3, stapel: 8,
               note: "Werkstoff — beim Händler zum Aufwerten" },
+  /* Fuenfte Stufe, und es faellt nur in der Totenstadt. Wer eine Waffe ganz
+     hochbringen will, muss also beide Orte laufen. */
+  grabsalz: { name: "Grabsalz",    kind: "material", tint: "#B8E8C0", rang: 5, stapel: 5,
+              note: "kristallisierte Grabluft — die letzte Stufe" },
   tiefenerz:{ name: "Tiefenerz",   kind: "material", tint: "#C08CE8", rang: 4, stapel: 6,
               note: "Werkstoff — beim Händler zum Aufwerten" },
 
@@ -3542,6 +3656,11 @@ const KACHEL_EIGEN = {
   axe:            [2, 3, 5.0],
   kolben:         [2, 3, 6.5],
   runeblade:      [1, 3, 2.8],
+  grabklinge:     [1, 3, 2.6],
+  totenaxt:       [2, 4, 7.0],
+  knochenhemd:    [2, 2, 3.2],
+  salzpanzer:     [2, 3, 13.0],
+  grabmal:        [1, 1, .5],
   hellebarde:     [2, 4, 8.0],
   leather:        [2, 2, 4.0],
   reisemantel:    [2, 2, 3.0],
@@ -4154,6 +4273,112 @@ const ITEM_TABLE = {
 const MAX_MONSTERS = [[1, 1], [3, 2], [5, 3], [7, 4], [9, 5], [11, 6]];
 const MAX_ITEMS = [[1, 1], [2, 2], [4, 3], [6, 4]];
 
+// Was das Schloss an Wesen und Beute fuehrt
+Object.assign(ORT_INHALT.schloss, {
+  monster: MONSTER_TABLE, items: ITEM_TABLE,
+  maxMonster: MAX_MONSTERS, maxItems: MAX_ITEMS,
+});
+
+/* == Die Totenstadt ======================================================
+   Zehn Etagen in zwei Welten. Die Gassen sind gebaut wie der Kerker - Raeume
+   werden zu Mausoleen, Korridore zu Strassenzuegen -, die Katakomben nehmen
+   den Hoehlengenerator, weil der von sich aus enge, gewundene Gaenge macht.
+   Zwei Welten ohne einen einzigen neuen Generator. */
+const TOTENSTADT_THEMES = [
+  {
+    from: 1, name: "Die Gassen",
+    wallDim: "#23241E", wallLit: "#5E6152", wallTop: "#7E8270",
+    floorDim: "#1A1B17", floorLit: "#3A3D33",
+    speck: "216,224,190", glow: "168,200,150", mote: "#C8DCB0",
+    rock: "#0D0E0B", decor: "none", gen: "built", style: "masonry",
+  },
+  {
+    from: 6, name: "Die Katakomben",
+    wallDim: "#221E1A", wallLit: "#605448", wallTop: "#8A7A66",
+    floorDim: "#151310", floorLit: "#332C24",
+    speck: "232,224,196", glow: "200,190,150", mote: "#E8E0C4",
+    rock: "#0C0A08", decor: "ash", gen: "cave", style: "cave",
+  },
+];
+
+// Wer dort steht. Ab Etage 6 kommt schwereres Geschuetz dazu.
+const TOTENSTADT_MONSTER = {
+  1: [["aasratte", 50], ["leichnam", 34]],
+  2: [["knochen", 30], ["gebein", 22]],
+  4: [["leichnam", 44], ["klageweib", 24]],
+  6: [["aasratte", 16], ["grabwache", 20], ["knochen", 38]],
+  8: [["gebein", 26], ["klageweib", 30], ["grabwache", 48]],
+};
+
+/* Was dort liegt. Das verfluchte Geraet faellt erst in den Katakomben - oben
+   findet man Gewoehnliches, unten das, wofuer man gekommen ist. */
+const TOTENSTADT_ITEMS = {
+  1: [["potion", 3], ["oil", 22], ["chain", 8], ["sword", 6], ["modWall", 4]],
+  3: [["greatPotion", 2], ["bigoil", 9], ["grabmal", 7], ["axe", 6], ["modSchatten", 4]],
+  5: [["knochenhemd", 8], ["grabklinge", 8], ["regen", 3], ["modZehr", 5]],
+  7: [["salzpanzer", 7], ["totenaxt", 7], ["plate", 5], ["modZoll", 4]],
+  9: [["grabklinge", 9], ["salzpanzer", 8], ["totenaxt", 8], ["grabmal", 8]],
+};
+
+// Etwas voller als das Schloss - sie steht eine Stufe darueber.
+const TOTENSTADT_MAX_MONSTER = [[1, 2], [3, 3], [6, 4], [8, 5]];
+
+/* Drei Namentliche statt vier, dafuer haerter - und mit denselben drei
+   Kunststuecken, die es schon gibt: die Waescherin ruft, der Vogt deckt sich
+   hinter Saeulen, der Trauernde singt. */
+const TOTENSTADT_ELITES = {
+  4: { base: "klageweib", name: "Die Leichenwäscherin", epithet: "die nie fertig wird",
+       power: "brut", hp: 420, atk: 14, def: 4, xp: 560, size: 1.34,
+       body: "#7E8AA6", dark: "#2A3040", eye: "#DCE8FF", glow: "#8E9CBE",
+       drop: "grabmal" },
+  7: { base: "grabwache", name: "Der Knochenvogt", epithet: "zählt die Gräber",
+       power: "waechter", hp: 880, atk: 19, def: 9, xp: 1050, size: 1.46,
+       body: "#B0A88C", dark: "#464234", eye: "#D8E8A0", glow: "#C0D090",
+       drop: "knochenhemd" },
+  9: { base: "leichnam", name: "Der Erste Trauernde", epithet: "seit dem ersten Grab",
+       power: "chor", hp: 980, atk: 21, def: 7, xp: 1400, size: 1.48,
+       body: "#8E9878", dark: "#343A28", eye: "#E8F4C8", glow: "#B8C898",
+       drop: "salzpanzer" },
+};
+
+/* Auftraege der Totenstadt. Dieselbe Form wie im Schloss: erschlagen,
+   einsammeln, den Namentlichen stellen. */
+const TOTENSTADT_QUESTS = {
+  1: { type: "slay", target: "aasratte", count: 3, title: "Aasfresser",
+       desc: "Erschlage 3 Aasratten.",
+       reward: { xp: 120, items: ["potion"] } },
+  2: { type: "slay", target: "leichnam", count: 3, title: "Zur Ruhe betten",
+       desc: "Erschlage 3 Leichname.",
+       reward: { xp: 180, items: ["bigoil"] } },
+  4: { type: "elite", title: "Die Leichenwäscherin",
+       desc: "Stelle die Leichenwäscherin.", reward: { xp: 520, gear: "chain" } },
+  5: { type: "slay", target: "knochen", count: 4, title: "Zerstreuung",
+       desc: "Zerschlage 4 Knochenschwärme.",
+       reward: { xp: 320, items: ["greatPotion"] } },
+  7: { type: "elite", title: "Der Knochenvogt",
+       desc: "Stelle den Knochenvogt.", reward: { xp: 900, gear: "salzpanzer" } },
+  8: { type: "slay", target: "klageweib", count: 3, title: "Stille die Klage",
+       desc: "Erschlage 3 Klageweiber.",
+       reward: { xp: 620, items: ["greatPotion", "bigoil"] } },
+  9: { type: "elite", title: "Der Erste Trauernde",
+       desc: "Stelle den Ersten Trauernden.", reward: { xp: 1200, gear: "grabklinge" } },
+  10: { type: "boss", title: "Der Totengräber",
+        desc: "Er hebt aus, was aufsteht. Beende es.", reward: { xp: 2600 } },
+};
+
+ORT_INHALT.totenstadt = {
+  name: "Die Totenstadt",
+  elites: TOTENSTADT_ELITES,
+  quests: TOTENSTADT_QUESTS,
+  boss: "totengraeber",
+  themes: TOTENSTADT_THEMES,
+  monster: TOTENSTADT_MONSTER,
+  items: TOTENSTADT_ITEMS,
+  maxMonster: TOTENSTADT_MAX_MONSTER,
+  maxItems: MAX_ITEMS,
+  maxFloor: 10,
+};
+
 /* == Konkurrenz ==========================================================
    Bis hierher war das Verlies eine stille Vorratskammer: Wesen bewachten die
    Beute, die Beute bewegte sich nicht, und ausser dir wollte niemand etwas
@@ -4291,6 +4516,9 @@ const QUESTS = {
   10: { type: "boss", title: "Der Namenlose", desc: "Beende den Abstieg.", reward: { xp: 0 } },
 };
 
+// Namentliche und Auftraege des Schlosses
+Object.assign(ORT_INHALT.schloss, { elites: ELITES, quests: QUESTS });
+
 const RELIC = { kind: "relic", tint: "#F0D27A", note: "Auftragsgegenstand", quest: true };
 
 /* Fähigkeiten: eine pro Klasse, mit Abklingzeit statt Verbrauch.
@@ -4318,6 +4546,12 @@ const ABILITIES = {
     desc: "Du schlägst auf den Boden. Alles im Umkreis von drei Kacheln wird " +
           "zurückgeworfen und steht zwei Sekunden benommen — Schaden macht es " +
           "wenig, Luft macht es viel.",
+  },
+  zehren: {
+    name: "Lebensentzug", cd: 10, aim: false, weite: 6.5, dauer: 1.6,
+    desc: "Ein Strang zwischen dir und dem, worauf du zeigst. Anderthalb " +
+          "Sekunden lang zieht er drüben Leben ab und gibt es dir — solange " +
+          "du stehen bleibst und die Sicht nicht abreißt.",
   },
   zoll: {
     name: "Blutzoll", cd: 15, aim: false, dauer: 6,
@@ -4448,7 +4682,7 @@ function wert(eintrag) {
     w = d.amount ? Math.round(grund * d.amount) : grund;
   }
   if (d.kind === "seil") w = 150;
-  if (d.kind === "material") w = [0, 9, 26, 70, 180][d.rang || 1] * (eintrag.menge || 1);
+  if (d.kind === "material") w = [0, 9, 26, 70, 180, 420][d.rang || 1] * (eintrag.menge || 1);
   /* Drei Heiltraenke auf einer Kachel sind drei Heiltraenke wert. Ohne das
      verschenkte man beim Verkaufen zwei davon. */
   else if (d.stapel && eintrag.menge > 1) w *= eintrag.menge;
@@ -4476,7 +4710,10 @@ const AUFWERT_KOSTEN = [
   { schrott: 7, eisen: 2 },
   { schrott: 10, eisen: 4, silber: 1 },
   { schrott: 14, eisen: 7, silber: 3, tiefenerz: 1 },
-  { schrott: 18, eisen: 10, silber: 6, tiefenerz: 3 },
+  /* Die letzte Stufe verlangt Grabsalz, und das faellt nur in der Totenstadt.
+     Wer eine Waffe ganz hochbringen will, muss also beide Orte laufen - das
+     ist der Grund, warum es den zweiten Ort ueberhaupt gibt. */
+  { schrott: 18, eisen: 10, silber: 6, tiefenerz: 3, grabsalz: 2 },
 ];
 
 function aufwertKosten(b) {
@@ -4931,7 +5168,7 @@ function makeMonster(id, x, y, affixKey) {
    Funktion bleibt, weil ein kuenftiger Ort wieder eigene Tiefen bringen kann;
    sie tut derzeit nichts. */
 function depthScale(floor) {
-  return floor <= MAX_FLOOR ? 1 : 1 + (floor - MAX_FLOOR) * .14;
+  return floor <= maxFloor() ? 1 : 1 + (floor - maxFloor()) * .14;
 }
 
 function rollMonsterAffix(floor) {
@@ -4956,12 +5193,29 @@ const WERKSTOFF_TIEFE = [
   { id: "tiefenerz", ab: 13, gewicht: 14,  menge: [1, 2] },
 ];
 
+/* In der Totenstadt faellt anderes. Grabsalz gibt es nur hier - deshalb
+   braucht die letzte Aufwertungsstufe beide Orte. */
+const WERKSTOFF_TOTENSTADT = [
+  { id: "schrott",   ab: 1, gewicht: 60,  menge: [2, 4] },
+  { id: "eisen",     ab: 1, gewicht: 44,  menge: [1, 3] },
+  { id: "silber",    ab: 3, gewicht: 30,  menge: [1, 2] },
+  { id: "tiefenerz", ab: 5, gewicht: 20,  menge: [1, 2] },
+  { id: "grabsalz",  ab: 3, gewicht: 42,  menge: [1, 2] },
+];
+
+/* Erst hier, nicht oben bei den uebrigen Tabellen: ein const ist vor seiner
+   Zeile nicht zu haben, und ein Verweis darauf laesst das ganze Skript beim
+   Laden sterben - lautlos, weil zu diesem Zeitpunkt noch kein Fehlerhorcher
+   steht. */
+ORT_INHALT.schloss.werkstoff = WERKSTOFF_TIEFE;
+ORT_INHALT.totenstadt.werkstoff = WERKSTOFF_TOTENSTADT;
+
 function wuerfelWerkstoff(floor, chance) {
   if (rng() > (chance == null ? 1 : chance)) return null;
-  const pool = WERKSTOFF_TIEFE.filter(w => w.ab <= floor);
+  const pool = (ort().werkstoff || WERKSTOFF_TIEFE).filter(w => w.ab <= floor);
   if (!pool.length) return null;
   const id = weighted(pool.map(w => [w.id, w.gewicht]));
-  const w = WERKSTOFF_TIEFE.find(x => x.id === id);
+  const w = (ort().werkstoff || WERKSTOFF_TIEFE).find(x => x.id === id);
   const menge = w.menge[0] + Math.floor(rng() * (w.menge[1] - w.menge[0] + 1));
   return { id, ax: null, sel: null, menge };
 }
@@ -5035,7 +5289,7 @@ function bossSkala(floor) {
 }
 
 function makeElite(floor, x, y, festerMass) {
-  const e = ELITES[floor];
+  const e = (ort().elites || {})[floor];
   if (!e) return null;
   // Beim Laden kommt der Massstab aus dem Spielstand, sonst frisch
   const mass = festerMass || bossSkala(floor);
@@ -5068,7 +5322,7 @@ function makeElite(floor, x, y, festerMass) {
 
 /* --- Aufträge --------------------------------------------------------- */
 function startQuest(floor) {
-  const template = QUESTS[floor] || null;
+  const template = (ort().quests || {})[floor] || null;
   if (!template) { G.quest = null; return; }
   G.quest = Object.assign({}, template, { floor, progress: 0, done: false });
 
@@ -5467,7 +5721,7 @@ function stelleKisten(map, zones, floor, extra) {
   let anzahl = 2 + (rng() < .6 ? 1 : 0) + Math.floor(floor / 4) + (extra || 0);
   if (hatLaune("vorraete")) anzahl *= 2;
   if (hatLaune("verlassen")) anzahl += 2;
-  const chancen = chancesFor(ITEM_TABLE, floor);
+  const chancen = chancesFor(ort().items, floor);
   if (!chancen.length) return;
 
   const pool = zones.slice(1);
@@ -5555,7 +5809,7 @@ function beuteFallenLassen(gegner) {
   }
   const chance = Math.min(.20, .07 + floor * .011) * (gegner.maff ? 1.6 : 1);
   if (rng() > chance) return;
-  const chancen = chancesFor(ITEM_TABLE, floor);
+  const chancen = chancesFor(ort().items, floor);
   if (!chancen.length) return;
   const gebaut = rollItem(weighted(chancen), floor, gegner.maff ? .1 : 0);
   const tx = Math.floor(gegner.x), ty = Math.floor(gegner.y);
@@ -6489,9 +6743,9 @@ function stelleGeheimkammern(map, zones, floor) {
          ganze Sucherei nicht. Dazu zwei gewoehnliche Fundstuecke. */
       const beute = [rng() < .25
         ? { id: ziehLegende(), ax: null }
-        : (() => { const g = rollItem(weighted(chancesFor(ITEM_TABLE, floor)), floor, true);
+        : (() => { const g = rollItem(weighted(chancesFor(ort().items, floor)), floor, true);
                    return { id: g.id, ax: g.ax || null, sel: "episch" }; })()];
-      const chancen = chancesFor(ITEM_TABLE, floor);
+      const chancen = chancesFor(ort().items, floor);
       for (let i = 0; i < 2 && chancen.length; i++) {
         const gebaut = rollItem(weighted(chancen), floor, .5);
         beute.push({ id: gebaut.id, ax: gebaut.ax || null, sel: gebaut.sel || null });
@@ -6615,7 +6869,7 @@ function hatLaune(key) { return laune() === key; }
    das Spiel erst einmal normal kennenlernt, und die Kammer des Namenlosen
    auch - die ist von Hand gebaut und soll bleiben, wie sie ist. */
 function wuerfleLaune(floor) {
-  if (floor <= 1 || floor === MAX_FLOOR) return null;
+  if (floor <= 1 || floor === maxFloor()) return null;
   if (rng() > .45) return null;
   let summe = 0;
   for (const l of LAUNEN) summe += l.gewicht;
@@ -6696,8 +6950,8 @@ function populateFloor(floor) {
   }
 
   const last = zones[zones.length - 1];
-  const monsterChances = chancesFor(MONSTER_TABLE, floor);
-  const itemChances = chancesFor(ITEM_TABLE, floor);
+  const monsterChances = chancesFor(ort().monster, floor);
+  const itemChances = chancesFor(ort().items, floor);
 
   /* Bisher war jede Zone mit 15 % eine "Schatzkammer" - bei einem Dutzend
      Zonen also fast zwei je Etage. Gebracht hat das nichts: die Bonuskiste
@@ -6720,7 +6974,7 @@ function populateFloor(floor) {
       const j = Math.floor(rng() * (i + 1));
       [spots[i], spots[j]] = [spots[j], spots[i]];
     }
-    let n = ri(0, fromTable(MAX_MONSTERS, floor)) + (vault ? 3 : 0);
+    let n = ri(0, fromTable(ort().maxMonster, floor)) + (vault ? 3 : 0);
     while (n-- > 0 && spots.length && monsterChances.length) {
       const [x, y] = spots.pop();
       // In Schatzkammern lauert häufiger etwas Besonderes
@@ -6779,13 +7033,13 @@ function populateFloor(floor) {
     : zones[zones.length - 1];
   // Das Auftragsstueck kommt weiter unten in eine Truhe - siehe dort.
 
-  if (floor === MAX_FLOOR) {
+  if (floor === maxFloor()) {
     let [bx, by] = arena ? [arena.cx, arena.cy] : last.center;
     if (actorAt(bx, by) || !isWalkable(bx, by)) {
       const free = last.tiles.find(([x, y]) => !actorAt(x, y) && isWalkable(x, y));
       if (free) [bx, by] = free;
     }
-    const namenlos = makeMonster("boss", bx, by);
+    const namenlos = makeMonster(ort().boss || "boss", bx, by);
     // Auch der Namenlose richtet sich danach, wer da ankommt
     const mass = bossSkala(floor);
     namenlos.skala = mass;
@@ -6812,7 +7066,7 @@ function populateFloor(floor) {
      lag im Mittel sechzehn Kachelmasse abseits des Weges und wurde in zwei
      Prozent der Laeufe aufgehoben. Es liegt jetzt in einer Truhe - Truhen
      sucht man ohnehin, und sie stehen auf der Uebersichtskarte. */
-  const questDef = QUESTS[floor];
+  const questDef = (ort().quests || {})[floor];
   if (questDef && questDef.type === "collect") {
     const offene = G.chests.filter(c => !c.geheim);
     if (offene.length) {
@@ -6841,7 +7095,7 @@ function populateFloor(floor) {
      Fund ja keiner. Zwei Stueck, ergiebiger als gewoehnliche, und aus der
      Tabelle zweier Etagen tiefer. */
   if (schatzZone && G.vault) {
-    const chancen = chancesFor(ITEM_TABLE, floor);
+    const chancen = chancesFor(ort().items, floor);
     const frei = schatzZone.tiles.filter(([x, y]) =>
       map.tiles[idx(x, y)] === FLOOR && !actorAt(x, y) &&
       !G.chests.some(c => c.x === x && c.y === y) &&
@@ -6879,7 +7133,7 @@ function populateFloor(floor) {
   /* Die Nummer, nicht die Definition: stelleNamentlichen schlaegt damit
      selbst in ELITES nach. Mit dem Objekt statt der Zahl stuerzte es auf
      jeder Etage ab, auf der ein Namentlicher steht. */
-  const eliteEtage = ELITES[floor] ? floor : null;
+  const eliteEtage = (ort().elites || {})[floor] ? floor : null;
   if (eliteEtage) {
     const gegner = stelleNamentlichen(map, zones, floor, eliteEtage, sx, sy);
     if (gegner) {
@@ -7785,7 +8039,7 @@ function takeStairs() {
   if (G.quest && !G.quest.done)
     G.questLog.push({ floor: G.quest.floor, title: G.quest.title, done: false });
   startQuest(G.floor);
-  if (G.floor === MAX_FLOOR) log("Etwas Großes atmet in der Dunkelheit.", "bad");
+  if (G.floor === maxFloor()) log("Etwas Großes atmet in der Dunkelheit.", "bad");
   return true;
 }
 
@@ -8113,6 +8367,35 @@ function useAbility(dx, dy) {
     log(getroffen
       ? `Der Donnerschlag wirft ${getroffen} zurück — zwei Sekunden Luft.`
       : "Der Donnerschlag trifft nur Steine.", getroffen ? "alert" : "you");
+    p.abilityCd = ab.cd * (p.abilityHaste || 1);
+    return true;
+  }
+
+  if (faehigkeitVon(p) === "zehren") {
+    /* Kein Schlag, sondern ein Strang. Er sucht sich das naechste Ziel auf
+       der Blickachse und haengt sich daran - tickWorld zieht dann Leben
+       herueber, solange man steht und die Sicht haelt. */
+    const l = Math.hypot(dx, dy) || 1;
+    const rx = dx / l, ry = dy / l;
+    let best = null, bestD = ab.weite;
+    for (const a of G.actors) {
+      if (a.isPlayer || !a.alive) continue;
+      const ax = a.x - p.x, ay = a.y - p.y;
+      const d = Math.hypot(ax, ay);
+      if (d > ab.weite) continue;
+      // Nur, was ungefaehr in Blickrichtung steht
+      if ((ax * rx + ay * ry) / (d || 1) < .55) continue;
+      if (!lineOfSight(kachelX(p), kachelY(p), kachelX(a), kachelY(a))) continue;
+      if (d < bestD) { bestD = d; best = a; }
+    }
+    if (!best) {
+      log("Da drüben ist nichts, an dem sich etwas holen ließe.", "system");
+      Sfx.spiel("nein");
+      return false;
+    }
+    p.zehrt = { ziel: best, bis: G.time + ab.dauer, ort: [p.x, p.y] };
+    Sfx.spiel("trank");
+    log(`Ein Strang legt sich um ${best.spec.name}.`, "you");
     p.abilityCd = ab.cd * (p.abilityHaste || 1);
     return true;
   }
@@ -8576,11 +8859,16 @@ function summon(a) {
   }
   if (!spots.length) return false;
   const [x, y] = pick(spots);
-  G.actors.push(makeMonster("spawn", x, y));
-  burst(x, y, MONSTERS.spawn.body, 16);
+  /* Was der Boss hervorbringt, haengt an ihm: der Namenlose reisst einen Riss
+     auf, der Totengraeber hebt ein Grab aus. */
+  const art = a.spec.hebt || "spawn";
+  G.actors.push(makeMonster(art, x, y));
+  burst(x, y, MONSTERS[art].body, 16);
   a.summons++;
   a.cooldown = 4;
-  log(`${a.spec.name} reißt einen Riss auf — Schattenbrut tritt hervor.`, "bad");
+  log(a.spec.hebt
+    ? `${a.spec.name} sticht den Spaten ein — etwas rappelt sich auf.`
+    : `${a.spec.name} reißt einen Riss auf — Schattenbrut tritt hervor.`, "bad");
   return true;
 }
 
@@ -8746,7 +9034,7 @@ function rastTakt() {
 
   // Zweite Schwelle: etwas macht sich aus dem Dunkel auf den Weg
   if (l >= LAERM_SCHWELLEN.kommt && vorher < LAERM_SCHWELLEN.kommt) {
-    const chancen = chancesFor(MONSTER_TABLE, G.floor);
+    const chancen = chancesFor(ort().monster, G.floor);
     if (chancen.length) {
       for (let versuch = 0; versuch < 40; versuch++) {
         const w = rng() * 6.283;
@@ -8851,6 +9139,7 @@ function tickWorld(dt) {
     if (!p.alive) return;
   }
 
+  tickZehren(dt);
   entdeckeFallen();
   entdeckeGeheimnisse();
   entdeckeSchatzkammer();
@@ -8878,6 +9167,36 @@ function tickWorld(dt) {
     }
   }
   updateFov();
+}
+
+/* Der Strang des Lebensentzugs. Er reisst ab, wenn man geht, wenn das Ziel
+   faellt oder wenn eine Wand dazwischenkommt - stehen bleiben ist der Preis. */
+const ZEHR_JE_SEKUNDE = 11;
+
+function tickZehren(dt) {
+  const p = G.player;
+  const z = p.zehrt;
+  if (!z) return;
+  const weg = Math.hypot(p.x - z.ort[0], p.y - z.ort[1]);
+  const ziel = z.ziel;
+  const reisst = G.time > z.bis || !ziel.alive || weg > .9 ||
+    Math.hypot(ziel.x - p.x, ziel.y - p.y) > ABILITIES.zehren.weite + 1 ||
+    !lineOfSight(kachelX(p), kachelY(p), kachelX(ziel), kachelY(ziel));
+  if (reisst) {
+    if (ziel.alive && G.time <= z.bis && weg > .9)
+      log("Der Strang reißt — du hast dich bewegt.", "system");
+    p.zehrt = null;
+    return;
+  }
+  const menge = ZEHR_JE_SEKUNDE * dt;
+  p.zehrRest = (p.zehrRest || 0) + menge;
+  while (p.zehrRest >= 1) {
+    p.zehrRest -= 1;
+    damage(ziel, 1, p);
+    const kam = healActor(p, 1);
+    if (!ziel.alive) { p.zehrt = null; break; }
+    if (kam && rng() < .3) floatText(p.x, p.y - .5, "+1", C.verd);
+  }
 }
 
 /* Gegner bewegen sich stufenlos. Die Richtung kommt weiter aus dem
@@ -9665,6 +9984,7 @@ function drawFrame(dt) {
   if (mode.kind === "target") drawTargeting(camX, camY);
 
   /* --- Effekte --- */
+  drawZehrstrang(camX, camY);
   drawEffects(dt, camX, camY);
 
   /* --- Vignette --- */
@@ -10520,6 +10840,97 @@ const PAINT = {
     ctx.beginPath();
     ctx.arc(lx, ly, s * .055, 0, 6.283);
     ctx.fill();
+  },
+
+  /* Ein Leichnam, der sich wieder aufgerappelt hat: schiefe Schultern, ein
+     Arm haengt, der Kopf sitzt zu tief. Er soll aussehen, als koste ihn das
+     Stehen Muehe. */
+  leiche(P) {
+    const { cx, g, s, body, dark, eye, t } = P;
+    const wanken = Math.sin(t * 1.3) * s * .03;
+
+    // Beine, eines nachgezogen
+    limb(cx - s * .11, g - s * .38, cx - s * .16, g - s * .02, s * .10, dark);
+    limb(cx + s * .11, g - s * .38, cx + s * .09, g - s * .02, s * .095, dark);
+
+    // Rumpf, leicht verdreht
+    ctx.save();
+    ctx.translate(cx + wanken, g);
+    ctx.rotate(-.06);
+    ctx.translate(-cx, -g);
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .19, g - s * .70);
+    ctx.quadraticCurveTo(cx + s * .04, g - s * .76, cx + s * .18, g - s * .68);
+    ctx.quadraticCurveTo(cx + s * .21, g - s * .50, cx + s * .15, g - s * .36);
+    ctx.lineTo(cx - s * .16, g - s * .36);
+    ctx.quadraticCurveTo(cx - s * .23, g - s * .52, cx - s * .19, g - s * .70);
+    ctx.closePath();
+    ctx.fill();
+
+    // Rippen als dunkle Striche
+    ctx.strokeStyle = "rgba(0,0,0,.30)";
+    ctx.lineWidth = Math.max(1, s * .028);
+    for (const d of [-.10, -.02, .06]) {
+      ctx.beginPath();
+      ctx.moveTo(cx - s * .13, g - s * .56 - s * d);
+      ctx.lineTo(cx + s * .12, g - s * .58 - s * d);
+      ctx.stroke();
+    }
+
+    // Ein Arm haengt, der andere greift
+    limb(cx - s * .17, g - s * .62, cx - s * .27, g - s * .22, s * .085, body);
+    limb(cx + s * .17, g - s * .62, cx + s * .32, g - s * .44, s * .085, body);
+    ctx.restore();
+
+    // Kopf, zu tief und schief
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.ellipse(cx + s * .04 + wanken, g - s * .78, s * .14, s * .155, .16, 0, 6.283);
+    ctx.fill();
+    // Kiefer offen
+    ctx.fillStyle = "rgba(0,0,0,.7)";
+    ctx.beginPath();
+    ctx.ellipse(cx + s * .06 + wanken, g - s * .70, s * .05, s * .04, .16, 0, 6.283);
+    ctx.fill();
+    slitEyes(cx + s * .03 + wanken, g - s * .82, s, eye, 2, .05);
+  },
+
+  /* Ein Schwarm loser Gebeine, der sich zu etwas Gehendem zusammenhaelt -
+     locker, klappernd, nie ganz derselbe. Die Knochen kreisen umeinander. */
+  knochen(P) {
+    const { cx, g, s, body, dark, eye, t } = P;
+    ctx.strokeStyle = body;
+    ctx.lineCap = "round";
+
+    // Ein Kranz kreisender Knochen
+    for (let i = 0; i < 9; i++) {
+      const w = t * 1.6 + i * .698;
+      const r = s * (.20 + .11 * Math.sin(t * 1.1 + i));
+      const x = cx + Math.cos(w) * r * 1.5;
+      const y = g - s * .42 + Math.sin(w) * r;
+      const l = s * (.10 + .05 * Math.sin(i * 2.1));
+      const n = w * .8;
+      ctx.lineWidth = Math.max(1.4, s * .045);
+      ctx.beginPath();
+      ctx.moveTo(x - Math.cos(n) * l, y - Math.sin(n) * l);
+      ctx.lineTo(x + Math.cos(n) * l, y + Math.sin(n) * l);
+      ctx.stroke();
+      // Gelenkkoepfe
+      ctx.fillStyle = dark;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(n) * l, y + Math.sin(n) * l, s * .028, 0, 6.283);
+      ctx.fill();
+    }
+
+    // Ein Schaedel in der Mitte haelt das Ganze zusammen
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.ellipse(cx, g - s * .46, s * .13, s * .15, 0, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = dark;
+    ctx.fillRect(cx - s * .07, g - s * .40, s * .14, s * .05);
+    slitEyes(cx, g - s * .50, s, eye, 2, .05);
   },
 
   robe(P) {
@@ -11575,6 +11986,41 @@ function drawTargeting(camX, camY) {
   ctx.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4);
   ctx.fillStyle = `rgba(232,169,75,${.10 + pulse * .08})`;
   ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+}
+
+/* Der Strang, solange er haelt. */
+function drawZehrstrang(camX, camY) {
+  const p = G.player;
+  const z = p.zehrt;
+  if (!z || !z.ziel.alive) return;
+  const x1 = (p.x - camX) * TILE, y1 = (p.y - camY) * TILE - TILE * .3;
+  const x2 = (z.ziel.x - camX) * TILE, y2 = (z.ziel.y - camY) * TILE - TILE * .3;
+  const t = anim.t;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (let k = 0; k < 3; k++) {
+    ctx.strokeStyle = ["rgba(120,220,150,.30)", "rgba(180,240,190,.45)",
+                       "rgba(232,255,232,.55)"][k];
+    ctx.lineWidth = [7, 3.4, 1.4][k];
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const nx = -(y2 - y1), ny = x2 - x1;
+    const nl = Math.hypot(nx, ny) || 1;
+    const schwung = Math.sin(t * 9 + k) * 10;
+    ctx.quadraticCurveTo(mx + (nx / nl) * schwung, my + (ny / nl) * schwung, x2, y2);
+    ctx.stroke();
+  }
+  // Tropfen, die zum Helden wandern
+  for (let i = 0; i < 4; i++) {
+    const f = ((t * .9 + i * .25) % 1);
+    const px = x2 + (x1 - x2) * f, py = y2 + (y1 - y2) * f;
+    ctx.fillStyle = "rgba(200,255,210,.7)";
+    ctx.beginPath();
+    ctx.arc(px, py, 2.4, 0, 6.283);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 function drawEffects(dt, camX, camY) {
@@ -13410,6 +13856,10 @@ function showVictory() {
       <div class="line"><span>Der Schacht</span><span>${schacht && schacht.bekannt
         ? "steht auf deiner Karte" : "noch zu finden"}</span></div>
     </div>
+    ${(META.siege | 0) === 0 ? `<p class="epitaph" style="margin-top:12px">
+      Und irgendwo im Osten, hinter dem Grat, liegt eine Stadt aus Grabmälern.
+      Sie stand die ganze Zeit auf deiner Karte. Ab jetzt steht sie dir offen —
+      wenn du hier herauskommst.</p>` : ""}
     <button class="choice gross" id="weiterBtn" style="margin-top:18px">
       <span class="key">↵</span><span>Den Rückweg antreten</span>
       <span class="note">der Sieg zählt erst, wenn du oben ankommst</span></button>`,
@@ -13964,6 +14414,7 @@ const ORTE = [
     key: "schloss",
     name: "Das Schloss",
     x: 38, y: 46,
+    stufe: "Leicht",
     note: "Zehn Etagen · Kerker, Pilzhöhle, Schmelze",
     zeichen: "burg",
     tiefen: [
@@ -13973,6 +14424,21 @@ const ORTE = [
       ["Kammer des Namenlosen", "10", "#A83430"],
     ],
   },
+  {
+    key: "totenstadt",
+    name: "Die Totenstadt",
+    x: 84, y: 50,
+    stufe: "Mittel",
+    note: "Zehn Etagen · Gassen und Katakomben",
+    zeichen: "gruft",
+    braucht: "namenlos",
+    zu: "Erst wenn der Namenlose gefallen ist",
+    tiefen: [
+      ["Die Gassen", "1–5", "#8E9878"],
+      ["Die Katakomben", "6–9", "#B0A88C"],
+      ["Der Totengräber", "10", "#6E7458"],
+    ],
+  },
 
   /* Was noch kommt. Sichtbar gesperrt und nicht anklickbar - die Karte darf
      etwas versprechen, aber sie soll es nicht als vorhanden verkleiden. */
@@ -13980,28 +14446,42 @@ const ORTE = [
     zeichen: "grube", note: "Stollen, Loren, und etwas, das dort gräbt" },
   { key: "eisspalt", name: "Der Eisspalt", x: 47, y: 17, bald: true,
     zeichen: "spalt", note: "Wo der Grat aufreißt" },
-  { key: "totenstadt", name: "Die Totenstadt", x: 84, y: 50, bald: true,
-    zeichen: "gruft", note: "Gassen aus Grabmälern" },
   { key: "moorfeste", name: "Die Moorfeste", x: 60, y: 78, bald: true,
     zeichen: "turm", note: "Ein Turm, halb im Schlamm" },
 ];
 
 let ortWahl = "schloss";
 
+/* Ob ein Ort offenstehtt. Die Totenstadt verlangt, dass der Namenlose
+   gefallen ist - sie nimmt den Platz ein, den frueher der Schlund hatte. */
+function ortOffen(o) {
+  if (!o.braucht) return true;
+  if (o.braucht === "namenlos") return (META.siege | 0) > 0;
+  return true;
+}
+
 function showKarte() {
-  const ort = ORTE.find(o => o.key === ortWahl) || ORTE[0];
-  const marken = ORTE.map(o => `<button class="ortsmarke${
-      o.key === ortWahl && !o.bald ? " an" : ""}${o.bald ? " bald" : ""}"
-      ${o.bald ? "disabled" : `data-ort="${o.key}"`}
+  // Ein verschlossener Ort darf nicht gewaehlt bleiben
+  if (!ORTE.some(o => o.key === ortWahl && !o.bald && ortOffen(o))) ortWahl = "schloss";
+  const derOrt = ORTE.find(o => o.key === ortWahl) || ORTE[0];
+  const marken = ORTE.map(o => {
+    const offen = !o.bald && ortOffen(o);
+    const gewaehlt = o.key === ortWahl && offen;
+    const marke = o.bald ? '<b class="baldmarke">Bald</b>'
+      : !offen ? '<b class="baldmarke zu">Verschlossen</b>'
+      : o.stufe ? `<b class="stufenmarke ${o.stufe.toLowerCase()}">${o.stufe}</b>` : "";
+    return `<button class="ortsmarke${gewaehlt ? " an" : ""}${
+        o.bald || !offen ? " bald" : ""}"
+      ${offen ? `data-ort="${o.key}"` : "disabled"}
       style="left:${o.x}%;top:${o.y}%">
-      <span class="ortsschild">${escapeHtml(o.name)}${
-        o.bald ? '<b class="baldmarke">Bald</b>' : ""}</span>
-      <span class="ortsnote">${escapeHtml(o.note)}</span>
+      <span class="ortsschild">${escapeHtml(o.name)}${marke}</span>
+      <span class="ortsnote">${escapeHtml(offen ? o.note : (o.zu || o.note))}</span>
       <span class="ortsstrich"></span>
       <span class="ortspunkt"></span>
-    </button>`).join("");
+    </button>`;
+  }).join("");
 
-  const tiefen = ort.tiefen.map(([n, t, farbe]) =>
+  const tiefen = derOrt.tiefen.map(([n, t, farbe]) =>
     `<div class="tiefenzeile" style="--tint:${farbe}">${escapeHtml(n)}
       <span>Etage ${t}</span></div>`).join("");
 
@@ -14017,7 +14497,7 @@ function showKarte() {
       ${lagerPillen("")}
       <div class="schirmleib" style="grid-template-columns:minmax(260px,340px) minmax(0,1fr)">
         <section>
-          <p class="feldkopf">${escapeHtml(ort.name)}</p>
+          <p class="feldkopf">${escapeHtml(derOrt.name)}</p>
           <div class="tiefenliste">${tiefen}</div>
           <p class="quiet" style="margin:10px 0 0">Du beginnst immer oben. Ein
             Aufstiegsschacht liegt auf jeder Etage — aber nicht dort, wo du
@@ -14057,7 +14537,8 @@ function showKarte() {
       </div>
       ${lagerFuss([["Esc", "zurück ins Lager"], ["↵", "hinabsteigen"]],
         `<button class="haupttat" id="losBtn">Hinabsteigen
-          <em>${escapeHtml(ort.name)} · Etage ${einstiegTiefe}</em></button>`)}
+          <em>${escapeHtml(derOrt.name)} · Etage ${einstiegTiefe}${
+            derOrt.stufe ? " · " + derOrt.stufe : ""}</em></button>`)}
     </div>`,
     key => {
       if (key === "Escape") { showLoadout(); return true; }
@@ -14386,7 +14867,11 @@ function showCamp(reiter) {
     /* Der Vorrat ist die Zahl, an der hier alles haengt - er stand als
        kursive Fussnote im schwaechsten Ton der Palette. Jetzt sind es Marken,
        in denen die Zahl gross ist und die Farbe den Werkstoff bezeichnet. */
-    const vorrat = WERKSTOFF_TIEFE.map(w => {
+    /* Alle Werkstoffe, die es gibt - auch die, die nur der zweite Ort
+       hergibt; sonst sieht man nicht, was zur letzten Stufe fehlt. */
+    const alleStoffe = [...WERKSTOFF_TIEFE,
+      ...WERKSTOFF_TOTENSTADT.filter(w => !WERKSTOFF_TIEFE.some(x => x.id === w.id))];
+    const vorrat = alleStoffe.map(w => {
       const n = werkstoffVorrat(w.id);
       return `<span class="stoffmarke${n ? "" : " leer"}"
         style="--tint:${ITEMS[w.id].tint}">${escapeHtml(ITEMS[w.id].name)}<b>${n}</b></span>`;
@@ -15113,6 +15598,7 @@ function freshState() {
     quest: null, questLog: [],
     time: 0, upkeepAt: 0, laune: null, finsterBrut: 0, vault: null, legenden: [],
     floor: 0, deepest: 0, turns: 0, won: false, siegRunden: 0,
+    ort: "schloss",
     logEntries: [],
   };
 }
@@ -15150,7 +15636,9 @@ function startNewGame() {
 
   /* Wer Seile mitbringt, faengt tiefer an. Sie sind beim Aufbruch schon
      verbraucht - hier steht nur noch, wie tief es losgeht. */
-  const start = Math.max(1, Math.min(MAX_FLOOR, einstiegTiefe | 0 || 1));
+  // Wohin es geht, steht auf der Karte - der Lauf merkt es sich.
+  G.ort = ORT_INHALT[ortWahl] ? ortWahl : "schloss";
+  const start = Math.max(1, Math.min(maxFloor(), einstiegTiefe | 0 || 1));
   einstiegTiefe = 1;
   G.floor = start; G.deepest = start;
   populateFloor(start);
