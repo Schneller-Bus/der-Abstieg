@@ -1186,6 +1186,79 @@ body {
 .gear-box.leer { border-style: dashed; opacity: .45; }
 .gear-box svg { width: 26px; height: 26px; display: block; }
 
+/* == Das Guertelband =====================================================
+   Fuenf Plaetze nebeneinander, jeder mit seiner Ziffer in der Ecke. Die
+   Ziffer ist keine Verzierung, sondern die Taste - sie muss also lesbar sein
+   und nicht nur angedeutet. */
+.guertelband {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.gplatz {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--stone-700);
+  border-radius: 6px;
+  background: rgba(0,0,0,.42);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.55);
+  color: var(--vellum-dim);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .12s ease, background-color .12s ease;
+}
+
+.gplatz.leer { border-style: dashed; cursor: default; }
+.gplatz:not(.leer) {
+  border-color: color-mix(in srgb, var(--tint) 50%, var(--stone-700));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--tint) 16%, transparent), transparent 64%),
+    var(--stone-850);
+}
+.gplatz:not(.leer):hover { border-color: var(--tint); background-color: var(--stone-800); }
+.gplatz svg { width: 24px; height: 24px; display: block; }
+
+.gplatznr {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-family: var(--rubric);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--vellum-dim);
+}
+
+.gplatz:not(.leer) .gplatznr { color: var(--vellum); }
+
+.gmenge {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: rgba(10,8,6,.85);
+  font-family: var(--rubric);
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--vellum);
+}
+
+/* Dasselbe Band in den Fenstern, nur etwas groesser und mit Beschriftung. */
+.guertelreihe {
+  display: grid;
+  grid-template-columns: repeat(5, 46px);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.guertelreihe .gplatz { width: 46px; height: 46px; aspect-ratio: auto; }
+
 .gear-text { min-width: 0; line-height: 1.35; }
 
 .gear-text b {
@@ -1889,6 +1962,12 @@ body {
         <div class="meter"><i class="fill xp" id="xpFill"></i><div class="value" id="xpText">0 / 150</div></div>
         <div class="stat-row"><span>Angriff</span><b id="statAtk">5</b></div>
         <div class="stat-row"><span>Schutz</span><b id="statDef">2</b></div>
+      </section>
+
+      <section>
+        <div class="divider" style="margin-bottom:14px"></div>
+        <h2 class="rubric"><span>Gürtel</span><span id="guertelTag">Tasten 1–5</span></h2>
+        <div class="guertelband" id="guertelBand"></div>
       </section>
 
       <section>
@@ -2688,15 +2767,15 @@ const MONSTERS = {
 
 const ITEMS = {
   potion:      { name: "Heiltrank",             kind: "potion", tint: "#C0433F", use: "heal", amount: 15,
-                 note: "stellt 15 Leben her" },
+                 stapel: 3, note: "stellt 15 Leben her" },
   greatPotion: { name: "Großer Heiltrank",      kind: "potion", tint: "#E0555C", use: "heal", amount: 32,
-                 note: "stellt 32 Leben her" },
+                 stapel: 2, note: "stellt 32 Leben her" },
   might:       { name: "Trank der Stärke",      kind: "potion", tint: "#E08A3E", use: "status",
-                 status: "Stärke", turns: 20, mag: 4, note: "20 Runden Angriff +4" },
+                 status: "Stärke", turns: 20, mag: 4, stapel: 2, note: "20 Runden Angriff +4" },
   ward:        { name: "Trank des Schutzes",    kind: "potion", tint: "#6E9ED8", use: "status",
-                 status: "Schutz", turns: 20, mag: 3, note: "20 Runden Schutz +3" },
+                 status: "Schutz", turns: 20, mag: 3, stapel: 2, note: "20 Runden Schutz +3" },
   regen:       { name: "Trank der Regeneration",kind: "potion", tint: "#6CBE86", use: "status",
-                 status: "Regeneration", turns: 15, mag: 2, note: "15 Runden je 2 Leben" },
+                 status: "Regeneration", turns: 15, mag: 2, stapel: 2, note: "15 Runden je 2 Leben" },
   lightning:   { name: "Blitzrolle",            kind: "scroll", tint: "#E8D06A", use: "lightning",
                  damage: 22, range: 5, note: "22 Schaden auf den nächsten Feind" },
   fireball:    { name: "Feuerballrolle",        kind: "scroll", tint: "#E06A3A", use: "fireball",
@@ -2710,9 +2789,9 @@ const ITEMS = {
   chart:       { name: "Rolle der Kartografie", kind: "scroll", tint: "#C6C6E2", use: "chart",
                  note: "deckt die Etage auf" },
   oil:         { name: "Ölfläschchen",          kind: "oil",    tint: "#E8B65A", use: "oil",
-                 amount: 30, note: "füllt 30 Öl nach" },
+                 amount: 30, stapel: 3, note: "füllt 30 Öl nach" },
   bigoil:      { name: "Ölkrug",                kind: "oil",    tint: "#F0C86A", use: "oil",
-                 amount: 60, note: "füllt 60 Öl nach" },
+                 amount: 60, stapel: 2, note: "füllt 60 Öl nach" },
 
   /* Faehigkeitsmodule. Sie sind der einzige Weg zu einer Faehigkeit, seit es
      keine Klassen mehr gibt: was du kannst, haengt daran, was du gefunden
@@ -2894,6 +2973,104 @@ const ERWEITERUNGEN = {
                    note: "vier Reihen und zwei Spalten mehr im Lager" },
 };
 
+/* == Der Guertel =========================================================
+   Flaschen sind das Einzige, was man mitten im Kampf braucht - und genau
+   dafuer war das Kachelraster der falsche Ort: wer einen Heiltrank wollte,
+   musste den Rucksack oeffnen (die Welt bleibt dabei stehen), die Kachel
+   suchen und anklicken. Nebenbei frassen fuenf Traenke fuenf Kacheln, die
+   dann fuer Beute fehlten.
+
+   Der Guertel ist ein eigenes Band mit fuenf Plaetzen. Er belegt kein Raster,
+   liegt aber auf der Waage - sonst waere er heimlich mehr Tragkraft. Jeder
+   Platz haelt einen Stapel einer Sorte und hat die Ziffer, die auf ihm steht,
+   als Taste. Was darin steckt, ueberlebt den Aufstieg wie das Angelegte und
+   ist beim Tod verloren wie alles andere. */
+const GUERTEL_PLAETZE = 5;
+
+// Was hineindarf: Flaschen. Rollen bleiben im Rucksack, sie sind kein Schluck.
+const istFlasche = def => !!def && (def.kind === "potion" || def.kind === "oil");
+
+function guertel(p) {
+  p = p || G.player;
+  if (!Array.isArray(p.guertel) || p.guertel.length !== GUERTEL_PLAETZE) {
+    const alt = Array.isArray(p.guertel) ? p.guertel : [];
+    p.guertel = Array.from({ length: GUERTEL_PLAETZE }, (_, i) => alt[i] || null);
+  }
+  return p.guertel;
+}
+
+function guertelGewicht(p) {
+  return guertel(p).reduce((a, e) => a + (e ? gewicht(e) : 0), 0);
+}
+
+/* Wohin ein Stueck im Guertel gehoert: zuerst auf einen angefangenen Stapel
+   derselben Sorte, sonst auf den ersten freien Platz. */
+function guertelPlatzFuer(p, eintrag) {
+  if (!istFlasche(eintrag.def)) return -1;
+  const g = guertel(p);
+  for (let i = 0; i < g.length; i++)
+    if (g[i] && g[i].id === eintrag.id && g[i].sel === eintrag.sel &&
+        (g[i].menge || 1) < (g[i].def.stapel || 1)) return i;
+  for (let i = 0; i < g.length; i++) if (!g[i]) return i;
+  return -1;
+}
+
+function guertelVoll(p) {
+  return guertel(p).every(e => e && (e.menge || 1) >= (e.def.stapel || 1));
+}
+
+/* Aus dem Rucksack an den Guertel. Gleiche Sorte wandert auf den Stapel,
+   sonst auf den ersten freien Platz. */
+function inDenGuertel(p, eintrag) {
+  const nr = guertelPlatzFuer(p, eintrag);
+  if (nr < 0) return false;
+  const g = guertel(p);
+  const menge = eintrag.menge || 1;
+  if (g[nr]) {
+    const luft = (g[nr].def.stapel || 1) - (g[nr].menge || 1);
+    const nimmt = Math.min(luft, menge);
+    g[nr].menge = (g[nr].menge || 1) + nimmt;
+    eintrag.menge = menge - nimmt;
+    if (eintrag.menge <= 0) {
+      const i = p.bag.indexOf(eintrag);
+      if (i >= 0) p.bag.splice(i, 1);
+    }
+    return true;
+  }
+  const i = p.bag.indexOf(eintrag);
+  if (i >= 0) p.bag.splice(i, 1);
+  eintrag.gx = eintrag.gy = null;
+  eintrag.dreh = false;
+  g[nr] = eintrag;
+  return true;
+}
+
+/* Und zurueck. Passt es nicht mehr ins Raster, bleibt es am Guertel haengen -
+   verloren geht dabei nichts. */
+function ausDemGuertel(p, nr) {
+  const g = guertel(p);
+  const e = g[nr];
+  if (!e) return "leer";
+  g[nr] = null;
+  const hindernis = legeAb(p, e);
+  if (hindernis) { g[nr] = e; return hindernis; }
+  return null;
+}
+
+/* Die Ziffer auf dem Platz ist seine Taste. Das ist der ganze Zweck des
+   Bandes: einen Schluck nehmen, ohne die Welt anzuhalten. */
+function benutzeGuertel(nr) {
+  const p = G.player;
+  if (!p.alive || mode.kind !== "play" || modalOpen) return false;
+  const e = guertel(p)[nr];
+  if (!e) {
+    log(`Gürtelplatz ${nr + 1} ist leer.`, "system");
+    Sfx.spiel("nein");
+    return false;
+  }
+  return useItem(e);
+}
+
 function hatErweiterung(key) {
   return !!(META.erweiterungen && META.erweiterungen.indexOf(key) >= 0);
 }
@@ -2973,9 +3150,12 @@ function imRucksack(p) {
   return p.bag.filter(e => an.indexOf(e) < 0);
 }
 
+/* Der Guertel belegt keine Kachel, liegt aber auf der Waage - sonst waere er
+   heimlich zusaetzliche Tragkraft und die Frage, was man mitnimmt, waere
+   fuer Flaschen abgeschafft. */
 function getragen(p) {
   p = p || G.player;
-  return imRucksack(p).reduce((a, e) => a + gewicht(e), 0);
+  return imRucksack(p).reduce((a, e) => a + gewicht(e), 0) + guertelGewicht(p);
 }
 
 /* Ab vier Fuenfteln der Traglast wird der Gang schwer. */
@@ -3109,6 +3289,19 @@ function legeAb(p, eintrag) {
 }
 
 /* Passt es ueberhaupt noch, ohne es schon zu nehmen? */
+/* Beim Aufheben zaehlt der Guertel als zweite Tasche: eine Flasche, fuer die
+   im Raster keine Luecke mehr ist, findet dort noch einen Platz. Nicht in
+   legeAb selbst - sonst legte ausDemGuertel() die Flasche sofort wieder
+   zurueck an den Guertel, aus dem sie gerade kam. */
+function nimmAuf(p, eintrag) {
+  const hindernis = legeAb(p, eintrag);
+  if (!hindernis) return null;
+  if (istFlasche(eintrag.def) &&
+      getragen(p) + gewicht(eintrag) <= traglast() &&
+      inDenGuertel(p, eintrag)) return null;
+  return hindernis;
+}
+
 function nimmtNoch(p, eintrag) {
   return getragen(p) + gewicht(eintrag) <= traglast() && !!suchePlatz(p, eintrag);
 }
@@ -3235,9 +3428,11 @@ function buildItem(id, affixKey, sel) {
   // Legendaere tragen ihren Namen und ihre Werte selbst - da kommt nichts dran
   if (base.legendaer) return { id, def: base };
   if (!base.slot) {
-    // Werkstoffe fuehren eine Menge mit, alles andere ist ein Stueck
+    /* Was sich stapeln laesst, fuehrt eine Menge mit. Das galt bisher nur
+       fuer Werkstoff; seit Traenke ein Stapelmass haben, gilt es auch fuer
+       sie - sonst lagen zwoelf Heiltraenke auf zwoelf Kacheln. */
     const e = { id, def: base };
-    if (base.kind === "material") e.menge = 1;
+    if (base.stapel) e.menge = 1;
     return e;
   }
   if (base.kind === "modul") return { id, def: base, sel: "selten" };
@@ -3539,7 +3734,8 @@ function ladeMeta() {
    META landet. */
 function ladeMetaAus(roh) {
   const leer = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
-                 mitnahme: [], anlegen: {}, gesehen: [], stufe: 1, xp: 0, punkte: 0,
+                 mitnahme: [], anlegen: {}, guertel: Array(GUERTEL_PLAETZE).fill(null),
+                 gesehen: [], stufe: 1, xp: 0, punkte: 0,
                  skills: {}, erweiterungen: [] };
   {
     if (roh && typeof roh === "object") {
@@ -3558,6 +3754,9 @@ function ladeMetaAus(roh) {
         erweiterungen: Array.isArray(roh.erweiterungen) ? roh.erweiterungen : [],
         mitnahme: Array.isArray(roh.mitnahme) ? roh.mitnahme : [],
         anlegen: (roh.anlegen && typeof roh.anlegen === "object") ? roh.anlegen : {},
+        // Aeltere Spielstaende kennen den Guertel noch nicht
+        guertel: Array.from({ length: GUERTEL_PLAETZE }, (_, i) =>
+          (Array.isArray(roh.guertel) ? roh.guertel[i] : null) || null),
       };
     }
   }
@@ -3607,6 +3806,9 @@ function wert(eintrag) {
     w = d.amount ? Math.round(grund * d.amount) : grund;
   }
   if (d.kind === "material") w = [0, 9, 26, 70, 180][d.rang || 1] * (eintrag.menge || 1);
+  /* Drei Heiltraenke auf einer Kachel sind drei Heiltraenke wert. Ohne das
+     verschenkte man beim Verkaufen zwei davon. */
+  else if (d.stapel && eintrag.menge > 1) w *= eintrag.menge;
   if (eintrag.ax) w = Math.round(w * 1.35);
   if (d.slot && !d.legendaer) w = Math.round(w * SELTEN_VON[seltenheitVon(eintrag)].wert);
   if (d.legendaer) w = Math.round(w * 3.5);
@@ -3749,15 +3951,34 @@ function verbucheLauf(gerettet) {
       META.umsatz = (META.umsatz | 0) + erloes;
     }
   }
-  /* Wer heil oben ankommt, behaelt, was er am Koerper trug. Vorher wurde man
-     nach jedem erfolgreichen Lauf ausgezogen und musste sich neu ausruesten -
-     das bestrafte genau das, was man erreichen wollte. Der Rucksack wandert
-     ins Lager (das ist die Beute), die vier Plaetze bleiben belegt. */
+  /* Wer heil oben ankommt, behaelt, was er am Koerper trug. Und zwar das,
+     was er WIRKLICH traegt, nicht das, was beim Aufbruch dort lag: bisher
+     blieb META.anlegen unveraendert stehen, und weil Angelegtes zugleich von
+     der Beute ausgenommen ist, loeste sich jede Waffe auf, die man unten
+     gefunden und angelegt hatte. Wer mit der Notausruestung loszog, behielt
+     ueberhaupt nichts, weil dort nie etwas eingetragen wurde.
+
+     Was man traegt, entscheidet sich unten. Also wird die Liste hier aus dem
+     Koerper gebaut und nicht aus der Erinnerung. */
   META.mitnahme = [];
-  if (!gerettet) META.anlegen = {};
-  else for (const slot of LADE_PLAETZE) {
-    const b = META.anlegen[slot];
-    if (b) { b.gx = null; b.gy = null; b.dreh = false; }
+  if (!gerettet) { META.anlegen = {}; META.guertel = Array(GUERTEL_PLAETZE).fill(null); }
+  else {
+    const behalten = {};
+    for (const slot of LADE_PLAETZE) {
+      const e = G.player.equipped[slot];
+      if (!e || (e.def && e.def.quest)) continue;
+      const b = alsBestand(e);
+      b.gx = null; b.gy = null; b.dreh = false;
+      behalten[slot] = b;
+    }
+    META.anlegen = behalten;
+    // Was im Guertel steckt, ist mitgebracht und bleibt - wie das Angelegte
+    META.guertel = guertel(G.player).map(e => {
+      if (!e) return null;
+      const b = alsBestand(e);
+      b.gx = null; b.gy = null; b.dreh = false;
+      return b;
+    });
   }
   speichereMeta(META);
   return { stuecke, verkauft, erloes };
@@ -6784,8 +7005,13 @@ function pickUp() {
     return false;
   }
   const item = here[0];
-  const stueck = { id: item.id, def: item.def, ax: item.ax };
-  const hindernis = legeAb(G.player, stueck);
+  /* Menge, Stufe und Seltenheit muessen mit. Sie fielen hier bisher weg: ein
+     Stapel von vier Schrott wurde zu einem Stueck, ein episches Schwert vom
+     Boden zu einem gewoehnlichen. */
+  const stueck = { id: item.id, def: item.def, ax: item.ax || null,
+                   sel: item.sel || null, stufe: item.stufe || 0 };
+  if (item.menge) stueck.menge = item.menge;
+  const hindernis = nimmAuf(G.player, stueck);
   if (hindernis) {
     log(hindernis === "gewicht"
       ? `${item.def.name} ist zu schwer — du trägst schon ${last(getragen())} von ${last(traglast())}.`
@@ -6907,7 +7133,15 @@ function trefferbar(a, x0, y0) {
 function useItem(entry, targetXY) {
   const d = entry.def;
   const p = G.player;
-  const consume = () => { const i = p.bag.indexOf(entry); if (i >= 0) p.bag.splice(i, 1); };
+  /* Aufgebraucht wird ein Stueck, nicht der Stapel - und ein Trank aus dem
+     Guertel raeumt seinen Platz, nicht den Rucksack. */
+  const consume = () => {
+    if (entry.menge > 1) { entry.menge--; return; }
+    const i = p.bag.indexOf(entry);
+    if (i >= 0) { p.bag.splice(i, 1); return; }
+    const g = (p.guertel || []).indexOf(entry);
+    if (g >= 0) p.guertel[g] = null;
+  };
 
   switch (d.use) {
     case "heal": {
@@ -10870,6 +11104,7 @@ function standFingerabdruck() {
           p.level, p.xp, G.floor, p.finsternis | 0,
           Object.keys(p.statuses || {}).join(","),
           Math.round((p.abilityCd || 0) * 4),
+          guertel(p).map(e => e ? e.id + (e.menge || 1) : "-").join(","),
           G.aufstieg ? Math.round((G.aufstieg.bis - G.time) * 10) : "-"].join("|");
 }
 
@@ -10990,6 +11225,25 @@ function refreshUI() {
        <div class="quest-desc">${escapeHtml(q.done ? "erfüllt" : q.desc)}</div>` +
       (progress && !q.done ? `<div class="quest-count">${progress}</div>` : "") +
       (reward && !q.done ? `<div class="quest-reward">Lohn: ${escapeHtml(reward)}</div>` : "");
+  }
+
+  const band = $("guertelBand");
+  if (band) {
+    band.innerHTML = guertel(p).map((e, i) => {
+      const nr = `<span class="gplatznr">${i + 1}</span>`;
+      if (!e) return `<button class="gplatz leer" data-guertel="${i}"
+        title="Gürtelplatz ${i + 1} — leer" aria-label="Gürtelplatz ${i + 1}, leer">${nr}</button>`;
+      const d = vorlage(e);
+      const menge = (e.menge || 1) > 1 ? `<span class="gmenge">${e.menge}</span>` : "";
+      return `<button class="gplatz" data-guertel="${i}" style="--tint:${d.tint}"
+        title="${escapeHtml(d.name)} — Taste ${i + 1}"
+        aria-label="Gürtelplatz ${i + 1}: ${escapeHtml(d.name)}${
+          (e.menge || 1) > 1 ? ", " + e.menge + " Stück" : ""}">${
+        nr}${kachelBild(e)}${menge}</button>`;
+    }).join("");
+    band.querySelectorAll("[data-guertel]").forEach(el => {
+      el.onclick = () => act(() => benutzeGuertel(+el.dataset.guertel));
+    });
   }
 
   const statusNames = Object.keys(p.statuses);
@@ -11407,7 +11661,11 @@ function bagMarkup() {
       Math.round(anteil * 100)}%"></i><u style="left:80%"></u></div>
     <div class="bag-wrap">
       <div class="raster" style="--sp:${spalten};--re:${reihen}">${zellen}${kacheln}</div>
-      <aside class="gear"><h3>Angelegt</h3>${gear}</aside>
+      <aside class="gear">
+        <h3>Angelegt</h3>${gear}
+        <h3 style="margin-top:14px">Gürtel</h3>
+        ${guertelReihe(guertel(p), "gband")}
+      </aside>
     </div>
     <div class="tafel">${bagTafel()}</div>
     <div class="ausgang" style="margin-top:12px;padding-top:10px">
@@ -11416,7 +11674,8 @@ function bagMarkup() {
       <span class="note">packt das Sperrigste zuerst — schafft Platz für Rüstung</span></button>
     </div>
     <div class="foot">Kacheln verschieben · <b>R</b> dreht · Klick benutzt oder legt an ·
-      auf ein Ausrüstungsfeld ziehen legt an · Esc schließt</div>`;
+      auf ein Ausrüstungsfeld ziehen legt an · Flaschen gehören an den Gürtel,
+      dort liegen sie auf <b>1</b>–<b>5</b> · Esc schließt</div>`;
 }
 
 /* Die Tafel unter dem Raster: alles zum gewaehlten Stueck. */
@@ -11437,6 +11696,8 @@ function bagTafel() {
       an ? "" : compareText(e)}${d.sage ? `<em class="sage">„${escapeHtml(d.sage)}“</em>` : ""}</p>
     <div class="tafeltaten">
       <button class="bag-act" id="tatBtn" ${tat ? "" : "disabled"}>${tat || "—"}</button>
+      ${istFlasche(d) && p.bag.includes(e) && guertelPlatzFuer(p, e) >= 0
+        ? '<button class="bag-act" id="guertelBtn">An den Gürtel</button>' : ""}
       ${!an && drehbar(e)
         ? '<button class="bag-act" id="drehBtn">Drehen · R</button>' : ""}
       <button class="bag-act drop" id="wegBtn">Wegwerfen</button>
@@ -11480,6 +11741,30 @@ function bagBinde() {
   if (tat) tat.onclick = () => chooseBagItem(bagWahl, false);
   if (weg) weg.onclick = () => chooseBagItem(bagWahl, true);
   if (dreh) dreh.onclick = () => bagDrehen();
+
+  const anGuertel = $("guertelBtn");
+  if (anGuertel) anGuertel.onclick = () => {
+    if (inDenGuertel(p, bagWahl)) { Sfx.spiel("ausruesten"); bagWahl = null; }
+    else Sfx.spiel("nein");
+    bagFrisch();
+  };
+  /* Ein Klick auf einen belegten Guertelplatz legt die Flasche zurueck ins
+     Raster - benutzt wird sie draussen mit ihrer Ziffer, nicht hier drin. */
+  overlay.querySelectorAll("[data-gband]").forEach(el => {
+    const nr = +el.dataset.gband;
+    el.onclick = () => {
+      if (!guertel(p)[nr]) return;
+      const hindernis = ausDemGuertel(p, nr);
+      if (hindernis) {
+        log(hindernis === "gewicht"
+          ? "Zu schwer für den Rucksack."
+          : "Im Rucksack ist keine Lücke dafür.", "system");
+        Sfx.spiel("nein");
+      } else Sfx.spiel("aufheben");
+      bagWahl = null;
+      bagFrisch();
+    };
+  });
 
   function greife(el, e, amKoerper) {
     el.onpointerdown = ev => {
@@ -11653,7 +11938,7 @@ function nimmAusKiste(kiste, i) {
   const eintrag = kiste.loot[i];
   if (!eintrag) return;
   const gebaut = ausKisteBauen(eintrag);
-  const hindernis = legeAb(p, gebaut);
+  const hindernis = nimmAuf(p, gebaut);
   if (hindernis) {
     log(hindernis === "gewicht"
       ? `${gebaut.def.name} ist zu schwer — du trägst schon ${last(getragen())} von ${last(traglast())}.`
@@ -12023,23 +12308,24 @@ function showHelp() {
     ]],
     ["Kämpfen", [
       [maus("linke Maustaste"), "zuschlagen, wohin der Zeiger zeigt"],
-      [kappe(t("faehig")), "die Fähigkeit deiner Klasse"],
+      [kappe(t("faehig")), "die Fähigkeit deines Moduls"],
       [kappe(t("rasten")), "rasten — heilt schnell, macht aber Lärm"],
     ]],
     ["Licht und Beute", [
       [kappe(t("flammeRunter")) + kappe(t("flammeHoch")), "Fackel herunter- und aufdrehen"],
       [kappe(t("aufheben")), "aufheben · Kiste öffnen · Riss aufbrechen"],
       [kappe(t("beutel")), "Rucksack — Kacheln schieben, Klick benutzt oder legt an"],
+      ['<kbd>1</kbd>–<kbd>5</kbd>', "Gürtel — trinken, ohne die Welt anzuhalten"],
     ]],
     ["Weiterkommen", [
       [kappe(t("treppe")), "eine Etage tiefer"],
-      [kappe(t("aufstieg")), "an einer Treppe umkehren — sichert deine Beute"],
+      [kappe(t("aufstieg")), "an einem Schacht aufsteigen — acht Sekunden, und es hallt"],
       [kappe(t("schleier")), "vor der Bosskammer: durch den Schleier"],
     ]],
     ["Fenster", [
       [kappe(t("auftrag")), "Aufträge dieser Etage"],
       [kappe(t("held")), "Heldenbogen"],
-      [kappe(t("menue")), "Menü — Speicherplätze, Übertragungscode, Tastenbelegung"],
+      [kappe(t("menue")), "Menü — Tastenbelegung, Ton, Lauf aufgeben"],
       [kappe(t("hilfe")), "diese Hilfe"],
       [kappe(t("ton")), "Ton an oder aus"],
     ]],
@@ -12972,8 +13258,86 @@ function ladeMass(feld) {
 
 /* Was der Rucksack im Aufbruch wiegt - Angelegtes zaehlt nicht mit, genau wie
    unten im Verlies. */
+/* Der Guertel wiegt auch im Aufbruchsfenster mit - sonst zeigte die Waage
+   dort etwas anderes an als unten im Verlies. */
 function mitnahmeGewicht() {
-  return (META.mitnahme || []).reduce((a, b) => a + gewicht(b), 0);
+  return (META.mitnahme || []).reduce((a, b) => a + gewicht(b), 0) +
+         (META.guertel || []).reduce((a, b) => a + (b ? gewicht(b) : 0), 0);
+}
+
+/* Der Guertel im Lager arbeitet auf Bestandssaetzen, nicht auf gebauten
+   Stuecken - dieselbe Regel, andere Datenform: gleiche Sorte auf den Stapel,
+   sonst der erste freie Platz. */
+function guertelPlatzImLager(b) {
+  const d = vorlage(b);
+  if (!istFlasche(d)) return -1;
+  const g = META.guertel || (META.guertel = Array(GUERTEL_PLAETZE).fill(null));
+  for (let i = 0; i < GUERTEL_PLAETZE; i++) {
+    const x = g[i];
+    if (x && x.id === b.id && (x.sel || null) === (b.sel || null) &&
+        (x.menge || 1) < (vorlage(x).stapel || 1)) return i;
+  }
+  for (let i = 0; i < GUERTEL_PLAETZE; i++) if (!g[i]) return i;
+  return -1;
+}
+
+function ladeAnGuertel(b, vonFeld) {
+  const nr = guertelPlatzImLager(b);
+  if (nr < 0) return false;
+  const quelle = ladeListe(vonFeld);
+  const g = META.guertel;
+  const menge = b.menge || 1;
+  if (g[nr]) {
+    const luft = (vorlage(g[nr]).stapel || 1) - (g[nr].menge || 1);
+    const nimmt = Math.min(luft, menge);
+    g[nr].menge = (g[nr].menge || 1) + nimmt;
+    b.menge = menge - nimmt;
+    if (b.menge <= 0) {
+      const i = quelle.indexOf(b);
+      if (i >= 0) quelle.splice(i, 1);
+    }
+    return true;
+  }
+  const i = quelle.indexOf(b);
+  if (i >= 0) quelle.splice(i, 1);
+  b.gx = null; b.gy = null; b.dreh = false;
+  g[nr] = b;
+  return true;
+}
+
+function ladeVomGuertel(nr, zuFeld) {
+  const g = META.guertel || [];
+  const b = g[nr];
+  if (!b) return false;
+  g[nr] = null;
+  const liste = ladeListe(zuFeld);
+  const { spalten, reihen } = ladeMass(zuFeld);
+  const platz = suchePlatzIn(liste, spalten, reihen, b);
+  if (!platz) { g[nr] = b; return false; }
+  setzeAuf(b, platz);
+  liste.push(b);
+  return true;
+}
+
+/* Das Band, wie es in einem Fenster steht. */
+function guertelReihe(liste, feld) {
+  const plaetze = [];
+  for (let i = 0; i < GUERTEL_PLAETZE; i++) {
+    const e = liste[i];
+    const nr = `<span class="gplatznr">${i + 1}</span>`;
+    if (!e) {
+      plaetze.push(`<button class="gplatz leer" data-${feld}="${i}"
+        aria-label="Gürtelplatz ${i + 1}, leer">${nr}</button>`);
+      continue;
+    }
+    const d = vorlage(e);
+    const menge = (e.menge || 1) > 1 ? `<span class="gmenge">${e.menge}</span>` : "";
+    plaetze.push(`<button class="gplatz" data-${feld}="${i}" style="--tint:${d.tint}"
+      title="${escapeHtml(d.name)}"
+      aria-label="Gürtelplatz ${i + 1}: ${escapeHtml(d.name)}">${
+      nr}${kachelBild(e)}${menge}</button>`);
+  }
+  return `<div class="guertelreihe" role="group" aria-label="Gürtel">${plaetze.join("")}</div>`;
 }
 
 function showLoadout() {
@@ -13041,6 +13405,9 @@ function ladeMarkup() {
         <p class="quiet"><b class="${schwer ? "schwerbeladen" : ""}">${last(kg)}</b>
           von ${last(max)}${zuSchwer ? " — zu schwer" : schwer ? " — schwer beladen" : ""}</p>
         <div class="ladeplaetze">${plaetze}</div>
+        <h3 style="margin-top:16px">Gürtel <em>Flaschen, Tasten 1–5</em></h3>
+        ${guertelReihe(META.guertel || [], "gplatz")}
+        <p class="quiet">Was hier steckt, belegt keine Kachel — wiegt aber mit.</p>
       </section>
     </div>
     <div class="tafel">${ladeTafel()}</div>
@@ -13086,6 +13453,8 @@ function ladeTafel() {
       ${!angelegt && drehbar(b)
         ? '<button class="bag-act" id="tafelDreh">Drehen · R</button>' : ""}
       ${kannAnlegen ? '<button class="bag-act" id="tafelAn">Anlegen</button>' : ""}
+      ${!angelegt && istFlasche(d) && guertelPlatzImLager(b) >= 0
+        ? '<button class="bag-act" id="tafelGuertel">An den Gürtel</button>' : ""}
       ${imLager && !angelegt
         ? `<button class="bag-act drop" id="tafelWeg">Verkaufen · ${verkaufPreis(e)} M</button>` : ""}
     </div>`;
@@ -13159,25 +13528,6 @@ function ladeDrehen() {
 /* Alles zurueck ins Lager und mit dem Notbehelf hinab. Wer nichts zu
    verlieren hat, verliert auch nichts - das ist der Weg zurueck aus einer
    Pechstraehne, ohne dass man dafuer erst muehsam alles auspacken muss. */
-function nurNotausruestung() {
-  const zurueck = [];
-  for (const b of (META.mitnahme || [])) zurueck.push(b);
-  for (const slot of LADE_PLAETZE) {
-    if (META.anlegen[slot]) zurueck.push(META.anlegen[slot]);
-    META.anlegen[slot] = null;
-  }
-  META.mitnahme = [];
-  let blieb = 0;
-  for (const b of zurueck) {
-    b.gx = null; b.gy = null; b.dreh = false;
-    if (!insLager(b)) blieb++;
-  }
-  lagerEinraeumen();
-  speichereMeta(META);
-  if (blieb) log(`${blieb} ${blieb === 1 ? "Stück passte" : "Stücke passten"} nicht mehr ins Lager.`, "system");
-  ladeAufbruch();
-}
-
 function ladeAufbruch() {
   if (mitnahmeGewicht() > traglast()) { Sfx.spiel("nein"); return; }
   speichereMeta(META);
@@ -13195,8 +13545,11 @@ function ladeNotaufbruch() {
     const b = (META.anlegen || {})[slot];
     if (b) zurueck.push(b);
   }
+  // Der Guertel gehoert dazu: "nur mit Notausruestung" heisst auch ohne Flaschen
+  for (const b of (META.guertel || [])) if (b) zurueck.push(b);
   META.mitnahme = [];
   META.anlegen = {};
+  META.guertel = Array(GUERTEL_PLAETZE).fill(null);
   let heimatlos = 0;
   for (const b of zurueck) {
     b.gx = b.gy = null;
@@ -13229,13 +13582,23 @@ function ladeBinde() {
     if (b) greife(el, b, "platz");
     else el.onclick = () => { ladeWahl = null; ladeFrisch(); };
   });
+  // Ein Klick auf einen belegten Guertelplatz legt die Flasche zurueck
+  overlay.querySelectorAll("[data-gplatz]").forEach(el => {
+    const nr = +el.dataset.gplatz;
+    el.onclick = () => {
+      if (!(META.guertel || [])[nr]) return;
+      if (ladeVomGuertel(nr, "lager")) { speichereMeta(META); Sfx.spiel("aufheben"); }
+      else { log("Im Lager ist keine Lücke dafür.", "system"); Sfx.spiel("nein"); }
+      ladeWahl = null;
+      ladeFrisch();
+    };
+  });
 
   const knopf = (id, tun) => { const k = $(id); if (k) k.onclick = tun; };
   knopf("abBtn", () => ladeAufbruch());
   knopf("notBtn", () => ladeNotaufbruch());
   knopf("zurueckLade", () => showTitle());
   knopf("ladeRaeum", () => { lagerEinraeumen(); speichereMeta(META); Sfx.spiel("aufheben"); ladeFrisch(); });
-  knopf("notBtn", () => nurNotausruestung());
   knopf("tafelAn", () => { if (ladeAnlegen(ladeWahl)) { speichereMeta(META); Sfx.spiel("ausruesten"); } ladeFrisch(); });
   knopf("tafelAb", () => { if (ladeAblegen(ladeWahl, "lager")) speichereMeta(META); ladeFrisch(); });
   knopf("tafelHin", () => {
@@ -13243,6 +13606,13 @@ function ladeBinde() {
     if (ladeSchiebe(ladeWahl, von, von === "lager" ? "mit" : "lager", null, null)) {
       speichereMeta(META); Sfx.spiel("aufheben");
     } else { Sfx.spiel("nein"); }
+    ladeFrisch();
+  });
+  knopf("tafelGuertel", () => {
+    const von = META.lager.includes(ladeWahl) ? "lager" : "mit";
+    if (ladeAnGuertel(ladeWahl, von)) { speichereMeta(META); Sfx.spiel("ausruesten"); }
+    else Sfx.spiel("nein");
+    ladeWahl = null;
     ladeFrisch();
   });
   knopf("tafelDreh", () => ladeDrehen());
@@ -13453,6 +13823,7 @@ function freshState() {
     speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
     killHeal: 0, restHeal: 0, lootLuck: 0, brazierBonus: 1, trotz: 0,
     bag: [], equipped: { "Waffe": null, "Rüstung": null, "Amulett": null, "Modul": null },
+    guertel: Array(GUERTEL_PLAETZE).fill(null),
     statuses: {}, flash: 0,
   };
   return {
@@ -13517,6 +13888,16 @@ function startNewGame() {
     e.gx = e.gy = null; e.dreh = false;
     p.bag.push(e);
     p.equipped[slot] = e;
+    mitgenommen++;
+  }
+  // Der Guertel geht mit, ohne im Raster Platz zu belegen
+  const gband = guertel(p);
+  for (let i = 0; i < GUERTEL_PLAETZE; i++) {
+    const b = (META.guertel || [])[i];
+    if (!b) { gband[i] = null; continue; }
+    const e = ausBestand(b);
+    e.gx = e.gy = null; e.dreh = false;
+    gband[i] = e;
     mitgenommen++;
   }
   speichereMeta(META);
@@ -13723,6 +14104,16 @@ window.addEventListener("keydown", ev => {
   travel = null;
   chase = null;
   if (handlungFuer(key) !== "rasten") resting = 0;
+
+  /* Die Ziffernreihe oben gehoert dem Guertel, der Ziffernblock weiter dem
+     Laufen und dem Warten. In ev.key heissen beide gleich - erst ev.code
+     trennt Digit1 von Numpad1. */
+  const zifferOben = /^Digit([1-9])$/.exec(ev.code || "");
+  if (zifferOben) {
+    const nr = +zifferOben[1] - 1;
+    if (nr < GUERTEL_PLAETZE) act(() => benutzeGuertel(nr));
+    ev.preventDefault(); return;
+  }
 
   if (MOVES[key]) {
     gedrueckt.add(key);
