@@ -692,41 +692,102 @@ body {
   align-items: start;
 }
 
+/* Eine Ueberschrift stand im schwaechsten Ton, den die Palette hat. Sie
+   traegt jetzt eine Linie bis zum rechten Rand - das trennt die beiden
+   Seiten des Aufbruchs auch dann, wenn beide Raster leer sind. */
 .ladeseite h3 {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0 0 8px;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
   font-family: var(--rubric);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: .16em;
   text-transform: uppercase;
-  color: var(--vellum-faint);
+  color: var(--vellum);
   font-weight: 400;
+}
+
+.ladeseite h3::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--stone-700), transparent);
 }
 
 .ladeseite h3 em {
   font-style: normal;
   font-size: 11px;
   letter-spacing: .1em;
-  color: var(--vellum-faint);
+  color: var(--vellum-dim);
 }
 
 .ladeseite .quiet { margin: 8px 0 0; font-size: 12px; }
 .ladeseite .lastbalken { margin-top: 10px; }
 
+/* Vier Plaetze am Koerper. Sie sahen aus wie vier Textzeilen; man konnte
+   nicht sehen, dass man etwas darauf ablegen kann. Jetzt hat jeder einen
+   eigenen Rahmen, und ein besetzter Platz ist am Rand zu erkennen. */
 .ladeplaetze {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px 10px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--stone-800);
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--stone-700);
 }
 
-.ladeplaetze .gear-slot { margin-bottom: 0; }
+.ladeplaetze .gear-slot {
+  margin-bottom: 0;
+  padding: 8px;
+  border: 1px solid var(--stone-700);
+  border-radius: 7px;
+  background: var(--stone-850);
+}
 
-.choice.gross { min-height: 58px; font-size: 17px; }
+.ladeplaetze .gear-slot.belegt {
+  border-color: var(--stone-600);
+  background: var(--zeile);
+}
+
+.ladeplaetze .gear-slot:not(.belegt) .gear-box {
+  border-style: dashed;
+  border-color: var(--stone-600);
+}
+
+/* Die beiden Seiten sahen gleich aus, obwohl die eine sicher ist und die
+   andere mit hinabgeht. Der Unterschied ist die ganze Entscheidung dieses
+   Fensters - er gehoert also sichtbar gemacht: links kuehl und ruhig, rechts
+   im Fackelschein. */
+.ladeseite.geht .raster {
+  border-color: var(--torch-deep);
+  box-shadow: inset 0 1px 0 rgba(232,169,75,.10), 0 0 0 3px rgba(232,169,75,.05);
+}
+
+.ladeseite.geht h3 { color: var(--torch); }
+.ladeseite.geht h3 em { color: var(--torch-deep); }
+.ladeseite.geht h3::after { background: linear-gradient(90deg, var(--torch-deep), transparent); }
+
+.ladeseite.bleibt h3 { color: var(--vellum); }
+
+/* Die Haupthandlung eines Fensters soll sich von den Nebenwegen
+   unterscheiden, nicht nur ein Pixel groesser sein. */
+.choice.gross {
+  min-height: 60px;
+  font-size: 17px;
+  border-color: var(--torch-deep);
+  background: linear-gradient(180deg, rgba(232,169,75,.10), rgba(232,169,75,.03));
+  box-shadow: inset 0 1px 0 rgba(232,169,75,.14);
+}
+.choice.gross:hover:not(:disabled) {
+  border-color: var(--torch);
+  background: linear-gradient(180deg, rgba(232,169,75,.17), rgba(232,169,75,.06));
+}
+.choice.gross:disabled {
+  border-color: var(--stone-700);
+  background: var(--zeile);
+  box-shadow: none;
+}
 .choice.gross .key { min-width: 34px; font-size: 13px; }
 
 @media (max-width: 900px) {
@@ -817,7 +878,7 @@ body {
 .astkopf {
   position: absolute;
   font-family: var(--rubric);
-  font-size: 11px;
+  font-size: 12.5px;
   letter-spacing: .15em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -827,13 +888,13 @@ body {
 
 .astkopf em {
   display: block;
-  margin-top: 1px;
+  margin-top: 2px;
   font-family: var(--body);
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--vellum-faint);
+  color: var(--vellum-dim);
 }
 
 .knoten {
@@ -856,7 +917,16 @@ body {
   cursor: pointer;
 }
 
-.knoten.zu { opacity: .42; cursor: not-allowed; }
+/* Gesperrt hiess bisher opacity .42 auf ohnehin schwachem Text - rund 1,5:1
+   und damit unlesbar. Gerade die gesperrten Knoten sind aber die, auf die man
+   hinarbeitet; wer sie nicht lesen kann, kann nicht planen. Sie sind jetzt
+   ruhig statt blass: eigener Grund, gedaempfter Rahmen, lesbare Schrift. */
+.knoten.zu {
+  cursor: not-allowed;
+  background: var(--stone-950);
+  border-color: var(--stone-800);
+  border-style: dotted;
+}
 .knoten.offen { border-style: dashed; }
 .knoten.hat { border-color: color-mix(in srgb, var(--ast) 60%, var(--stone-700)); }
 
@@ -878,7 +948,7 @@ body {
   line-height: 1;
 }
 
-.knoten.zu .knotenrang { color: var(--vellum-faint); }
+.knoten.zu .knotenrang { color: var(--vellum-dim); }
 .knotenrang i { font-style: normal; font-size: 9px; color: var(--vellum-faint); }
 
 .knotenname {
@@ -889,7 +959,8 @@ body {
   line-height: 1.2;
 }
 
-.knoten.zu .knotenname { color: var(--vellum-faint); }
+.knoten.zu .knotenname { color: var(--vellum-dim); }
+.knoten.zu .knotentext { color: var(--vellum-faint); }
 
 .knotentext {
   grid-area: text;
@@ -899,7 +970,7 @@ body {
   overflow: hidden;
   font-size: 10px;
   line-height: 1.22;
-  color: var(--vellum-faint);
+  color: var(--vellum-dim);
 }
 
 .knotenplus {
@@ -920,6 +991,8 @@ body {
 }
 
 /* ── Der Rucksack als Raster ──────────────────────────────────────────── */
+/* Der Rahmen liegt heller als sein Inhalt, damit das Raster als Behaeltnis
+   lesbar ist und die leeren Faecher als Vertiefungen darin. */
 .raster {
   --k: 54px;
   display: grid;
@@ -927,17 +1000,20 @@ body {
   grid-template-rows: repeat(var(--re), var(--k));
   gap: 3px;
   align-content: start;
-  padding: 6px;
-  border: 1px solid var(--stone-800);
-  border-radius: 3px;
-  background: rgba(0,0,0,.22);
+  padding: 7px;
+  border: 1px solid var(--stone-700);
+  border-radius: 6px;
+  background: var(--stone-850);
+  box-shadow: inset 0 1px 0 rgba(232,220,196,.05);
 }
 
+/* Eine leere Kachel hatte den Rahmen --stone-850 auf fast demselben Grund -
+   knapp zwei Prozent Unterschied. Man musste raten, wo ein Fach liegt. */
 .zelle {
-  border: 1px solid var(--stone-850);
-  border-radius: 2px;
-  background: rgba(0,0,0,.25);
-  box-shadow: inset 0 0 8px rgba(0,0,0,.5);
+  border: 1px solid var(--stone-700);
+  border-radius: 3px;
+  background: rgba(0,0,0,.42);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.55);
 }
 
 .kachel, .kachelgeist {
@@ -1013,12 +1089,15 @@ body {
 }
 
 /* ── Was du schleppst ─────────────────────────────────────────────────── */
+/* Das Gewicht entscheidet, was mit hinabgeht - fuenf Pixel waren dafuer zu
+   wenig, um es im Blick zu behalten. */
 .lastbalken {
   position: relative;
-  height: 5px;
+  height: 9px;
   margin: 0 0 12px;
-  border-radius: 3px;
-  background: var(--stone-900);
+  border-radius: 5px;
+  border: 1px solid var(--stone-700);
+  background: var(--stone-950);
   overflow: hidden;
 }
 
@@ -1034,7 +1113,8 @@ body {
 /* Der Aufstiegsbalken - er laeuft nur, waehrend man wirklich hinaufsteigt */
 .meter.aufstieg { box-shadow: 0 0 0 1px rgba(127,192,169,.35); }
 .fill.aufstieg { background: linear-gradient(90deg, #5C9E8A, #A8E0C8); }
-.lastbalken u { position: absolute; top: 0; width: 1px; height: 100%; background: var(--stone-600); }
+/* Die Marke, ab der man als schwer beladen gilt. */
+.lastbalken u { position: absolute; top: 0; width: 2px; height: 100%; background: var(--vellum-leise); }
 .schwerbeladen { color: var(--madder-lit); }
 
 /* ── Die Tafel unter dem Raster ───────────────────────────────────────── */
@@ -1128,7 +1208,7 @@ body {
   font-size: 10px;
   letter-spacing: .14em;
   text-transform: uppercase;
-  color: var(--vellum-faint);
+  color: var(--vellum-dim);
 }
 
 .choice.gefahr .key { color: var(--madder-lit); }
@@ -1170,8 +1250,21 @@ body {
   background: transparent;
 }
 
+/* Ein unbenutzter Reiter war Text auf nichts. Er hat jetzt einen Grund, an
+   dem man sieht, dass er ein Knopf ist - der gewaehlte hebt sich weiterhin
+   durch Farbe und Strich darunter ab. */
+.reiter {
+  background: var(--stone-850);
+  color: var(--vellum-dim);
+  border: 1px solid var(--stone-800);
+  border-bottom: 0;
+}
 .reiter:hover { color: var(--vellum); background: var(--zeile-hoch); }
-.reiter.an { color: var(--torch); background: var(--zeile); }
+.reiter.an {
+  color: var(--torch);
+  background: var(--zeile);
+  border-color: var(--stone-700);
+}
 .reiter.an::after { background: currentColor; }
 .reiter b { color: var(--vellum-dim); font-weight: 500; margin-left: 3px; }
 .reiter.an b { color: inherit; }
@@ -1322,21 +1415,26 @@ body {
 
 .sheet .sub b { color: var(--vellum-dim); font-weight: 500; }
 
+/* Die Zeile, die erklaert, wie man das Fenster bedient. Sie stand in 11 px
+   Versalien mit weiter Sperrung im schwaechsten Ton der Palette - also im
+   unleserlichsten Satz, den das Spiel kennt, ausgerechnet fuer den Text, den
+   ein neuer Spieler als Erstes braucht. Versalien und Sperrung halbieren die
+   Lesegeschwindigkeit bei dieser Groesse; beides ist raus. */
 .sheet .foot {
   position: sticky;
   bottom: -20px;
   margin: 18px -24px -20px;
   padding: 12px 24px 16px;
-  border-top: 1px solid var(--stone-800);
+  border-top: 1px solid var(--stone-700);
   background: var(--stone-900);
-  font-family: var(--rubric);
-  font-size: 11px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--vellum-faint);
+  font-family: var(--body);
+  font-size: 12.5px;
+  letter-spacing: .01em;
+  line-height: 1.5;
+  color: var(--vellum-dim);
 }
 
-.sheet .foot b { color: var(--torch-deep); }
+.sheet .foot b { color: var(--torch); font-weight: 600; }
 
 .choice {
   display: grid;
@@ -3219,6 +3317,80 @@ const ITEM_TABLE = {
 const MAX_MONSTERS = [[1, 1], [3, 2], [5, 3], [7, 4], [9, 5], [11, 6]];
 const MAX_ITEMS = [[1, 1], [2, 2], [4, 3], [6, 4]];
 
+/* == Konkurrenz ==========================================================
+   Bis hierher war das Verlies eine stille Vorratskammer: Wesen bewachten die
+   Beute, die Beute bewegte sich nicht, und ausser dir wollte niemand etwas
+   davon. Einem Extraktionsspiel fehlte damit die Haelfte - die Frage, ob
+   vor dir schon jemand an der Truhe war.
+
+   Pluenderer sind keine Monster. Sie haben ein eigenes Ziel: Truhen leeren
+   und wieder hinauf. Sie tragen echtes Geraet aus derselben Tabelle wie du,
+   sie geraten mit dem Getier aneinander, und wenn du sie in Ruhe laesst,
+   steigen sie mitsamt der Beute auf - dann ist sie weg. Erschlaegst du
+   einen, faellt alles, was er bei sich hat. Das ist der ergiebigste Fund im
+   Spiel und der einzige, der wegrennt.
+
+   Ihre Werte kommen zur Haelfte aus ihrem Geraet. Wer einen gut
+   ausgeruesteten sieht, sieht damit zugleich, dass er gefaehrlich ist und
+   dass er sich lohnt - beides an derselben Sache. */
+const RAEUBER = {
+  streuner:   { name: "Streuner", g: "m",   hp: 52, atk: 3, def: 0, xp: 90,
+                hieb: .90, tempo: 1.10, gier: 3, glueck: 0,
+                art: "raeuber", body: "#8C7A5E", dark: "#3B3327", size: 1.02,
+                eye: "#FFDC9A", laterne: "#E8A94B" },
+  pluenderer: { name: "Plünderer", g: "m",  hp: 78, atk: 5, def: 1, xp: 155,
+                hieb: 1.05, tempo: 1.02, gier: 4, glueck: .15,
+                art: "raeuber", body: "#6E7C8C", dark: "#2C343E", size: 1.06,
+                eye: "#CFE6FF", laterne: "#9AD0F0" },
+  soeldner:   { name: "Söldner", g: "m",    hp: 115, atk: 7, def: 3, xp: 265,
+                hieb: 1.20, tempo:  .96, gier: 5, glueck: .35,
+                art: "raeuber", body: "#8A5A4E", dark: "#3A231F", size: 1.12,
+                eye: "#FFC28A", laterne: "#E8763A", legende: .08 },
+};
+
+/* Wer wann unterwegs ist. Ganz oben sind es Verzweifelte mit einem Dolch,
+   ganz unten Leute, die aus Ueberzeugung hier sind. */
+const RAEUBER_TIEFE = {
+  1: [["streuner", 100]],
+  3: [["streuner", 60], ["pluenderer", 40]],
+  6: [["streuner", 25], ["pluenderer", 55], ["soeldner", 20]],
+  9: [["streuner", 0], ["pluenderer", 45], ["soeldner", 55]],
+};
+
+/* Wie viele. Auf Etage eins keiner - dort hat man selbst noch nichts, mit
+   dem man sich gegen einen wehren koennte. */
+const RAEUBER_ZAHL = [[1, 0], [2, 1], [5, 2], [9, 3]];
+
+// Woraus ihr Geraet gezogen wird - dieselben Stuecke, die auch du findest.
+const RAEUBER_WAFFEN = [
+  ["dagger", 1], ["sword", 1], ["spiess", 3], ["axe", 5],
+  ["kolben", 6], ["runeblade", 8], ["hellebarde", 9],
+];
+const RAEUBER_RUESTUNG = [
+  ["leather", 1], ["reisemantel", 2], ["chain", 3], ["schuppen", 6], ["plate", 7],
+];
+// Was sie im Beutel haben, wenn sie dir begegnen - sie waren ja schon unterwegs.
+const RAEUBER_BEUTEL = ["potion", "oil", "bigoil", "greatPotion", "might", "ward"];
+
+const RAEUBER_AUFSTIEG = 5.5;   // sie sind geuebter als du
+const RAEUBER_SICHT = 7.5;      // ab hier bemerken sie dich
+const RAEUBER_DENKTAKT = 1.1;   // so oft ueberlegen sie neu
+/* Wie weit einer eine Truhe wittert. Ohne diese Grenze kannte er beim
+   Auftauchen die ganze Etage, lief die naechste Truhe geradewegs an und war
+   nach einundzwanzig Sekunden wieder oben - der Held stand da noch am
+   Ankunftsschacht und hat nie einen zu Gesicht bekommen. */
+const RAEUBER_WITTERUNG = 13;
+const RAEUBER_WUEHLEN = 1.3;    // Sekunden je Stueck aus einer Truhe
+/* Er ist mit dir zusammen heruntergekommen und dreht nicht nach einer Minute
+   wieder um - es sei denn, es geht ihm schlecht. */
+const RAEUBER_MINDESTZEIT = 70;
+/* Und er bleibt auch nicht ewig. Ohne diese Grenze hing der Weg nach oben
+   allein daran, ob sein Beutel voll wird - gemessen wurde er das in 1,6 von
+   4 Faellen, also ging er praktisch nie, und die Beute war nie in Gefahr. */
+const RAEUBER_GEDULD = [120, 210];
+// Wie weit man den Aufstieg hoert. Es rasselt, auch wenn man nichts sieht.
+const RAEUBER_HALL = 18;
+
 /* Monster-Affixe: dieselbe Idee wie bei der Beute, nur andersherum.
    Elitegegner und der Boss bekommen keine - die sind schon besonders genug. */
 const MONSTER_AFFIXES = [
@@ -4413,9 +4585,15 @@ function markDoorways(map) {
    Stehen in Räumen herum und geben beim Öffnen mehrere Stücke auf einmal. */
 function stelleKisten(map, zones, floor, extra) {
   G.chests = [];
-  // Kisten sind die Hauptquelle fuer Nachschub - aber knapp gehalten, sonst
-  // schwimmt man nach drei Etagen in Traenken und trifft keine Entscheidung mehr.
-  let anzahl = 2 + (rng() < .6 ? 1 : 0) + (floor >= 6 ? 1 : 0) + (extra || 0);
+  /* Kisten sind die Hauptquelle fuer Nachschub - aber knapp gehalten, sonst
+     schwimmt man nach drei Etagen in Traenken und trifft keine Entscheidung
+     mehr. Knapp heisst allerdings nicht gleichbleibend: die Zahl war ab Etage
+     sechs fuer immer festgenagelt, waehrend jede Etage tiefer haerter wurde.
+     Gemessen war die Truhenbeute auf Etage 13 nur das 1,7fache von Etage 2,
+     die Pluenderer dort aber das 19fache - ab der Mitte lief man an Truhen
+     vorbei und wartete auf den naechsten Soeldner. Eine Kiste mehr je vier
+     Etagen. */
+  let anzahl = 2 + (rng() < .6 ? 1 : 0) + Math.floor(floor / 4) + (extra || 0);
   if (hatLaune("vorraete")) anzahl *= 2;
   if (hatLaune("verlassen")) anzahl += 2;
   const chancen = chancesFor(ITEM_TABLE, floor);
@@ -4437,11 +4615,15 @@ function stelleKisten(map, zones, floor, extra) {
       if (!felder.length) continue;
       const [x, y] = felder[Math.floor(rng() * felder.length)];
 
-      // Ein bis zwei Stuecke je Kiste - ein Fund soll etwas heissen
+      /* Ein bis drei Stuecke je Kiste - ein Fund soll etwas heissen, aber
+         tief unten auch etwas mehr. Und der Seltenheitsschub steigt mit,
+         sonst hat die Tiefe nur mehr vom Gleichen. */
       const beute = [];
-      const stueck = 1 + (rng() < .45 ? 1 : 0);
+      const stueck = 1 + (rng() < .45 + Math.min(.35, floor * .025) ? 1 : 0)
+                       + (floor >= 9 && rng() < .30 ? 1 : 0);
+      const schub = .12 + Math.min(.26, floor * .016);
       for (let i = 0; i < stueck; i++) {
-        const gebaut = rollItem(weighted(chancen), floor, .12);
+        const gebaut = rollItem(weighted(chancen), floor, schub);
         beute.push({ id: gebaut.id, ax: gebaut.ax || null, sel: gebaut.sel || null });
       }
       // Fast jede Kiste hat Werkstoff dabei - er ist die Waehrung des Aufwertens
@@ -4509,6 +4691,428 @@ function beuteFallenLassen(gegner) {
   if (!WALKABLE[G.map.tiles[idx(tx, ty)]]) return;
   G.ground.push(Object.assign({}, gebaut, { x: tx, y: ty }));
   floatText(gegner.x, gegner.y, gebaut.def.name, gebaut.def.tint);
+}
+
+/* == Die Konkurrenz ======================================================
+   Ein Pluenderer ist kein Monster in anderer Farbe. Er hat ein eigenes Ziel
+   und laeuft es an, ob du da bist oder nicht: die naechste Truhe leeren, und
+   wenn der Beutel voll ist oder es eng wird, hinauf durch den naechsten
+   Schacht. Laesst du ihn, ist die Beute fort. Der Kampf um sie ist deshalb
+   einer gegen die Uhr und nicht nur einer gegen seine Lebenspunkte. */
+
+/* Sein Geraet stammt aus derselben Tabelle wie deins. Die Liste ist nach Wert
+   geordnet, also faellt tiefer unten haeufiger das Bessere. */
+function raeuberGeraet(pool, floor, glueck) {
+  const offen = pool.filter(([, ab]) => ab <= floor);
+  if (!offen.length) return null;
+  const gewichte = offen.map(([id, ab], i) => [id, 1 + i * 1.5 + Math.max(0, floor - ab) * .45]);
+  return rollItem(weighted(gewichte), floor, glueck);
+}
+
+function makeRaeuber(id, x, y, floor) {
+  const art = RAEUBER[id];
+  const waffe = raeuberGeraet(RAEUBER_WAFFEN, floor, art.glueck);
+  const panzer = raeuberGeraet(RAEUBER_RUESTUNG, floor, art.glueck);
+  const w = waffe ? waffe.def : null;
+  const r = panzer ? panzer.def : null;
+
+  /* Sein Geraet geht durch dieselbe Skala wie sein Koerper. Gemessen sonst:
+     auf Etage 8 stand ein Pluenderer mit Schutz 8 vor einem Helden mit
+     Angriff 4 - null Schaden je Hieb, waehrend er selbst in sieben Hieben
+     toetete. Ein Plattenpanzer machte einen Menschen besser gedeckt als einen
+     Steingolem.
+
+     Der Panzer zaehlt dabei nur halb auf den Schutz: Schutz laesst einen
+     Kampf nicht laenger dauern, sondern faellt ganz aus, sobald er den
+     Angriff erreicht. Was er traegt, bleibt davon unberuehrt und faellt so
+     gut, wie es gefallen ist - die Bedrohung richtet sich nach dir, die
+     Beute nicht. */
+  const mass = gegnerSkala(floor);
+  const zaeh = mass * depthScale(floor);
+  const wucht = gegnerWucht(floor) * depthScale(floor);
+  const geraetAtk = ((w && w.atk) || 0) + ((r && r.atk) || 0);
+  const geraetDef = ((w && w.def) || 0) + ((r && r.def) || 0);
+  const spec = Object.assign({}, art, {
+    ai: "raeuber",
+    hp:  Math.max(12, Math.round((art.hp + ((r && r.maxhp) || 0)) * zaeh)),
+    atk: Math.max(1,  Math.round((art.atk + geraetAtk) * wucht)),
+    /* Der Schutz laesst die Tiefenskala aussen vor. Leben und Schlag duerfen
+       mit der Tiefe steigen - Schutz nicht, denn er verlaengert einen Kampf
+       nicht, sondern faellt ganz aus, sobald er den Angriff erreicht.
+       Gemessen mit Tiefenskala: auf Etage 16 stand ein Soeldner mit Schutz 6
+       vor dem Notdolch (Angriff 5) und nahm null Schaden - achtzehneinhalb
+       Heldenleben je Kampf. Wie gut einer gedeckt ist, richtet sich deshalb
+       danach, wie gut du ausgeruestet bist, nicht danach, wie tief ihr steht. */
+    def: Math.max(0,  Math.round((art.def + geraetDef * .5) * mass) +
+                      Math.round((mass - 1) * 3)),
+    // Wer besser ausgeruestet ist, ist auch mehr wert
+    xp:  Math.round(art.xp * (1 + geraetAtk * .04 + geraetDef * .05)),
+  });
+
+  // Was er bei sich traegt. Alles davon faellt, wenn er faellt.
+  const hab = [];
+  if (waffe) hab.push(waffe);
+  if (panzer) hab.push(panzer);
+  // Er war schon eine Weile unterwegs, als du ihm begegnest.
+  for (let i = ri(0, 2); i > 0; i--) hab.push(buildItem(pick(RAEUBER_BEUTEL), null, null));
+  const wk = wuerfelWerkstoff(floor, .5);
+  if (wk) { const st = buildItem(wk.id, null, null); st.menge = wk.menge; hab.push(st); }
+  // Soeldner haben manchmal schon das Stueck gefunden, fuer das du hier bist.
+  if (art.legende && rng() < art.legende) hab.push(buildItem(ziehLegende(), null, null));
+
+  return {
+    id, spec, ai: "raeuber",
+    x: mitte(x), y: mitte(y), ax: mitte(x), ay: mitte(y),
+    radius: R_MONSTER * 1.05, maff: null,
+    hp: spec.hp, maxhp: spec.hp, alive: true,
+    confused: 0, stunned: 0, summons: 0, cooldown: 0, wach: false,
+    statuses: {}, flash: 0, bob: rng() * 6.28,
+    hab, geholt: 0, tun: null, weg: null, wegNr: 0, denk: rng() * RAEUBER_DENKTAKT,
+    zielArt: null, zielObj: null, zielX: 0, zielY: 0,
+    gegner: null, aufDich: false, steigt: 0, wuehlt: 0,
+    /* Er ist nicht durch deinen Schacht gekommen, sondern durch den, der bei
+       ihm liegt. Deshalb geht er auch dorthin zurueck - und zeigt dir damit
+       einen Ausgang, den du selbst noch nicht kennst. */
+    heim: [x, y], seit: G ? G.time : 0, festSeit: 0, festOrt: [mitte(x), mitte(y)],
+    geduld: RAEUBER_GEDULD[0] + rng() * (RAEUBER_GEDULD[1] - RAEUBER_GEDULD[0]),
+  };
+}
+
+/* Wer sich mit einem Pluenderer angelegt hat, schlaegt auf ihn ein statt auf
+   dich - aber nur, solange die Sache frisch ist. */
+const feindVon = a => (a.feind && a.feind.alive && (a.feindBis || 0) > G.time) ? a.feind : null;
+
+function raeuberSchachtHier(a) {
+  return (G.schaechte || []).find(sch =>
+    Math.hypot(mitte(sch.x) - a.x, mitte(sch.y) - a.y) < .95) || null;
+}
+
+function raeuberAmZiel(a) {
+  return Math.hypot(mitte(a.zielX) - a.x, mitte(a.zielY) - a.y) < 1.35;
+}
+
+/* Wen er gerade vor sich hat. Dich bemerkt er wie das Getier - an deiner
+   Flamme und an deinem Laerm; das Getier erst, wenn es ihm in den Weg laeuft. */
+function raeuberSuchtGegner(a) {
+  const p = G.player;
+  if (p.alive) {
+    const d = Math.hypot(p.x - a.x, p.y - a.y);
+    if (a.aufDich && d < 13) return p;
+    const sicht = lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
+    if (sicht && d <= RAEUBER_SICHT * flamme().bemerkt) {
+      a.aufDich = true;
+      if (seesTile(kachelX(a), kachelY(a)))
+        log(a.spec.name + " hat dich gesehen.", "bad");
+      return p;
+    }
+    if ((p.laerm || 0) >= LAERM_SCHWELLEN.gehoert && d < 13) { a.aufDich = true; return p; }
+  }
+  /* Beim Getier ist er waehlerisch. Vorher nahm er jeden Streit an, der in
+     zweieinhalb Kacheln stattfand - gemessen wurden ihn auf den tieferen
+     Etagen sechs von zehn Malen erschlagen, bevor der Held ihn ueberhaupt sah.
+     Jetzt schlaegt er nur zu, was ihm wirklich im Weg steht oder sich schon
+     auf ihn geworfen hat. */
+  /* Beim Getier ist er waehlerisch. Er sucht den Kampf nicht - er will
+     pluendern. Also schlaegt er nur zu, was direkt vor ihm steht oder sich
+     bereits auf ihn geworfen hat. */
+  let best = null, bd = 1.15;
+  for (const m of G.actors) {
+    if (m.isPlayer || !m.alive || m === a || m.ai === "raeuber") continue;
+    const d = Math.hypot(m.x - a.x, m.y - a.y);
+    const jagt = m.feind === a && (m.feindBis || 0) > G.time;
+    if (d < (jagt ? 3.2 : bd)) { bd = d; best = m; }
+  }
+  return best;
+}
+
+function raeuberWegZu(a, tx, ty) {
+  const weg = wegVon(kachelX(a), kachelY(a), tx, ty);
+  a.weg = weg; a.wegNr = 0;
+  a.zielX = tx; a.zielY = ty;
+  return !!weg;
+}
+
+/* Der naechste Schacht - er kennt sie alle, er ist ja durch einen gekommen. */
+function raeuberNachOben(a) {
+  a.tun = "raus";
+  a.zielArt = null; a.zielObj = null;
+  // Nach dem Schacht bei seinem eigenen Einstieg, nicht nach deinem.
+  const heim = a.heim || [a.x, a.y];
+  const ziele = (G.schaechte || []).slice().sort((u, v) =>
+    Math.hypot(u.x - heim[0], u.y - heim[1]) - Math.hypot(v.x - heim[0], v.y - heim[1]));
+  for (const sch of ziele) if (raeuberWegZu(a, sch.x, sch.y)) return true;
+  /* Kein Schacht zu erreichen: dann wenigstens weitergehen. Stehenbleiben
+     sieht kaputt aus, und genau so sah es auch aus. */
+  a.tun = "streifen";
+  a.weg = null;
+  return raeuberStreift(a);
+}
+
+/* Was er als Naechstes will. Er prueft das nicht jeden Takt neu, sonst dreht
+   er auf der Stelle, sobald zwei Truhen gleich weit weg sind. */
+/* Irgendwohin, wo er noch nicht war. Wer nichts wittert, bleibt nicht stehen -
+   das war der Grund, warum ein Teil von ihnen fuenf Minuten lang gar nichts
+   tat: kein Ziel in Reichweite, also auch kein Weg, also kein Schritt. */
+function raeuberStreift(a) {
+  const ax = kachelX(a), ay = kachelY(a);
+  for (let versuch = 0; versuch < 30; versuch++) {
+    const w = rng() * 6.283, r = 9 + rng() * 16;
+    const tx = Math.round(ax + Math.cos(w) * r), ty = Math.round(ay + Math.sin(w) * r);
+    if (!isWalkable(tx, ty)) continue;
+    if (!raeuberWegZu(a, tx, ty)) continue;
+    a.tun = "streifen"; a.zielArt = null; a.zielObj = null;
+    return true;
+  }
+  return false;
+}
+
+function raeuberNeuesZiel(a) {
+  // Ernstlich angeschlagen: raus, egal wie lange er erst da ist.
+  if (a.hp <= a.maxhp * .35) return raeuberNachOben(a);
+  const hier = G.time - (a.seit || 0);
+  // Genug ist genug - mit dem, was er bis dahin zusammen hat.
+  if (hier > (a.geduld || RAEUBER_GEDULD[1])) return raeuberNachOben(a);
+  /* Satt - aber erst, wenn er auch eine Weile hier war. Sonst raeumt er die
+     naechstbeste Truhe leer und ist weg, bevor du den halben Weg hast. */
+  if (a.geholt >= a.spec.gier && hier > RAEUBER_MINDESTZEIT) return raeuberNachOben(a);
+
+  const ax = kachelX(a), ay = kachelY(a);
+  const kandidaten = [];
+  for (const k of (G.chests || [])) {
+    if (!k.loot || !k.loot.length || k.geheim) continue;   // Geheimes kennt er nicht
+    const d = Math.hypot(k.x - ax, k.y - ay);
+    if (d < RAEUBER_WITTERUNG) kandidaten.push([d, "kiste", k.x, k.y, k]);
+  }
+  for (const it of G.ground) {
+    if (!it.def || it.def.quest) continue;
+    // Was offen herumliegt, ist zweite Wahl - Truhen sind ergiebiger.
+    const d = Math.hypot(it.x - ax, it.y - ay) * 1.3;
+    if (d < RAEUBER_WITTERUNG) kandidaten.push([d, "boden", it.x, it.y, it]);
+  }
+  kandidaten.sort((u, v) => u[0] - v[0]);
+  for (const eintrag of kandidaten.slice(0, 6)) {
+    if (!raeuberWegZu(a, eintrag[2], eintrag[3])) continue;
+    a.tun = "suchen"; a.zielArt = eintrag[1]; a.zielObj = eintrag[4];
+    return true;
+  }
+  /* Nichts in der Naehe: weitersuchen. Auch mit vollem Beutel bleibt er die
+     Mindestzeit unten - sonst raeumte er die erste Truhe aus und war fort,
+     ehe der Held den halben Weg hatte. */
+  if ((a.geholt >= a.spec.gier && hier > RAEUBER_MINDESTZEIT) || !raeuberStreift(a))
+    return raeuberNachOben(a);
+  return true;
+}
+
+/* Einstecken - ein Stueck je Takt, damit man ihm dabei zusehen kann. */
+function raeuberNimmt(a) {
+  if (a.geholt >= a.spec.gier) return raeuberNachOben(a);
+  const z = a.zielObj;
+  const sichtbar = seesTile(kachelX(a), kachelY(a));
+
+  if (a.zielArt === "kiste") {
+    if (!z || !z.loot || !z.loot.length) { a.zielObj = null; a.weg = null; return false; }
+    if (!z.opened) {
+      z.opened = true;
+      if (sichtbar) {
+        burst(mitte(z.x), mitte(z.y), "#E8C86A", 12);
+        log(a.spec.name + " bricht eine Kiste auf.", "bad");
+        Sfx.spiel("ausruesten");
+      }
+    }
+    const gebaut = ausKisteBauen(z.loot.shift());
+    a.hab.push(gebaut); a.geholt++;
+    a.wuehlt = G.time + RAEUBER_WUEHLEN;    // eine Truhe leert sich nicht im Nu
+    if (sichtbar) floatText(a.x, a.y - .5, gebaut.def.name, gebaut.def.tint || "#E8C86A");
+    if (!z.loot.length) { a.zielObj = null; a.weg = null; }
+    return true;
+  }
+
+  const i = G.ground.indexOf(z);
+  if (i >= 0) {
+    const stueck = G.ground.splice(i, 1)[0];
+    a.hab.push(stueck); a.geholt++;
+    if (sichtbar) {
+      floatText(a.x, a.y - .5, stueck.def.name, stueck.def.tint || "#E8C86A");
+      log(a.spec.name + " hebt " + stueck.def.name + " auf.", "bad");
+    }
+  }
+  a.zielObj = null; a.weg = null;
+  return true;
+}
+
+function raeuberBeginntAufstieg(a) {
+  a.steigt = G.time + RAEUBER_AUFSTIEG;
+  a.weg = null;
+  const sichtbar = seesTile(kachelX(a), kachelY(a));
+  const schacht = raeuberSchachtHier(a);
+  const p = G.player;
+  const hoerweite = Math.hypot(p.x - a.x, p.y - a.y) <= RAEUBER_HALL;
+  /* Ein Aufstieg rasselt. Wer ihn hoert, weiss danach, wo es hinausgeht -
+     auch ohne etwas zu sehen. Am Sehen allein konnte das nie haengen: wer nah
+     genug steht, um ihn zu sehen, hat den Schacht ohnehin selbst entdeckt. */
+  if (schacht && hoerweite && !schacht.bekannt) {
+    schacht.bekannt = true;
+    ring(mitte(schacht.x), mitte(schacht.y), 2.4, "#9AD0F0");
+    log(sichtbar
+      ? "Er zeigt dir den Weg: ein Schacht, den du noch nicht kanntest."
+      : "Irgendwo rasselt eine Kette. Da ist ein Schacht — und jemand nimmt ihn.",
+      "good");
+    Sfx.spiel("treppe");
+  } else if (!sichtbar && hoerweite) {
+    log("Irgendwo rasselt eine Kette. Jemand steigt auf.", "system");
+  }
+  if (sichtbar) {
+    log(a.spec.name + " steigt auf \u2014 was er tr\u00e4gt, ist dann fort.", "alert");
+    banner("Er geht nach oben", a.spec.name + " \u00b7 " + RAEUBER_AUFSTIEG.toFixed(0) + " Sekunden", "bad");
+    Sfx.spiel("nein");
+  }
+}
+
+function raeuberVerschwindet(a) {
+  a.alive = false;
+  a.fort = true;
+  if (seesTile(kachelX(a), kachelY(a))) {
+    ring(a.x, a.y, 2.8, a.spec.laterne);
+    burst(a.x, a.y, a.spec.laterne, 22);
+    log(a.spec.name + " ist oben. Seine Beute mit ihm.", "bad");
+  }
+}
+
+/* Alles, was er bei sich hatte, faellt - auf die Felder ringsum, damit nicht
+   ein halbes Lager auf einer Kachel liegt. */
+function raeuberLaesstFallen(a) {
+  const ax = kachelX(a), ay = kachelY(a);
+  const frei = [];
+  for (let r = 0; r <= 2 && frei.length < 14; r++)
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = ax + dx, y = ay + dy;
+        if (!isWalkable(x, y)) continue;
+        if (G.ground.some(i => i.x === x && i.y === y)) continue;
+        frei.push([x, y]);
+      }
+  let i = 0;
+  for (const stueck of a.hab) {
+    const platz = frei[i++] || [ax, ay];
+    G.ground.push(Object.assign({}, stueck, { x: platz[0], y: platz[1] }));
+  }
+  if (a.hab.length) {
+    floatText(a.x, a.y - .7,
+      a.hab.length + (a.hab.length === 1 ? " St\u00fcck" : " St\u00fccke"), "#E8C86A");
+    log(a.spec.name + " l\u00e4sst alles fallen.", "good");
+  }
+  a.hab = [];
+}
+
+/* Bewegung. Beim Aufstieg steht er still, im Kampf geht er auf sein Gegenueber
+   zu, sonst laeuft er den gemerkten Weg ab. */
+function raeuberLenke(a, dt) {
+  if (a.steigt) {
+    if (G.time >= a.steigt) raeuberVerschwindet(a);
+    else if (seesTile(kachelX(a), kachelY(a)) && rng() < dt * 5)
+      ring(a.x, a.y, .7 + rng() * .8, a.spec.laterne);
+    return;
+  }
+  let zx = 0, zy = 0;
+  const feind = a.gegner && a.gegner.alive ? a.gegner : null;
+  /* Wer nach oben will, laesst sich nicht aufhalten: er schlaegt, was ihm in
+     den Weg kommt, und laeuft weiter. */
+  if (feind && a.tun !== "raus" && Math.hypot(feind.x - a.x, feind.y - a.y) > MONSTER_REACH * .9) {
+    zx = feind.x - a.x; zy = feind.y - a.y;
+  } else if (a.weg) {
+    while (a.wegNr < a.weg.length) {
+      const punkt = a.weg[a.wegNr];
+      if (Math.hypot(mitte(punkt[0]) - a.x, mitte(punkt[1]) - a.y) < .45) a.wegNr++;
+      else break;
+    }
+    if (a.wegNr < a.weg.length) {
+      const punkt = a.weg[a.wegNr];
+      zx = mitte(punkt[0]) - a.x; zy = mitte(punkt[1]) - a.y;
+    }
+  }
+  /* Die Zielrichtung zuerst auf Laenge eins. Sie war vorher der rohe Abstand
+     zum naechsten Wegpunkt - also hoechstens eine Kachel lang - und wurde
+     dadurch vom Ausweichen ueberstimmt, sobald zwei Wesen in der Naehe
+     standen. Gemessen kam danach keiner mehr irgendwo an. */
+  const zl0 = Math.hypot(zx, zy);
+  if (zl0 > 1e-4) { zx /= zl0; zy /= zl0; }
+
+  /* Um alles herum, was er nicht gerade bekaempft - aber nie so stark, dass
+     es die Richtung umkehrt. Ohne dieses Ausweichen lief er geradewegs in
+     jede Gruppe hinein, aus der er nicht mehr herauskam: gemessen wurden drei
+     von vier erschlagen, ehe der Held sie ueberhaupt zu Gesicht bekam. */
+  if (!feind && zl0 > 1e-4) {
+    let wx = 0, wy = 0;
+    for (const m of G.actors) {
+      if (m.isPlayer || !m.alive || m === a || m.ai === "raeuber") continue;
+      const dx = a.x - m.x, dy = a.y - m.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 3.2 || d < 1e-3) continue;
+      const kraft = (3.2 - d) / 3.2;
+      wx += (dx / d) * kraft;
+      wy += (dy / d) * kraft;
+    }
+    const wl = Math.hypot(wx, wy);
+    if (wl > 1) { wx /= wl; wy /= wl; }
+    zx += wx * .65; zy += wy * .65;
+  }
+
+  const l = Math.hypot(zx, zy);
+  if (l < 1e-4) return;
+  const tempo = SPEED_MONSTER * (a.spec.tempo || 1);
+  bewege(a, (zx / l) * tempo * dt, (zy / l) * tempo * dt);
+}
+
+/* Entscheidungen. Laeuft im selben Takt wie bei allen anderen Wesen. */
+function raeuberTurn(a) {
+  const takt = monsterInterval(a);
+  if (a.stunned > 0) { a.stunned = Math.max(0, a.stunned - takt); return; }
+  if (a.steigt) return;
+  if (a.confused > 0) { a.confused = Math.max(0, a.confused - takt); return; }
+
+  a.gegner = raeuberSuchtGegner(a);
+  // Was ihm zu nahe kommt, bekommt eins - auch auf dem Weg nach oben.
+  if (a.gegner && a.nachhieb <= 0 &&
+      Math.hypot(a.gegner.x - a.x, a.gegner.y - a.y) <= MONSTER_REACH * 1.1) {
+    strike(a, a.gegner);
+    a.nachhieb = hiebTakt(a);
+    return;
+  }
+
+  if (a.wuehlt > G.time) return;          // steckt noch in der Truhe
+  if (a.tun === "raus" && raeuberSchachtHier(a)) { raeuberBeginntAufstieg(a); return; }
+  if (a.tun === "suchen" && a.zielObj && raeuberAmZiel(a)) { raeuberNimmt(a); return; }
+
+  /* Wer sich festgelaufen hat, sucht sich etwas anderes. Ohne das blieben
+     einzelne fuenf Minuten am selben Fleck stehen, weil ihr Weg an einer
+     Ecke haengenblieb und nie neu gestellt wurde. Die Bedingung "und gerade
+     keinen Gegner" hat das nur halb geloest - wer in einer Ecke gegen nichts
+     kaempft, steht genauso fest. */
+  const ort = a.festOrt || [a.x, a.y];
+  if (Math.hypot(a.x - ort[0], a.y - ort[1]) > 1.2) {
+    a.festOrt = [a.x, a.y]; a.festSeit = G.time;
+  } else if (G.time - (a.festSeit || 0) > 9) {
+    a.festSeit = G.time; a.festOrt = [a.x, a.y];
+    a.weg = null; a.zielObj = null; a.gegner = null;
+    if (!raeuberStreift(a)) raeuberNachOben(a);
+    return;
+  }
+
+  /* Und wer weit ueber seine Geduld hinaus immer noch hier unten haengt,
+     findet seinen eigenen Weg hinaus. Er kennt das Verlies - er ist kein
+     Opfer der Wegfindung, und ein Plünderer, der bis in alle Ewigkeit in
+     einer Ecke steht, sieht schlicht kaputt aus. */
+  if ((G.time - (a.seit || 0)) > (a.geduld || RAEUBER_GEDULD[1]) + 150) {
+    raeuberVerschwindet(a);
+    return;
+  }
+
+  a.denk = (a.denk || 0) - takt;
+  if (a.denk <= 0 || !a.weg || a.wegNr >= a.weg.length || (a.tun === "suchen" && !a.zielObj)) {
+    a.denk = RAEUBER_DENKTAKT;
+    raeuberNeuesZiel(a);
+  }
 }
 
 /* ── Bossräume der Namentlichen ───────────────────────────────────────────
@@ -5388,6 +5992,35 @@ function populateFloor(floor) {
   stelleFallen(map, zones, floor);
 
   rettteKisten(map);
+  rettteSchaechte();
+
+  /* Zuletzt die Konkurrenz. Sie kommt nach allem anderen, weil sie die Truhen
+     kennen muss, auf die sie zulaeuft - und damit kein spaet gebauter
+     Bossraum sie einmauert. Sie startet weit weg vom Ankunftsschacht: die
+     erste Begegnung soll nicht die erste Kachel sein. */
+  const wieVieleRaeuber = fromTable(RAEUBER_ZAHL, floor);
+  const raeuberChancen = chancesFor(RAEUBER_TIEFE, floor);
+  if (wieVieleRaeuber > 0 && raeuberChancen.length) {
+    const weit = zones.slice(1).filter(z =>
+      Math.hypot(z.center[0] - sx, z.center[1] - sy) > 11);
+    const pool = (weit.length ? weit : zones.slice(1)).slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    let offen = ri(Math.max(0, wieVieleRaeuber - 1), wieVieleRaeuber);
+    for (const zone of pool) {
+      if (offen <= 0) break;
+      const frei = zone.tiles.filter(([x, y]) =>
+        isWalkable(x, y) && !actorAt(x, y) &&
+        !G.chests.some(k => k.x === x && k.y === y) &&
+        !G.braziers.some(b => b.x === x && b.y === y));
+      if (!frei.length) continue;
+      const platz = frei[Math.floor(rng() * frei.length)];
+      G.actors.push(makeRaeuber(weighted(raeuberChancen), platz[0], platz[1], floor));
+      offen--;
+    }
+  }
 
   updateFov();
 
@@ -5397,6 +6030,52 @@ function populateFloor(floor) {
     banner(l.name, l.text, "bad");
     log(`${l.name}: ${l.text}`, "alert");
     Sfx.spiel("auftrag");
+  }
+}
+
+/* Ein Schacht hinter einem Schleier ist kein Ausgang, sondern ein Versprechen,
+   das die Karte nicht halten kann. Die Schaechte stehen fest, bevor die
+   Bosskammer und die Geheimkammern in den Fels geschlagen werden - eine
+   versiegelte Kammer legt einen Schleierring um sich, und durch den kommt
+   niemand. Fuer die Treppe wird das seit jeher geprueft, fuer die Schaechte
+   war es vergessen worden.
+
+   Gemessen hing dadurch auf jeder achten Etage ein Pluenderer bis in alle
+   Ewigkeit fest, weil er keinen Ausgang erreichen konnte. Der Held haette an
+   derselben Stelle vor demselben Schleier gestanden. */
+function rettteSchaechte() {
+  const px = kachelX(G.player), py = kachelY(G.player);
+  if (!isWalkable(px, py)) return;
+  const erreichbar = new Uint8Array(MAP_W * MAP_H);
+  const schlange = [idx(px, py)];
+  erreichbar[schlange[0]] = 1;
+  for (let kopf = 0; kopf < schlange.length; kopf++) {
+    const cur = schlange[kopf], cx = cur % MAP_W, cy = (cur / MAP_W) | 0;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = cx + dx, ny = cy + dy;
+        if (!isWalkable(nx, ny)) continue;
+        const ni = idx(nx, ny);
+        if (erreichbar[ni]) continue;
+        erreichbar[ni] = 1;
+        schlange.push(ni);
+      }
+  }
+  for (const sch of G.schaechte) {
+    if (erreichbar[idx(sch.x, sch.y)]) continue;
+    // Auf das naechste Feld ruecken, zu dem man von hier aus wirklich hinkommt
+    let best = null, bd = 1e9;
+    for (let y = 1; y < MAP_H - 1; y++)
+      for (let x = 1; x < MAP_W - 1; x++) {
+        if (!erreichbar[idx(x, y)]) continue;
+        if (G.map.tiles[idx(x, y)] === STAIRS) continue;
+        if (G.schaechte.some(o => o !== sch && o.x === x && o.y === y)) continue;
+        if (G.chests.some(k => k.x === x && k.y === y)) continue;
+        const d = Math.hypot(x - sch.x, y - sch.y);
+        if (d < bd) { bd = d; best = [x, y]; }
+      }
+    if (best) { sch.x = best[0]; sch.y = best[1]; }
   }
 }
 
@@ -5528,7 +6207,25 @@ function computeDistance() {
 
 // Weg zu einem beliebigen Ziel (fuer Mausbewegung)
 function pathTo(tx, ty) {
+  const p = G.player;
+  // Von der Kachel aus, auf der der Held steht - nicht von seiner Fliesskommalage
+  return wegVon(kachelX(p), kachelY(p), tx, ty);
+}
+
+/* Derselbe Weg, aber von einem beliebigen Ausgangsfeld. Pluenderer laufen
+   nicht dorthin, wo der Held steht, sondern dorthin, wo sie hinwollen. */
+function wegVon(sx, sy, tx, ty) {
   if (!isWalkable(tx, ty)) return null;
+  /* Wer beim Ausweichen mit einem Fuss auf einer Wandkachel landet, soll
+     deshalb nicht den ganzen Weg verlieren - dann eben vom Nachbarfeld aus. */
+  if (!isWalkable(sx, sy)) {
+    let ersatz = null;
+    for (let dy = -1; dy <= 1 && !ersatz; dy++)
+      for (let dx = -1; dx <= 1 && !ersatz; dx++)
+        if ((dx || dy) && isWalkable(sx + dx, sy + dy)) ersatz = [sx + dx, sy + dy];
+    if (!ersatz) return null;
+    sx = ersatz[0]; sy = ersatz[1];
+  }
   const d = new Int32Array(MAP_W * MAP_H).fill(-1);
   d[idx(tx, ty)] = 0;
   const queue = [idx(tx, ty)];
@@ -5545,12 +6242,9 @@ function pathTo(tx, ty) {
       d[ni] = nd; queue.push(ni);
     }
   }
-  const p = G.player;
-  // Von der Kachel aus, auf der der Held steht - nicht von seiner Fliesskommalage
-  const px = kachelX(p), py = kachelY(p);
-  if (d[idx(px, py)] === -1) return null;
+  if (d[idx(sx, sy)] === -1) return null;
   const steps = [];
-  let cx = px, cy = py;
+  let cx = sx, cy = sy;
   let guard = 0;
   while ((cx !== tx || cy !== ty) && guard++ < 500) {
     let best = null;
@@ -5669,6 +6363,20 @@ function damage(target, amount, source) {
     return;
   }
 
+  /* Wer wen im Auge hat: ein Schlag von fremder Hand lenkt ein Wesen um, ein
+     Schlag von deiner holt es zu dir zurueck. */
+  if (source && amount > 0 && !target.isPlayer) {
+    if (source.isPlayer) { target.feind = null; target.feindBis = 0; }
+    else { target.feind = source; target.feindBis = G.time + 8; }
+  }
+  // Ein Treffer bricht den Aufstieg ab - bei ihnen genau wie bei dir.
+  if (target.steigt && amount > 0) {
+    target.steigt = 0;
+    target.tun = "raus";
+    if (seesTile(kachelX(target), kachelY(target)))
+      log(`${target.spec.name} bricht den Aufstieg ab.`, "good");
+  }
+
   if (target.isPlayer && amount > 0) target.zuletztGetroffen = G.time;
   target.hp -= amount;
   target.flash = 1;
@@ -5727,10 +6435,25 @@ function kill(target, source) {
     if (zurueck) { floatText(p.x, p.y, "+" + zurueck, "rgba(124,180,150,.85)"); refreshUI(); }
   }
 
+  /* Seit es Pluenderer gibt, faellt nicht mehr alles durch deine Hand. Was
+     ein anderer erschlaegt, zaehlt auch nicht fuer dich. */
+  const durchFremde = !!(source && !source.isPlayer);
+
+  if (target.ai === "raeuber") {
+    if (!durchFremde) {
+      log(`${target.spec.name} fällt.`, "good");
+      gainXp(target.spec.xp);
+    } else if (seesTile(kachelX(target), kachelY(target))) {
+      log(`${target.spec.name} fällt — jemand anders war schneller.`, "system");
+    }
+    raeuberLaesstFallen(target);
+    return;
+  }
+
   if (target.spec.boss) {
     log(`${target.spec.name} zerfällt zu Asche. Der Abstieg ist bezwungen.`, "alert");
     Sfx.spiel("sieg");
-    gainXp(target.spec.xp);
+    if (!durchFremde) gainXp(target.spec.xp);
     questProgress("boss");
     G.won = true;
     G.siegRunden = G.turns;
@@ -5752,7 +6475,7 @@ function kill(target, source) {
     log(`${target.spec.name} fällt. ${target.spec.epithet} ist niemand mehr.`, "alert");
     ring(target.x, target.y, 3, target.spec.glow || "#E8A94B");
     burst(target.x, target.y, target.spec.glow || "#E8A94B", 26);
-    gainXp(target.spec.xp);
+    if (!durchFremde) gainXp(target.spec.xp);
     if (target.drop) {
       // Namentliche Gegner lassen immer etwas Verzaubertes fallen
       const loot = makeLoot(target.drop, target.x, target.y, G.floor, true);
@@ -5763,10 +6486,14 @@ function kill(target, source) {
     return;
   }
 
-  log(`${target.spec.name} stirbt.`, "good");
-  gainXp(target.spec.xp);
+  if (!durchFremde) {
+    log(`${target.spec.name} stirbt.`, "good");
+    gainXp(target.spec.xp);
+  } else if (seesTile(kachelX(target), kachelY(target))) {
+    log(`${target.spec.name} fällt — nicht durch deine Hand.`, "system");
+  }
   beuteFallenLassen(target);
-  questProgress("slay", target.id);
+  if (!durchFremde) questProgress("slay", target.id);
 }
 
 function burnOil(n) {
@@ -6004,13 +6731,21 @@ function attack(attacker, target) {
   if (dmg > 0) {
     const aff = attacker.maff ? MAFF_BY_KEY[attacker.maff] : null;
     const extra = aff && aff.bonus ? aff.bonus : 0;
-    const who = attacker.isPlayer
-      ? `Du triffst ${target.spec.name}`
-      : `${attacker.spec.name} trifft dich`;
-    log(`${who} für ${dmg + extra} Schaden.${
-      ausHinterhalt ? " Aus dem Hinterhalt!" : crit ? " Kritisch!" : ""}${
-      extra ? " Die Flammen fressen sich fest." : ""}`,
-      attacker.isPlayer ? "you" : "foe");
+    /* Seit es Pluenderer gibt, schlagen auch Wesen aufeinander ein. Das
+       gehoert ins Protokoll, aber nur, wenn man es sehen kann - sonst fuellt
+       sich das Fenster mit Kaempfen, von denen man nichts mitbekommt. */
+    const unterFremden = !attacker.isPlayer && !target.isPlayer;
+    if (!unterFremden) {
+      const who = attacker.isPlayer
+        ? `Du triffst ${target.spec.name}`
+        : `${attacker.spec.name} trifft dich`;
+      log(`${who} für ${dmg + extra} Schaden.${
+        ausHinterhalt ? " Aus dem Hinterhalt!" : crit ? " Kritisch!" : ""}${
+        extra ? " Die Flammen fressen sich fest." : ""}`,
+        attacker.isPlayer ? "you" : "foe");
+    } else if (seesTile(kachelX(target), kachelY(target))) {
+      log(`${attacker.spec.name} trifft ${target.spec.name} für ${dmg + extra} Schaden.`, "system");
+    }
     if (extra) burst(target.x, target.y, "#FF8A38", 8);
     // Blutzoll: die Haelfte dessen, was du austeilst, kommt als Leben zurueck
     if (attacker.isPlayer && attacker.blutzollBis > G.time) {
@@ -6023,14 +6758,15 @@ function attack(attacker, target) {
       attacker.nextSwing = 0;
       floatText(attacker.x, attacker.y - .5, "wieder bereit", "#F2E4C0");
     }
-    Sfx.spiel(target.isPlayer ? "wehgetan" : (crit ? "kritisch" : "treffer"));
+    if (attacker.isPlayer || target.isPlayer || seesTile(kachelX(target), kachelY(target)))
+      Sfx.spiel(target.isPlayer ? "wehgetan" : (crit ? "kritisch" : "treffer"));
     damage(target, dmg + extra, attacker);
     // Verseuchte Gegner geben ihr Gift beim Zuschlagen weiter
     if (aff && aff.key === "seuche" && target.alive) {
       addStatus(target, "Gift", 6, 2);
       if (target.isPlayer) log("Die Wunde eitert sofort.", "bad");
     }
-  } else {
+  } else if (attacker.isPlayer || target.isPlayer) {
     log(attacker.isPlayer
         ? `Dein Schlag prallt an ${target.spec.name} ab.`
         : `${attacker.spec.name} findet keine Lücke.`,
@@ -6526,6 +7262,7 @@ function strike(a, target) {
 }
 
 function actorTurn(a) {
+  if (a.ai === "raeuber") return raeuberTurn(a);
   const p = G.player;
   const dist = Math.hypot(p.x - a.x, p.y - a.y);
   const takt = monsterInterval(a);
@@ -6541,6 +7278,17 @@ function actorTurn(a) {
     a.confused = Math.max(0, a.confused - takt);
     if (dist <= MONSTER_REACH) attack(a, p);      // Bewegung macht lenke()
     if (a.confused <= 0) log(`${a.spec.name} ist wieder bei Sinnen.`, "system");
+    return;
+  }
+
+  /* Wer sich mit einem Pluenderer schlaegt, schlaegt auf ihn ein und nicht
+     auf dich - bis du dich selbst einmischst. */
+  const angelegt = feindVon(a);
+  if (angelegt) {
+    if (Math.hypot(angelegt.x - a.x, angelegt.y - a.y) <= MONSTER_REACH && a.nachhieb <= 0) {
+      strike(a, angelegt);
+      a.nachhieb = hiebTakt(a);
+    }
     return;
   }
 
@@ -7215,6 +7963,8 @@ function tickWorld(dt) {
 function lenke(a, dt) {
   if (!a.alive || a.stunned > 0) return;
   a.nachhieb = Math.max(0, (a.nachhieb || 0) - dt);
+  // Pluenderer laufen ihrem eigenen Ziel nach, nicht dir.
+  if (a.ai === "raeuber") return raeuberLenke(a, dt);
   const p = G.player;
   const dist = Math.hypot(p.x - a.x, p.y - a.y);
   let zx = 0, zy = 0;
@@ -7226,6 +7976,13 @@ function lenke(a, dt) {
       a.wirrBis = G.time + .6;
     }
     zx = a.wirr[0]; zy = a.wirr[1];
+  } else if (feindVon(a)) {
+    /* Hat sich mit einem Pluenderer angelegt: dann gilt der, bis du selbst
+       zuschlaegst oder einer von beiden faellt. */
+    const f = feindVon(a);
+    if (Math.hypot(f.x - a.x, f.y - a.y) > MONSTER_REACH * .9) {
+      zx = f.x - a.x; zy = f.y - a.y;
+    }
   } else if (a.wach) {
     /* Lichtscheues Getier weicht dem hellen Schein aus - man kann sich damit
        Luft verschaffen, zahlt sie aber mit Öl. */
@@ -7851,6 +8608,26 @@ function drawFrame(dt) {
 
     if (a.isPlayer) drawHero(ctx, x, y, light, anim.t, a);
     else drawCreature(ctx, x, y, a.spec, light, anim.t + a.bob, a);
+
+    /* Wer aufsteigt, bekommt einen Balken ueber den Kopf - sonst weiss man
+       nicht, wie viel Zeit noch bleibt, ihn aufzuhalten. */
+    if (a.steigt) {
+      const rest = Math.max(0, a.steigt - G.time) / RAEUBER_AUFSTIEG;
+      const bx = x + TILE * .18, by = y - 4, bw = TILE * .64;
+      ctx.save();
+      ctx.fillStyle = "rgba(10,8,6,.75)";
+      roundRect(ctx, bx - 1, by - 1, bw + 2, 5, 2.5); ctx.fill();
+      ctx.fillStyle = a.spec.laterne || "#E8A94B";
+      roundRect(ctx, bx, by, bw * (1 - rest), 3, 1.5); ctx.fill();
+      // Lichtsaeule von oben, damit klar ist, wohin er verschwindet
+      ctx.globalAlpha = .16 + (1 - rest) * .22;
+      const saeule = ctx.createLinearGradient(0, y - TILE * 2, 0, y + TILE);
+      saeule.addColorStop(0, "rgba(0,0,0,0)");
+      saeule.addColorStop(1, a.spec.laterne || "#E8A94B");
+      ctx.fillStyle = saeule;
+      ctx.fillRect(x + TILE * .22, y - TILE * 2, TILE * .56, TILE * 3);
+      ctx.restore();
+    }
 
     // Wer zum Auftrag gehoert, traegt ein Zeichen - sonst weiss man nicht,
     // welcher der drei Goblins gemeint ist.
@@ -8736,6 +9513,93 @@ const PAINT = {
   },
 
   // Schmale hohe Kutte, spitze Kapuze, ein Auge im Dunkel
+  /* Ein Mensch, kein Getier: aufrecht, mit Kapuze, Rucksack und Laterne.
+     Der Rucksack ist der eigentliche Zweck des Bildes - man soll auf einen
+     Blick sehen, dass da einer mit vollem Gepaeck laeuft. */
+  raeuber(P, spec) {
+    const { cx, g, s, body, dark, eye, t } = P;
+
+    // Beine
+    limb(cx - s * .10, g - s * .40, cx - s * .13, g - s * .02, s * .095, dark);
+    limb(cx + s * .10, g - s * .40, cx + s * .13, g - s * .02, s * .095, dark);
+
+    // Rucksack: sitzt hinter der Schulter und ragt oben heraus
+    ctx.fillStyle = dark;
+    roundRect(ctx, cx - s * .40, g - s * .70, s * .26, s * .40, s * .07);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.35)";
+    ctx.lineWidth = Math.max(1, s * .03);
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .38, g - s * .56);
+    ctx.lineTo(cx - s * .16, g - s * .56);
+    ctx.stroke();
+    // Aufgeschnalltes Buendel
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.ellipse(cx - s * .30, g - s * .74, s * .11, s * .07, -.3, 0, 6.283);
+    ctx.fill();
+
+    // Rumpf: Wams mit Guertel
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .18, g - s * .72);
+    ctx.lineTo(cx + s * .18, g - s * .72);
+    ctx.quadraticCurveTo(cx + s * .22, g - s * .54, cx + s * .17, g - s * .36);
+    ctx.lineTo(cx - s * .17, g - s * .36);
+    ctx.quadraticCurveTo(cx - s * .22, g - s * .54, cx - s * .18, g - s * .72);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = dark;
+    ctx.fillRect(cx - s * .19, g - s * .46, s * .38, s * .06);
+
+    // Arme: einer haelt die Laterne vor, einer die Waffe
+    limb(cx - s * .16, g - s * .66, cx - s * .30, g - s * .44, s * .085, body);
+    limb(cx + s * .16, g - s * .66, cx + s * .30, g - s * .50, s * .085, body);
+    // Klinge
+    ctx.strokeStyle = mix(dark, "#D8DEE8", .55);
+    ctx.lineWidth = Math.max(1.4, s * .05);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx + s * .30, g - s * .50);
+    ctx.lineTo(cx + s * .44, g - s * .74);
+    ctx.stroke();
+
+    // Kapuze mit Schattengesicht
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .17, g - s * .70);
+    ctx.quadraticCurveTo(cx - s * .19, g - s * .98, cx, g - s * 1.02);
+    ctx.quadraticCurveTo(cx + s * .19, g - s * .98, cx + s * .17, g - s * .70);
+    ctx.quadraticCurveTo(cx, g - s * .78, cx - s * .17, g - s * .70);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.78)";
+    ctx.beginPath();
+    ctx.ellipse(cx + s * .02, g - s * .82, s * .105, s * .12, 0, 0, 6.283);
+    ctx.fill();
+    slitEyes(cx + s * .02, g - s * .82, s, eye, 2, .055);
+
+    /* Die Laterne. Sie ist der Grund, warum man ihn im Dunkeln ueberhaupt
+       sieht - und der Grund, warum er dich sieht. */
+    const lx = cx - s * .34, ly = g - s * .40;
+    const puls = .72 + Math.sin(t * 3.4) * .28;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const schein = ctx.createRadialGradient(lx, ly, s * .02, lx, ly, s * .55);
+    schein.addColorStop(0, spec.laterne || "#E8A94B");
+    schein.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalAlpha = .38 * puls;
+    ctx.fillStyle = schein;
+    ctx.beginPath();
+    ctx.arc(lx, ly, s * .55, 0, 6.283);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = spec.laterne || "#E8A94B";
+    ctx.beginPath();
+    ctx.arc(lx, ly, s * .055, 0, 6.283);
+    ctx.fill();
+  },
+
   robe(P) {
     const { cx, g, s, body, dark, eye, t } = P;
 
@@ -9962,8 +10826,14 @@ function zeichneKarte(now) {
   for (const a of G.actors) {
     if (a.isPlayer || !a.alive) continue;
     if (!G.map.visible[idx(kachelX(a), kachelY(a))]) continue;
-    m.fillStyle = (a.elite || a.spec.boss) ? "#FF6A5A" : "#C4564A";
-    m.fillRect(kachelX(a) * s, kachelY(a) * s, s, s);
+    /* Pluenderer bekommen eine eigene Farbe. Auf der Uebersicht muss man
+       sehen koennen, ob da ein Goblin steht oder jemand, der dir gerade die
+       Truhe leert. */
+    m.fillStyle = a.ai === "raeuber" ? (a.spec.laterne || "#E8A94B")
+                : (a.elite || a.spec.boss) ? "#FF6A5A" : "#C4564A";
+    m.fillRect(kachelX(a) * s - (a.ai === "raeuber" ? 1 : 0),
+               kachelY(a) * s - (a.ai === "raeuber" ? 1 : 0),
+               s + (a.ai === "raeuber" ? 2 : 0), s + (a.ai === "raeuber" ? 2 : 0));
   }
 
   // Der Held zuletzt, damit er obenauf liegt
@@ -11715,6 +12585,9 @@ function baumMarkup() {
   hoehe += BAUM_RAND;
 
   // Die Linien liegen hinter den Knoten
+  /* Die Aeste. Sie liefen vorher in --stone-700 bei 30 Prozent Deckung -
+     auf diesem Grund praktisch unsichtbar, und damit war der Baum nur eine
+     Ansammlung von Kaestchen. Erst die Linien machen ihn zu einem Baum. */
   const linien = SKILLS.filter(t => t.braucht && ortVon[t.key] && ortVon[t.braucht[0]])
     .map(t => {
       const a = ortVon[t.braucht[0]], b = ortVon[t.key];
@@ -11723,8 +12596,9 @@ function baumMarkup() {
       const x2 = b.x + KNOTEN_B / 2 - 8, y2 = b.y;
       const mitte = (y1 + y2) / 2;
       return `<path d="M${x1} ${y1} L${x1} ${mitte} L${x2} ${mitte} L${x2} ${y2}"
-        fill="none" stroke="${offen ? ZWEIGE[t.zweig].farbe : "var(--stone-700)"}"
-        stroke-width="${offen ? 2 : 1.5}" opacity="${offen ? .55 : .3}"/>`;
+        fill="none" stroke="${offen ? ZWEIGE[t.zweig].farbe : "var(--stone-600)"}"
+        stroke-width="${offen ? 2.6 : 2}" stroke-linecap="round" stroke-linejoin="round"
+        opacity="${offen ? .9 : .62}"/>`;
     }).join("");
 
   const koepfe = aeste.map((ast, nr) => {
@@ -11944,7 +12818,7 @@ function showCamp(reiter) {
   }
 
   const reiterZeile = [["verkaufen", "Verkaufen"], ["kaufen", "Kaufen"],
-                       ["aufwerten", "Aufwerten"], ["rucksack", "Rucksack"]]
+                       ["aufwerten", "Aufwerten"], ["rucksack", "Ausbauten"]]
     .map(([k, n]) => `<button class="reiter${k === lagerReiter ? " an" : ""}" role="tab" aria-selected="${k === lagerReiter}" data-reiter="${k}">${n}</button>`)
     .join("");
 
@@ -12137,11 +13011,11 @@ function ladeMarkup() {
   const plaetze = LADE_PLAETZE.map(slot => {
     const b = META.anlegen[slot];
     const farbe = b ? lesbar(seltenFarbe(b)) : "var(--stone-600)";
-    return `<button class="gear-slot" data-platz="${slot}">
+    return `<button class="gear-slot ${b ? "belegt" : ""}" data-platz="${slot}">
       <span class="gear-box ${b ? "" : "leer"}">${slotBild(slot, farbe)}</span>
       <span class="gear-text">
         <span class="art">${slot}</span>
-        <b style="color:${b ? farbe : "var(--vellum-faint)"}">${
+        <b style="color:${b ? farbe : "var(--vellum-dim)"}">${
           b ? escapeHtml(vorlage(b).name) : "nichts"}</b>
         <span>${b ? escapeHtml(bonusText(ausBestand(b).def)) : "—"}</span>
       </span>
@@ -12153,14 +13027,14 @@ function ladeMarkup() {
       bleibst. Was links bleibt, ist sicher. Kacheln lassen sich zwischen beiden
       Seiten ziehen, <b>R</b> dreht sie quer.</p>
     <div class="lade">
-      <section class="ladeseite">
-        <h3>Lager <em>${lm.spalten}×${lm.reihen}</em></h3>
+      <section class="ladeseite bleibt">
+        <h3>Lager <em>${lm.spalten}×${lm.reihen} · bleibt oben</em></h3>
         ${rasterMarkup(META.lager, lm.spalten, lm.reihen, "lager", ladeWahl, 44)}
         <p class="quiet">${META.muenzen} Münzen · ${META.lager.length} Stücke ·
           ${belegungIn(META.lager, lm.spalten, lm.reihen).filter(x => !x).length} Kacheln frei</p>
       </section>
-      <section class="ladeseite">
-        <h3>Rucksack <em>${rm.spalten}×${rm.reihen}</em></h3>
+      <section class="ladeseite geht">
+        <h3>Rucksack <em>${rm.spalten}×${rm.reihen} · geht mit hinab</em></h3>
         ${rasterMarkup(META.mitnahme, rm.spalten, rm.reihen, "mit", ladeWahl, 50)}
         <div class="lastbalken"><i class="${zuSchwer ? "voll" : ""}" style="width:${
           Math.round(Math.min(1, kg / max) * 100)}%"></i><u style="left:80%"></u></div>
@@ -12181,9 +13055,6 @@ function ladeMarkup() {
         <span class="key">N</span><span>Mit Notausrüstung hinab</span>
         <span class="note">rostiger Dolch und ein Ölfläschchen — alles Gepackte
           bleibt im Lager</span></button>
-      <button class="choice" id="notBtn">
-        <span class="key" aria-hidden="true">∅</span><span>Nur mit Notausrüstung hinab</span>
-        <span class="note">rostiger Dolch und ein Ölfläschchen — alles andere bleibt im Lager</span></button>
       <button class="choice" id="ladeRaeum">
         <span class="key" aria-hidden="true">↺</span><span>Lager aufräumen</span>
         <span class="note">packt das Sperrigste zuerst</span></button>
