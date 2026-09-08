@@ -2838,6 +2838,16 @@ const OIL_PER_STEPS = 4;    // Bezugsgroesse: bei 4 brennt die Flamme normal
 const OIL_PER_REST = 4;     // eine Einheit je vier Runden Rast
 const BRAZIER_REFILL = 26;  // vier bis sechs je Etage - zusammen gut eine Fuellung
 
+/* Wie viel eine Schale hergibt, haengt am Ort. Im Schloss stehen vier bis
+   sechs, in der Totenstadt vierunddreissig - bei gleicher Ausbeute waeren das
+   dort 880 Oel je Etage gegen 156, und der Krug koennte gar nicht leer
+   werden. Fuenf je Grablicht bringt die Rechnung wieder in dieselbe Groesse,
+   ohne dass ein Licht weniger dasteht: gemessen geben die Schalen im Schloss
+   142 Oel je Etage, die Grablichter dann 124. Praktisch ist es noch weniger,
+   denn man laeuft nicht an allen vierunddreissig vorbei - und das ist der
+   Punkt. */
+const schalenOel = () => ort().schalenOel || BRAZIER_REFILL;
+
 /* Wie viel Öl ein Verwaltungstakt bei normaler Flamme kostet. Vorher tropfte
    eine Einheit alle 3,6 Sekunden - eine Fuellung reichte damit fuer sechs
    Minuten und war nie eine Entscheidung. Jetzt ist eine volle Fackel gut
@@ -4921,6 +4931,7 @@ ORT_INHALT.totenstadt = {
   // Die Fackel brennt hier schlecht - dafuer stehen ueberall Grablichter
   sicht: .58,
   grablichter: true,
+  schalenOel: 5,            // vierunddreissig Lichter statt sechs Schalen
   regen: "gassen",          // auf den Strassen regnet es, in den Katakomben nicht
 };
 
@@ -8221,6 +8232,21 @@ function populateFloor(floor) {
       G.actors.push(gegner);
       map.gateBoss = true;          // die Treppe bleibt zu, bis er faellt
       if (gegner.power === "waechter") stelleWaechterSaeulen(gegner, map);
+    } else {
+      /* Keine Kammer taugte - das kommt selten vor, aber es kommt vor, seit
+         die Erreichbarkeit streng geprueft wird. Dann steht er eben im
+         Freien: ohne Schleier, ohne verriegelte Treppe. Lieber ein
+         Namentlicher ohne Inszenierung als eine Etage ohne ihn, denn an ihm
+         haengt auch der Auftrag. */
+      const platz = freiesFeldWeitVon(map, sx, sy, 14) ||
+                    freiesFeldWeitVon(map, sx, sy, 8);
+      if (platz) {
+        const offen = makeElite(eliteEtage, platz[0], platz[1]);
+        if (offen) {
+          G.actors.push(offen);
+          if (offen.power === "waechter") stelleWaechterSaeulen(offen, map);
+        }
+      }
     }
   }
 
@@ -8773,10 +8799,27 @@ function burnOil(n) {
 /* Ein freies Feld, weit genug weg vom Ankunftsplatz. Beide Rettungslaeufe
    brauchen dasselbe, und beide sollen nichts direkt vor die Fuesse legen. */
 function freiesFeldWeitVon(map, sx, sy, mindestens) {
+  /* Erreichbar muss es sein. Eine Karte hat abgeschlossene Taschen - Beute
+     oder gar ein Namentlicher darin waeren nicht knifflig, sondern weg.
+     Einmal fluten, dann daraus waehlen. */
+  const erreicht = new Uint8Array(MAP_W * MAP_H);
+  const q = [[sx, sy]];
+  erreicht[idx(sx, sy)] = 1;
+  for (let k = 0; k < q.length; k++) {
+    const [cx, cy] = q[k];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (!inBounds(nx, ny) || erreicht[idx(nx, ny)]) continue;
+      if (!WALKABLE[map.tiles[idx(nx, ny)]]) continue;
+      erreicht[idx(nx, ny)] = 1;
+      q.push([nx, ny]);
+    }
+  }
+
   for (let k = 0; k < 900; k++) {
     const x = 1 + Math.floor(rng() * (MAP_W - 2));
     const y = 1 + Math.floor(rng() * (MAP_H - 2));
-    if (!WALKABLE[map.tiles[idx(x, y)]]) continue;
+    if (!erreicht[idx(x, y)]) continue;
     if (map.tiles[idx(x, y)] === STAIRS || map.tiles[idx(x, y)] === DOOR) continue;
     if (map.veilRoom && map.veilRoom[idx(x, y)]) continue;   // nicht hinter den Schleier
     if (Math.hypot(x - sx, y - sy) < mindestens) continue;
@@ -8828,7 +8871,7 @@ function refillFromBrazier() {
     if (b.used) continue;
     if (Math.hypot(mitte(b.x) - p.x, mitte(b.y) - p.y) > 1.5) continue;
     const before = p.oil;
-    p.oil = Math.min(oilCap(), p.oil + BRAZIER_REFILL * (p.brazierBonus || 1));
+    p.oil = Math.min(oilCap(), p.oil + schalenOel() * (p.brazierBonus || 1));
     b.used = true;
     Sfx.spiel("schale");
     log(`Du hältst die Fackel in die Schale: +${p.oil - before} Öl.`, "good");
