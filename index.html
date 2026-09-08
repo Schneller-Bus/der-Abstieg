@@ -2773,9 +2773,6 @@ let fovR = FOV_RADIUS;
    Ort daran nimmt, gibt er in Grablichtern zurueck - man bewegt sich von
    Licht zu Licht, statt seinen Schein mitzuschleppen. */
 function fovFromOil(oil) {
-  /* Wo keine Fackel brennt, traegt der Oelstand auch nichts. Man sieht zwei
-     Kacheln weit, und alles Weitere kommt aus den Grablichtern. */
-  if (ort().lampenlicht) return GRABLICHT_SICHT;
   if (oil <= 0) return 2.2;
   const grund = 4.8 + (FOV_RADIUS - 4.8) * Math.min(1, oil / 60);
   return Math.max(2.2, grund * flamme().sicht * (ort().sicht || 1));
@@ -2794,27 +2791,16 @@ const TRANSPARENT = [false, true,  true,  true,  false, true,  true];
 const BRAZIER_RANGE = 4.6;
 
 /* ── Grablichter ─────────────────────────────────────────────────────────
-   In der Totenstadt brennt keine Fackel; man zuendet an, was dasteht.
-   Zehn Oel je Licht. Der Preis stand erst bei dreissig, dann bei zwanzig,
-   und beides war zu viel: gemessen ist der Weg zur Treppe achtundvierzig
-   Kacheln lang und braucht damit sieben Lichter, waehrend ein voller Krug
-   bei zwanzig nur sechs hergab. Man konnte die blosse Strecke nicht
-   beleuchten, geschweige denn abbiegen - und lief deshalb im Dunkeln, egal
-   wie sparsam man war. Bei zehn kauft ein Krug zwoelf Lichter, der Weg
-   kostet gut die Haelfte davon, und vom Oel einer Etage bleiben rund zehn
-   Lichter fuer alles, was neben dem Weg liegt. Erleuchten kann man die
-   Etage damit immer noch nicht: es stehen dreiunddreissig.
+   In der Totenstadt saeumen sie die Gassen und Gaenge, so wie Fackelschalen
+   das Schloss saeumen: sie brennen von selbst, sie leuchten, und jede gibt
+   einmal Oel her. Der Unterschied ist die Farbe - hier brennt nichts Warmes.
 
-   Die Lichter stehen in einer Kette: jedes ist von seinem Vorgaenger aus zu
-   sehen. Die Frage soll sein, ob ein Raum das Oel lohnt - nicht, wo das
-   naechste Licht ueberhaupt steht. */
-const GRABLICHT_KOSTEN = 10;
-const GRABLICHT_SCHEIN = 6.5;    // so weit sieht man in seinem Schein
-const GRABLICHT_SICHT = 2.0;     // und so weit ausserhalb davon
-const GRABLICHT_KETTE = 9;       // so viele Schritte darf die Kette hoechstens springen
-const GRABLICHT_ABSTAND = 5;     // und so nah hoechstens, sonst stehen sie sich im Weg
-const GRABLICHT_ZAHL = 64;       // Obergrenze, damit eine Etage nicht ausufert
-const GRABLICHT_AHNUNG = 10;     // so weit ahnt man ein kaltes, ohne es zu beleuchten
+   Es gab hier einmal ein zweites System: keine Fackel, dafuer kostete jedes
+   Licht Oel zum Anzuenden. Die Idee war, den Verbrauch durch eine
+   Entscheidung zu ersetzen. Gespielt hat sich das nicht gut, und das zaehlt
+   mehr als die Idee. */
+const GRABLICHT_ABSTAND = 7.5;   // so weit stehen sie auseinander
+const GRABLICHT_ZAHL = 30;       // Obergrenze, damit eine Etage nicht ausufert
 const LAVA_RANGE = 3.8;
 
 /* ── Echtzeit ─────────────────────────────────────────────────────────────
@@ -2890,8 +2876,6 @@ function flamme() {
 /* Wie viel Öl dieser Takt kostet. Die Talente wirken ueber oilSteps weiter:
    ein hoeherer Wert bedeutet eine sparsamere Flamme. */
 function verbrauchProTakt() {
-  // Eine Fackel, die nicht brennt, verbraucht nichts
-  if (ort().lampenlicht) return 0;
   const p = G.player;
   const stufen = Math.max(1, (p.oilSteps || OIL_PER_STEPS) + equipBonus("oilSteps"));
   return OIL_JE_TAKT * (OIL_PER_STEPS / stufen) * flamme().verbrauch *
@@ -4937,7 +4921,6 @@ ORT_INHALT.totenstadt = {
   // Die Fackel brennt hier schlecht - dafuer stehen ueberall Grablichter
   sicht: .58,
   grablichter: true,
-  lampenlicht: true,        // keine Fackel: man zuendet an, was dasteht
   regen: "gassen",          // auf den Strassen regnet es, in den Katakomben nicht
 };
 
@@ -7363,6 +7346,15 @@ function hauKammerAus(map) {
 }
 
 /* Kommt man von start zum Ziel, ohne einen Schleier zu durchqueren? */
+/* Ob man vom Ankunftsplatz an das Tor der Bosskammer herankommt, ohne durch
+   den Schleier zu gehen.
+
+   Gerade aus, nicht ueber Eck: der Held ist ein Kreis und bewegt sich
+   achsenweise, also kommt er durch eine Luecke, an der sich zwei Waende nur
+   in einer Ecke beruehren, nicht hindurch. Die Pruefung liess Diagonalen zu
+   und hielt solche Kammern deshalb fuer erreichbar. Gemessen betraf das eine
+   von 240 Etagen - aber wenn es passiert, ist die Etage eine Sackgasse: die
+   Treppe bleibt zu, bis der Namentliche faellt, und an den kommt man nicht. */
 function erreichbarOhneSchleier(map, sx, sy, ziel) {
   const gesehen = new Uint8Array(MAP_W * MAP_H);
   const stapel = [[sx, sy]];
@@ -7370,16 +7362,14 @@ function erreichbarOhneSchleier(map, sx, sy, ziel) {
   while (stapel.length) {
     const [x, y] = stapel.pop();
     if (x === ziel[0] && y === ziel[1]) return true;
-    for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
-        const nx = x + dx, ny = y + dy;
-        if (!inBounds(nx, ny)) continue;
-        const k = idx(nx, ny);
-        if (gesehen[k] || !WALKABLE[map.tiles[k]]) continue;
-        gesehen[k] = 1;
-        stapel.push([nx, ny]);
-      }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (!inBounds(nx, ny)) continue;
+      const k = idx(nx, ny);
+      if (gesehen[k] || !WALKABLE[map.tiles[k]]) continue;
+      gesehen[k] = 1;
+      stapel.push([nx, ny]);
+    }
   }
   return false;
 }
@@ -7424,7 +7414,11 @@ function stelleNamentlichen(map, zones, floor, eliteEtage, startX, startY) {
 
     /* Der Schleier selbst muss vom Start aus erreichbar sein - sonst kaeme man
        gar nicht erst an den Bossraum heran. */
-    const nebenTor = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
+    /* Auch hier nur gerade aus: ein Feld schraeg neben dem Tor nuetzt nichts,
+       denn von dort kommt man nicht auf das Tor. Mit Diagonalen in dieser
+       Liste galt die Kammer als erreichbar, obwohl der letzte Schritt
+       unmoeglich war. */
+    const nebenTor = [[1, 0], [-1, 0], [0, 1], [0, -1]]
       .map(([dx, dy]) => [ex + dx, ey + dy])
       .find(([x, y]) => inBounds(x, y) && WALKABLE[map.tiles[idx(x, y)]] && !drin[idx(x, y)]);
     if (!nebenTor || !erreichbarOhneSchleier(map, startX, startY, nebenTor)) {
@@ -7853,9 +7847,7 @@ const LAUNEN = [
   { key: "zugig", name: "Zugig", gewicht: 8,
     text: "Ein Zug aus der Tiefe — deine Fackel brennt doppelt so schnell." },
   { key: "verlassen", name: "Verlassen", gewicht: 7,
-    text: "Keine Fackelschale brennt mehr. Dafür blieb einiges zurück.",
-    textLampen: "Die Dochte sind verkrustet — Anzünden kostet mehr. " +
-                "Dafür blieb einiges zurück." },
+    text: "Keine Fackelschale brennt mehr. Dafür blieb einiges zurück." },
   { key: "vermint", name: "Vermint", gewicht: 7,
     text: "Wer hier baute, wollte niemanden hereinlassen. Dreimal so viele Fallen." },
   { key: "erstickend", name: "Erstickend", gewicht: 6,
@@ -8039,60 +8031,17 @@ function populateFloor(floor) {
       [felder[i], felder[j]] = [felder[j], felder[i]];
     }
 
-    /* Das erste Licht steht dort, wo man ankommt - und es brennt schon. Wer
-       im Stockdunkeln anfaengt, hat keine Wahl, sondern ein Problem. */
-    const nahAmStart = felder.find(([x, y]) =>
-      Math.hypot(x - sx, y - sy) <= 3.5 && lineOfSight(sx, sy, x, y));
-    const erstes = { x: nahAmStart ? nahAmStart[0] : sx,
-                     y: nahAmStart ? nahAmStart[1] : sy,
-                     aus: false, ankunft: true };
-    G.braziers.push(erstes);
-
-    /* Und von dort waechst die Reihe entlang des Fusswegs: das naechste Licht
-       steht hoechstens sechs Schritte entfernt, gemessen an dem Weg, den man
-       wirklich geht.
-
-       Vorher hing das an der Sichtlinie, und die kommt nicht durch eine Tuer
-       und nicht um eine Ecke. Was im Ankunftsraum anfing, blieb dort; gemessen
-       lagen 44 Prozent der Etage ueber zwanzig Schritte von jedem Licht
-       entfernt, und im Bild standen fuenf Lichter im ersten Raum und draussen
-       keines. Sehen tut man das naechste jetzt nicht immer sofort - aber man
-       laeuft nie mehr als sechs Schritte im Dunkeln, und auf zehn Kacheln
-       ahnt man es ohnehin. */
-    const warteschlange = [erstes];
-    for (let k = 0; k < warteschlange.length && G.braziers.length < GRABLICHT_ZAHL; k++) {
-      const von = warteschlange[k];
-      const weg = gehweiteVon(map, von.x, von.y, GRABLICHT_KETTE);
-      /* Von aussen nach innen: die entferntesten Kacheln zuerst. Nimmt man
-         die naechstbeste, setzt sich das Licht direkt daneben, die Dichte-
-         sperre blockiert danach alles Weitere, und die Kette kommt nicht vom
-         Fleck - gemessen elf Lichter und dreiundsechzig Prozent der Etage
-         ausser Reichweite. */
-      const kandidaten = felder
-        .filter(([lx, ly]) => weg[idx(lx, ly)] >= 1)
-        .sort((a, b) => weg[idx(b[0], b[1])] - weg[idx(a[0], a[1])]);
-      for (const [lx, ly] of kandidaten) {
-        if (G.braziers.length >= GRABLICHT_ZAHL) break;
-        /* Zwei verschiedene Groessen, die vorher eine waren: wie weit die
-           Kette springen darf (der Fussweg, hoechstens sechs Schritte) und
-           wie dicht die Lichter stehen duerfen (die Luftlinie). Als beides
-           dasselbe Fenster war, blieben nur Kacheln in genau fuenf bis sechs
-           Schritten uebrig - in einem Gang gibt es die oft nicht, und die
-           Kette starb ab. */
-        if (G.braziers.some(b => Math.hypot(b.x - lx, b.y - ly) < GRABLICHT_ABSTAND)) continue;
-        const neu = { x: lx, y: ly, aus: true };
-        G.braziers.push(neu);
-        warteschlange.push(neu);
-      }
+    /* Gestreut, nicht verkettet: mit Abstand zueinander, damit dazwischen
+       dunkle Strecken bleiben. Sie brennen von selbst - man sucht sie, man
+       zuendet sie nicht an. */
+    for (const [lx, ly] of felder) {
+      if (G.braziers.length >= GRABLICHT_ZAHL) break;
+      if (G.braziers.some(b => Math.hypot(b.x - lx, b.y - ly) < GRABLICHT_ABSTAND)) continue;
+      G.braziers.push({ x: lx, y: ly });
     }
   }
 
   for (const zone of zones) {
-    /* Wo die Lichter eine Kette bilden, hat der Nachschlag nichts zu suchen:
-       er setzte je Raum eines an eine zufaellige Stelle, und gemessen standen
-       dadurch 148 von 1130 Lichtern ausser Sichtweite jedes anderen - genau
-       die, nach denen man dann im Dunkeln suchen musste. */
-    if (ort().lampenlicht) break;
     if (rng() > .45) continue;
     const candidates = zone.tiles.filter(([x, y]) => {
       if (!isWalkable(x, y) || actorAt(x, y)) return false;
@@ -8107,24 +8056,15 @@ function populateFloor(floor) {
       const [bx, by] = candidates[Math.floor(rng() * candidates.length)];
       if (!G.ground.some(i => i.x === bx && i.y === by) &&
           !G.braziers.some(b => b.x === bx && b.y === by))
-        G.braziers.push({ x: bx, y: by, aus: !!ort().lampenlicht });
+        G.braziers.push({ x: bx, y: by });
     }
   }
   G.decals = [];
   G.chests = [];
   G.veilWarned = false;
   if (map.arenaSchalen) G.braziers = map.arenaSchalen.map(b => ({ x: b.x, y: b.y }));
-  /* "Verlassen" nimmt im Schloss alle Schalen - man hat ja seine Fackel.
-     In der Totenstadt hat man keine: dort waere das kein Ort ohne Nachschub,
-     sondern ein Ort ohne Licht, und der Balken liefe vom ersten Schritt an
-     hoch. Dort nimmt die Laune die Haelfte. */
-  /* "Verlassen" nimmt im Schloss alle Schalen - man hat ja seine Fackel.
-     In der Totenstadt nimmt sie keine: die Lichter stehen dort in einer
-     Kette, und wer jedes zweite herausnimmt, zerreisst sie - dann stehen die
-     uebrigen weiter auseinander, als eines leuchtet, und man sucht im
-     Dunkeln. Stattdessen sind die Doechte verkrustet: Anzuenden kostet drei
-     Viertel mehr. */
-  if (hatLaune("verlassen") && !ort().lampenlicht) G.braziers = [];
+  // "Verlassen": keine Schale brennt mehr - man hat ja seine Fackel
+  if (hatLaune("verlassen")) G.braziers = [];
   G.hasLava = map.tiles.includes(LAVA);
 
   // Zwischenboss in einem mittleren Raum, weit weg vom Eingang
@@ -8293,7 +8233,8 @@ function populateFloor(floor) {
 
   rettteKisten(map);
   rettteSchaechte();
-  rettteGrablichter();
+  rettteAuftrag(map, floor, sx, sy);
+  rettteOel(map, floor, sx, sy);
 
   /* Zuletzt die Konkurrenz. Sie kommt nach allem anderen, weil sie die Truhen
      kennen muss, auf die sie zulaeuft - und damit kein spaet gebauter
@@ -8458,23 +8399,6 @@ function updateFov() {
      nicht nur in die Farbe. Sonst waere es Kulisse, und man haette fuer
      nichts bezahlt. Nur die in der Naehe - was zwanzig Kacheln weiter
      brennt, geht einen hier nicht an. */
-  if (ort().lampenlicht)
-    for (const b of (G.braziers || [])) {
-      if (b.aus) {
-        /* Ein kaltes Grablicht ahnt man auf zehn Kacheln - einen schwachen
-           blauen Funken, sonst nichts. Der Weg dorthin bleibt dunkel; man
-           sieht nur, dass es dort steht. Ohne das half die Kette erst, wenn
-           man schon bezahlt hatte, und bis dahin tastete man sich - also
-           genau das Suchen, das sie abschaffen soll. */
-        if (Math.hypot(b.x - px, b.y - py) <= GRABLICHT_AHNUNG &&
-            lineOfSight(px, py, b.x, b.y)) G.map.visible[idx(b.x, b.y)] = 1;
-        continue;
-      }
-      if (Math.hypot(b.x - px, b.y - py) > 20) continue;
-      G.map.visible[idx(b.x, b.y)] = 1;
-      for (const [xx, xy, yx, yy] of OCTANTS)
-        castLight(b.x, b.y, 1, 1, 0, GRABLICHT_SCHEIN, xx, xy, yx, yy);
-    }
   /* Die Schatzkammer brennt selbst. Wer freie Sicht auf sie hat, sieht sie
      ganz - sonst liefe man an einem Raum vorbei, dessen halbe Breite jenseits
      des eigenen Fackelscheins liegt, und erfuehre nie davon. */
@@ -8846,90 +8770,59 @@ function burnOil(n) {
    Was vom Ankunftslicht aus nicht mehr ueber Sichtlinien zu erreichen ist,
    kommt darum weg; die zwei Schalen der Bosskammer bleiben, die brennen
    ohnehin von selbst. */
-function rettteGrablichter() {
-  if (!ort().lampenlicht || !G.braziers.length) return;
-  const wurzel = G.braziers.find(b => b.ankunft);
-  if (!wurzel) return;
-  const drin = new Set([wurzel]);
-  const rand = [wurzel];
-  for (let k = 0; k < rand.length; k++) {
-    // Dieselbe Regel wie beim Setzen: der Fussweg, nicht die Sichtlinie
-    const weg = gehweiteVon(G.map, rand[k].x, rand[k].y, GRABLICHT_KETTE + 1);
-    for (const b of G.braziers) {
-      if (drin.has(b)) continue;
-      if (weg[idx(b.x, b.y)] < 0) continue;
-      drin.add(b);
-      rand.push(b);
-    }
+/* Ein freies Feld, weit genug weg vom Ankunftsplatz. Beide Rettungslaeufe
+   brauchen dasselbe, und beide sollen nichts direkt vor die Fuesse legen. */
+function freiesFeldWeitVon(map, sx, sy, mindestens) {
+  for (let k = 0; k < 900; k++) {
+    const x = 1 + Math.floor(rng() * (MAP_W - 2));
+    const y = 1 + Math.floor(rng() * (MAP_H - 2));
+    if (!WALKABLE[map.tiles[idx(x, y)]]) continue;
+    if (map.tiles[idx(x, y)] === STAIRS || map.tiles[idx(x, y)] === DOOR) continue;
+    if (map.veilRoom && map.veilRoom[idx(x, y)]) continue;   // nicht hinter den Schleier
+    if (Math.hypot(x - sx, y - sy) < mindestens) continue;
+    if (actorAt(x, y)) continue;
+    if (G.ground.some(i => i.x === x && i.y === y)) continue;
+    if (G.chests.some(c => c.x === x && c.y === y)) continue;
+    if (G.braziers.some(b => b.x === x && b.y === y)) continue;
+    return [x, y];
   }
-  G.braziers = G.braziers.filter(b => drin.has(b) || b.kammer);
+  return null;
 }
 
-/* Wie weit man von hier aus in hoechstens `tiefe` Schritten kommt - der Weg,
-   den man wirklich geht, nicht die Luftlinie. Die Kette der Grablichter
-   haengt daran: eine Sichtlinie kommt nicht durch eine Tuer und nicht um eine
-   Ecke, ein Weg schon. */
-function gehweiteVon(map, ax, ay, tiefe) {
-  const d = new Int16Array(MAP_W * MAP_H).fill(-1);
-  if (!inBounds(ax, ay)) return d;
-  d[idx(ax, ay)] = 0;
-  const q = [[ax, ay]];
-  for (let k = 0; k < q.length; k++) {
-    const [cx, cy] = q[k];
-    const hier = d[idx(cx, cy)];
-    if (hier >= tiefe) continue;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = cx + dx, ny = cy + dy;
-      if (!inBounds(nx, ny) || d[idx(nx, ny)] >= 0) continue;
-      if (!WALKABLE[map.tiles[idx(nx, ny)]]) continue;
-      d[idx(nx, ny)] = hier + 1;
-      q.push([nx, ny]);
-    }
+/* Ein Auftrag, dessen Ziel gar nicht auf der Etage steht, ist kein Auftrag,
+   sondern eine Sackgasse - und man merkt es erst, wenn man alles erschlagen
+   hat und der Zaehler bei zwei steht. Gemessen betraf das jede siebte Etage.
+   Was fehlt, wird nachgesetzt. */
+function rettteAuftrag(map, floor, sx, sy) {
+  const q = (ort().quests || {})[floor];
+  if (!q || q.type !== "slay" || !MONSTERS[q.target]) return;
+  const soll = q.count || 1;
+  let da = G.actors.filter(a => a.id === q.target && a.alive).length;
+  while (da < soll) {
+    const platz = freiesFeldWeitVon(map, sx, sy, 7);
+    if (!platz) break;
+    G.actors.push(makeMonster(q.target, platz[0], platz[1], rollMonsterAffix(floor)));
+    da++;
   }
-  return d;
 }
 
-/* Ein Grablicht anzuenden kostet - und brennt dann fuer immer. Das ist die
-   Waehrung der Totenstadt: nicht wie lange du unten bleibst, sondern wie
-   viel Weg du dir leistest. */
-/* Was ein Licht heute kostet. Auf einer verlassenen Etage sind die Doechte
-   verkrustet - dort kostet es mehr, statt dass Lichter fehlen. */
-function grablichtKosten() {
-  return Math.round(GRABLICHT_KOSTEN * (hatLaune("verlassen") ? 1.75 : 1));
-}
-
-function zuendeGrablicht() {
-  if (!ort().lampenlicht) return false;
-  const p = G.player;
-  for (const b of (G.braziers || [])) {
-    if (!b.aus) continue;
-    if (Math.hypot(mitte(b.x) - p.x, mitte(b.y) - p.y) > 1.6) continue;
-    const kostet = grablichtKosten();
-    if (p.oil < kostet) {
-      log(`Zu wenig Öl. Ein Grablicht braucht ${kostet}, du hast ${p.oil | 0}.`,
-          "system");
-      Sfx.spiel("nein");
-      return true;                  // angefasst hat er es trotzdem
-    }
-    p.oil = Math.max(0, p.oil - kostet);
-    b.aus = false;
-    Sfx.spiel("schale");
-    ring(mitte(b.x), mitte(b.y), 2.4, "#6FC8E8");
-    burst(mitte(b.x), mitte(b.y), "#9FE4FF", 22);
-    log(`Das Grablicht nimmt ${kostet} Öl und brennt. Blau, wie hier alles.`,
-        "good");
-    updateFov();
-    refreshUI();
-    return true;
-  }
-  return false;
+/* Und eine Etage ohne einen Tropfen Oel. Im Schloss kann das passieren, wenn
+   "Verlassen" die Schalen genommen hat und zufaellig kein Fund darauf liegt -
+   wer mit halbem Krug ankommt, hat dort keine Moeglichkeit mehr. */
+function rettteOel(map, floor, sx, sy) {
+  const hatOel = G.ground.some(i => i.def && i.def.use === "oil") ||
+    G.chests.some(k => (k.loot || []).some(e => ITEMS[e.id] && ITEMS[e.id].use === "oil")) ||
+    (G.braziers || []).some(b => !b.used);
+  if (hatOel) return;
+  const platz = freiesFeldWeitVon(map, sx, sy, 4);
+  if (!platz) return;
+  const flasche = buildItem(floor >= 5 ? "bigoil" : "oil", null, null);
+  G.ground.push(Object.assign(flasche, { x: platz[0], y: platz[1] }));
 }
 
 /* Fackelschalen sind Licht und Nachschub zugleich - jede gibt einmal etwas ab. */
 function refillFromBrazier() {
   const p = G.player;
-  // In der Totenstadt gibt kein Licht Oel her - dort kostet es welches
-  if (ort().lampenlicht) return;
   if (p.oil >= oilCap()) return;
   for (const b of (G.braziers || [])) {
     if (b.used) continue;
@@ -10382,14 +10275,7 @@ function tickFinsternis() {
 
   // Fuenf je Takt: rund zehn Sekunden, bis der Erste kommt - genug, um noch
   // zu einer Fackelschale zu laufen.
-  /* Im Schloss haengt die Finsternis am Oelstand - dort traegt man sein
-     Licht. In der Totenstadt haengt sie am Ort: wer ausserhalb jedes
-     Grablichts steht, steht im Dunkeln, ganz gleich wie voll sein Krug ist. */
-  const imDunkeln = ort().lampenlicht
-    ? !(G.braziers || []).some(b => !b.aus &&
-        Math.hypot(mitte(b.x) - p.x, mitte(b.y) - p.y) <= GRABLICHT_SCHEIN)
-    : p.oil <= 0;
-  if (imDunkeln) p.finsternis = Math.min(100, vorher +
+  if (p.oil <= 0) p.finsternis = Math.min(100, vorher +
     5 * (1 - skillRang("kohle") * .2) * (hatLaune("erstickend") ? 2 : 1));
   else p.finsternis = Math.max(0, vorher - 12);
 
@@ -11051,7 +10937,6 @@ function drawFrame(dt) {
   for (const b of (G.braziers || [])) {
     if (b.x < camX - 6 || b.x > camX + VIEW_W + 6 || b.y < camY - 6 || b.y > camY + VIEW_H + 6) continue;
     if (!G.map.visible[idx(b.x, b.y)]) continue;
-    if (b.aus) continue;                 // ein kaltes Grablicht wirft nichts
     const phase = (b.x * 7 + b.y * 13) % 10;
     const base = .88 + Math.sin(anim.t * 6.1 + phase) * .07 + Math.sin(anim.t * 13.7 + phase) * .05;
     // Wer schon nachgefüllt hat, hat der Schale ihr Öl genommen.
@@ -11151,8 +11036,9 @@ function drawFrame(dt) {
     if (!G.map.explored[i]) continue;
     const x = (b.x - camX) * TILE, y = (b.y - camY) * TILE;
     if (x < -TILE || y < -TILE || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
+    // Die Farbe bleibt: in der Totenstadt brennt nichts Warmes
     drawBrazier(x, y, !!G.map.visible[i], anim.t + (b.x * 7 + b.y * 13) % 10,
-                !!b.used, !!b.aus, !!ort().lampenlicht);
+                !!b.used, !!ort().grablichter);
   }
 
   /* --- Der Schein der Schatzkammer: sie brennt von sich aus --- */
@@ -13265,7 +13151,7 @@ function drawHero(ctx, x, y, light, t, actor) {
   ctx.restore();
 }
 
-function drawBrazier(x, y, vis, t, used, aus, kalt) {
+function drawBrazier(x, y, vis, t, used, kalt) {
   const cx = x + TILE / 2, base = y + TILE - 4;
   const k = TILE / 26;
   ctx.save();
@@ -13290,9 +13176,7 @@ function drawBrazier(x, y, vis, t, used, aus, kalt) {
 
   // Ausgeschöpfte Schalen brennen sichtbar niedriger.
   const fl = (.8 + Math.sin(t * 8.3) * .13 + Math.sin(t * 19.7) * .07) * (used ? .5 : 1);
-  /* In der Totenstadt brennt nichts Warmes. Und ein Grablicht, das noch
-     niemand angezündet hat, muss man von einem brennenden auf einen Blick
-     unterscheiden können - sonst läuft man daran vorbei. */
+  // In der Totenstadt brennt nichts Warmes
   const glut = kalt ? ["#DCF4FF", "#6FC8E8", "rgba(30,110,150,0)", "#6FC8E8"]
                     : ["#FFF3CC", "#E8A94B", "rgba(190,96,32,0)", "#E8A94B"];
 
@@ -13309,28 +13193,6 @@ function drawBrazier(x, y, vis, t, used, aus, kalt) {
   ctx.fill();
   ctx.fillStyle = "#6E5C46";
   ctx.fillRect(cx - 7 * k, base - 13.6 * k, 14 * k, 1.6 * k);
-
-  // Ein kaltes Grablicht: die Schale steht da, aber es brennt nichts darin
-  if (aus) {
-    ctx.strokeStyle = "rgba(140,170,190,.55)";
-    ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    ctx.ellipse(cx, base - 13.5 * k, 6 * k, 2 * k, 0, 0, 6.283);
-    ctx.stroke();
-    /* Der Funke ist das Einzige, was ein kaltes Grablicht von der Ferne
-       hergibt - er muss durch zehn Kacheln Dunkelheit zu sehen sein, ohne
-       dass es aussieht, als brenne dort schon etwas. */
-    const puls = .55 + Math.sin(t * 2.1) * .3;
-    ctx.shadowColor = "#6FC8E8";
-    ctx.shadowBlur = 9 * puls;
-    ctx.fillStyle = `rgba(170,225,250,${Math.max(.35, puls)})`;
-    ctx.beginPath();
-    ctx.arc(cx, base - 14 * k, 2.3 * k, 0, 6.283);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.restore();
-    return;
-  }
 
   // Flamme
   ctx.shadowColor = glut[3];
@@ -14103,8 +13965,7 @@ function refreshUI() {
   $("launeTag").hidden = !l;
   if (l) {
     $("launeTag").textContent = l.name;
-    // Dieselbe Laune tut an zwei Orten Verschiedenes - dann sagt sie das auch
-    $("launeTag").title = (ort().lampenlicht && l.textLampen) || l.text;
+    $("launeTag").title = l.text;
   }
   $("levelTag").textContent = "Stufe " + (ROMAN[p.level] || p.level);
 
@@ -17797,7 +17658,7 @@ const HANDLUNGEN = [
   { id: "faehig",   name: "Fähigkeit",         standard: "f" },
   { id: "flammeRunter", name: "Fackel herunterdrehen", standard: "x" },
   { id: "flammeHoch",   name: "Fackel aufdrehen",      standard: "v" },
-  { id: "aufheben", name: "Aufheben, öffnen, anzünden",  standard: "g" },
+  { id: "aufheben", name: "Aufheben, öffnen",  standard: "g" },
   { id: "beutel",   name: "Rucksack",          standard: "i" },
   { id: "rasten",   name: "Rasten",            standard: "r" },
   { id: "auftrag",  name: "Aufträge",          standard: "q" },
@@ -17995,7 +17856,7 @@ window.addEventListener("keydown", ev => {
     case "faehig": beginAbility(); break;
     case "flammeRunter": dreheFlamme(-1); break;
     case "flammeHoch": dreheFlamme(1); break;
-    case "aufheben": act(() => { if (!zuendeGrablicht()) pickUp(); }); break;
+    case "aufheben": act(() => pickUp()); break;
     case "beutel": showBag(); break;
     case "auftrag": showQuestLog(); break;
     case "held": showCharacter(); break;
