@@ -2783,6 +2783,7 @@ const GRABLICHT_SICHT = 2.0;     // und so weit ausserhalb davon
 const GRABLICHT_KETTE = 6.0;     // so weit darf das naechste hoechstens weg sein
 const GRABLICHT_ABSTAND = 4.0;   // und so nah hoechstens, sonst stehen sie sich im Weg
 const GRABLICHT_ZAHL = 48;       // Obergrenze, damit eine Etage nicht ausufert
+const GRABLICHT_AHNUNG = 10;     // so weit ahnt man ein kaltes, ohne es zu beleuchten
 const LAVA_RANGE = 3.8;
 
 /* ── Echtzeit ─────────────────────────────────────────────────────────────
@@ -8120,7 +8121,16 @@ function updateFov() {
      brennt, geht einen hier nicht an. */
   if (ort().lampenlicht)
     for (const b of (G.braziers || [])) {
-      if (b.aus) continue;
+      if (b.aus) {
+        /* Ein kaltes Grablicht ahnt man auf zehn Kacheln - einen schwachen
+           blauen Funken, sonst nichts. Der Weg dorthin bleibt dunkel; man
+           sieht nur, dass es dort steht. Ohne das half die Kette erst, wenn
+           man schon bezahlt hatte, und bis dahin tastete man sich - also
+           genau das Suchen, das sie abschaffen soll. */
+        if (Math.hypot(b.x - px, b.y - py) <= GRABLICHT_AHNUNG &&
+            lineOfSight(px, py, b.x, b.y)) G.map.visible[idx(b.x, b.y)] = 1;
+        continue;
+      }
       if (Math.hypot(b.x - px, b.y - py) > 20) continue;
       G.map.visible[idx(b.x, b.y)] = 1;
       for (const [xx, xy, yx, yy] of OCTANTS)
@@ -12892,12 +12902,17 @@ function drawBrazier(x, y, vis, t, used, aus, kalt) {
     ctx.beginPath();
     ctx.ellipse(cx, base - 13.5 * k, 6 * k, 2 * k, 0, 0, 6.283);
     ctx.stroke();
-    // Ein schwacher Funke, damit man es im Dunkeln überhaupt bemerkt
-    const puls = .25 + Math.sin(t * 2.1) * .18;
-    ctx.fillStyle = `rgba(150,210,240,${Math.max(.08, puls)})`;
+    /* Der Funke ist das Einzige, was ein kaltes Grablicht von der Ferne
+       hergibt - er muss durch zehn Kacheln Dunkelheit zu sehen sein, ohne
+       dass es aussieht, als brenne dort schon etwas. */
+    const puls = .55 + Math.sin(t * 2.1) * .3;
+    ctx.shadowColor = "#6FC8E8";
+    ctx.shadowBlur = 9 * puls;
+    ctx.fillStyle = `rgba(170,225,250,${Math.max(.35, puls)})`;
     ctx.beginPath();
-    ctx.arc(cx, base - 14 * k, 1.8 * k, 0, 6.283);
+    ctx.arc(cx, base - 14 * k, 2.3 * k, 0, 6.283);
     ctx.fill();
+    ctx.shadowBlur = 0;
     ctx.restore();
     return;
   }
