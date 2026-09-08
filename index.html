@@ -2711,10 +2711,13 @@ const VIEW_W = 30, VIEW_H = 18;
 const FOV_RADIUS = 10.5;
 // Wie weit die Fackel trägt, hängt am Ölstand - deshalb kein fester Wert.
 let fovR = FOV_RADIUS;
+/* In der Totenstadt zieht es so, dass keine Fackel richtig brennt. Was der
+   Ort daran nimmt, gibt er in Grablichtern zurueck - man bewegt sich von
+   Licht zu Licht, statt seinen Schein mitzuschleppen. */
 function fovFromOil(oil) {
   if (oil <= 0) return 2.2;
   const grund = 4.8 + (FOV_RADIUS - 4.8) * Math.min(1, oil / 60);
-  return Math.max(2.6, grund * flamme().sicht);
+  return Math.max(2.2, grund * flamme().sicht * (ort().sicht || 1));
 }
 const MAX_FLOOR = 10;
 /* Ein Leben je zwanzig Runden. Bei acht war die Etage von selbst verheilt,
@@ -3465,16 +3468,16 @@ const MONSTERS = {
              tempo: 1.22 },
   klageweib: { name: "Klageweib", g: "f",     hp: 108, def: 4, atk: 13, xp: 190, ai: "ranged", hieb: 1.1,
              ratk: 16, range: 6.5, keep: 4.5, nachladen: 1.4, lichtscheu: true,
-             art: "robe",     body: "#5E6478", dark: "#22262F", size: 1.14, eye: "#CFE0FF",
+             art: "klage",    body: "#5E6478", dark: "#22262F", size: 1.16, eye: "#CFE0FF",
              glow: "#6E7A96", float: true },
   grabwache: { name: "Grabwache", g: "f",     hp: 240, def: 8, atk: 19, xp: 380, ai: "melee", hieb: 1.85,
-             art: "golem",    body: "#8C8578", dark: "#3A362E", size: 1.28, eye: "#D8E8B0",
+             art: "sarg",     body: "#8C8578", dark: "#3A362E", size: 1.30, eye: "#D8E8B0",
              glow: "#B0C088" },
   aasratte: { name: "Aasratte", g: "f",       hp: 44, def: 1, atk: 8,  xp: 60,  ai: "melee", hieb: .78,
-             art: "rat",      body: "#6E6A5A", dark: "#3A382E", size: 1.04, eye: "#C8E0A0" },
+             art: "aas",      body: "#6E6A5A", dark: "#3A382E", size: 1.06, eye: "#C8E0A0" },
   gebein:  { name: "Gebeinschütze", g: "m",   hp: 96, def: 3, atk: 11, xp: 170, ai: "ranged", hieb: 1.0,
              ratk: 14, range: 6, keep: 3.8, nachladen: 1.2,
-             art: "skeleton", body: "#D8D2BC", dark: "#7E7866", size: 1.06, eye: "#B8E890" },
+             art: "schuetze", body: "#D8D2BC", dark: "#7E7866", size: 1.08, eye: "#B8E890" },
 
   /* Er hebt waehrend des Kampfes Graeber aus, und was darin liegt, steht auf.
      Wer zu lange braucht, kaempft irgendwann gegen den halben Friedhof - die
@@ -3500,16 +3503,25 @@ const ITEMS = {
                  status: "Schutz", turns: 20, mag: 3, stapel: 2, note: "20 Runden Schutz +3" },
   regen:       { name: "Trank der Regeneration",kind: "potion", tint: "#6CBE86", use: "status",
                  status: "Regeneration", turns: 15, mag: 2, stapel: 2, note: "15 Runden je 2 Leben" },
-  lightning:   { name: "Blitzrolle",            kind: "scroll", tint: "#E8D06A", use: "lightning",
-                 damage: 22, range: 5, note: "22 Schaden auf den nächsten Feind" },
-  fireball:    { name: "Feuerballrolle",        kind: "scroll", tint: "#E06A3A", use: "fireball",
-                 damage: 14, radius: 3, target: "area", note: "14 Schaden im Umkreis 3 — auch dir" },
-  confusion:   { name: "Verwirrungsrolle",      kind: "scroll", tint: "#B47ADE", use: "confuse",
-                 turns: 10, target: "actor", note: "lässt ein Ziel 10 Runden irren" },
-  poison:      { name: "Giftrolle",             kind: "scroll", tint: "#7EC060", use: "poison",
-                 turns: 12, mag: 3, target: "actor", note: "12 Runden je 3 Schaden" },
-  blink:       { name: "Rolle der Versetzung",  kind: "scroll", tint: "#78C8E2", use: "blink",
-                 note: "versetzt dich zufällig" },
+  /* ── Wurfgeraet ──────────────────────────────────────────────────────
+     Was ein Pluenderer dabeihaette. Es fliegt dorthin, wo der Zeiger steht,
+     es stapelt sich, und es gehoert an den Guertel - dort liegt es auf den
+     Ziffern und ist mitten im Kampf zu haben, ohne dass die Welt anhaelt. */
+  wurfoel:     { name: "Brandflasche",          kind: "wurf", tint: "#E8763A", use: "wurf",
+                 wirkung: "brand", weite: 7, schaden: 12, radius: 2.2, stapel: 3,
+                 note: "zerschellt und brennt vier Sekunden" },
+  wurfmesser:  { name: "Wurfmesser",            kind: "wurf", tint: "#B8C2D2", use: "wurf",
+                 wirkung: "stich", weite: 9, schaden: 20, stapel: 4,
+                 note: "20 Schaden auf ein Ziel, weit" },
+  netz:        { name: "Wurfnetz",              kind: "wurf", tint: "#A89878", use: "wurf",
+                 wirkung: "netz", weite: 6, radius: 1.8, dauer: 3.5, stapel: 3,
+                 note: "hält fest, was darin steht" },
+  blendpulver: { name: "Blendpulver",           kind: "wurf", tint: "#E8E0C4", use: "wurf",
+                 wirkung: "blind", weite: 5, radius: 2.6, dauer: 6, stapel: 3,
+                 note: "wer es abbekommt, findet dich nicht mehr" },
+  salzbeutel:  { name: "Salzbeutel",            kind: "wurf", tint: "#B8E8C0", use: "wurf",
+                 wirkung: "salz", weite: 6, radius: 2.4, schaden: 34, stapel: 3,
+                 note: "verbrennt Untote, sonst wenig" },
   chart:       { name: "Rolle der Kartografie", kind: "scroll", tint: "#C6C6E2", use: "chart",
                  note: "deckt die Etage auf" },
   /* Kein Fund aus der Tiefe, sondern Handelsware: es laesst dich eine Etage
@@ -3644,6 +3656,7 @@ const ITEMS = {
 /* Voreinstellung je Art, danach die Ausreisser. [breite, hoehe, gewicht] */
 const KACHEL_ART = {
   potion: [1, 1, .5], scroll: [1, 1, .2], oil: [1, 1, .8], seil: [1, 1, 1.2],
+  wurf: [1, 1, .55],
   weapon: [1, 3, 3.5], armor: [2, 3, 8], amulet: [1, 1, .3], relic: [1, 1, 1],
   material: [1, 1, .35], modul: [1, 1, .6],
 };
@@ -3749,7 +3762,10 @@ const ERWEITERUNGEN = {
 const GUERTEL_PLAETZE = 5;
 
 // Was hineindarf: Flaschen. Rollen bleiben im Rucksack, sie sind kein Schluck.
-const istFlasche = def => !!def && (def.kind === "potion" || def.kind === "oil");
+/* Was an den Guertel darf: Flaschen und Wurfgeraet - alles, was man mitten im
+   Kampf braucht. Rollen bleiben im Rucksack, sie sind kein Griff. */
+const istFlasche = def => !!def &&
+  (def.kind === "potion" || def.kind === "oil" || def.kind === "wurf");
 
 function guertel(p) {
   p = p || G.player;
@@ -3866,6 +3882,7 @@ function lagerRaster() {
 }
 
 function lagerEinraeumen() {
+  stapelZusammen(META.lager, b => ITEMS[b.id]);
   const { spalten, reihen } = lagerRaster();
   raeumeEinIn(META.lager, spalten, reihen);
 }
@@ -3927,6 +3944,12 @@ function ueberladung(p) {
 }
 
 function lastTempo(p) { return 1 - .18 * ueberladung(p); }
+
+/* Der Zustand "Langsam" - die Klage des Ersten Trauernden legt ihn auf. Ohne
+   diese Zeile war er nur ein Wort in der Anzeige und hat nichts getan. */
+function klageTempo(p) {
+  return Math.max(.45, 1 - .18 * statusMag(p, "Langsam"));
+}
 
 /* == Platzsuche ==========================================================
    Von oben links nach unten rechts, erste passende Luecke. Das reicht: wer
@@ -4020,10 +4043,43 @@ function suchePlatz(p, eintrag) {
 }
 
 /* Ein gleichartiger Stapel, in den noch etwas hineinpasst. */
+/* Ein fehlendes Mengenfeld heisst eins, nicht null. Stuecke, die vor der
+   Stapelbarkeit entstanden sind, haben keines - und liessen sich dadurch nie
+   wieder zusammenlegen. In einem gewachsenen Lager betraf das alles. */
+const mengeVon = e => (e && e.menge) || 1;
+
+/* Zwei Guertelplaetze tauschen - oder, wenn dieselbe Sorte, zusammenlegen. */
+function guertelTausch(band, von, nach) {
+  if (von === nach) return false;
+  const a = band[von], b = band[nach];
+  if (!a) return false;
+  const stapel = vorlage(a).stapel || 1;
+  if (b && b.id === a.id && (b.sel || null) === (a.sel || null) &&
+      mengeVon(b) < stapel) {
+    const nimmt = Math.min(stapel - mengeVon(b), mengeVon(a));
+    b.menge = mengeVon(b) + nimmt;
+    a.menge = mengeVon(a) - nimmt;
+    if (a.menge <= 0) band[von] = null;
+    return true;
+  }
+  band[von] = b || null;
+  band[nach] = a;
+  return true;
+}
+
+/* Welcher Guertelplatz unter dem Zeiger liegt. */
+function guertelPlatzUnter(ev, feld) {
+  const el = document.elementFromPoint(ev.clientX, ev.clientY);
+  const treffer = el && el.closest ? el.closest("[data-" + feld + "]") : null;
+  return treffer ? +treffer.dataset[feld] : -1;
+}
+
 function stapelFuer(p, eintrag) {
-  if (!eintrag.menge || !eintrag.def.stapel) return null;
+  const stapel = eintrag.def && eintrag.def.stapel;
+  if (!stapel) return null;
   for (const e of imRucksack(p))
-    if (e.id === eintrag.id && e.menge && e.menge < e.def.stapel) return e;
+    if (e.id === eintrag.id && (e.sel || null) === (eintrag.sel || null) &&
+        e !== eintrag && mengeVon(e) < stapel) return e;
   return null;
 }
 
@@ -4033,6 +4089,8 @@ function legeAb(p, eintrag) {
   // Werkstoffe wandern zuerst auf einen angefangenen Stapel
   const stapel = stapelFuer(p, eintrag);
   if (stapel) {
+    stapel.menge = mengeVon(stapel);
+    eintrag.menge = mengeVon(eintrag);
     const platz = stapel.def.stapel - stapel.menge;
     const nimmt = Math.min(platz, eintrag.menge);
     if (getragen(p) + gewicht({ id: eintrag.id, def: eintrag.def, menge: nimmt })
@@ -4082,7 +4140,33 @@ function zurueckInsRaster(p, eintrag) {
    Wer aufraeumt, packt das Sperrigste zuerst; die Kleinteile fuellen die
    Ecken. Noetig ist es auch, wenn das Raster durch ein Talent waechst oder
    nach dem Zuruecksetzen schrumpft. */
+/* Beim Aufraeumen werden gleiche Stapel zusammengelegt. Vorher blieben zwei
+   halbe Stapel Heiltraenke fuer immer nebeneinander liegen. */
+function stapelZusammen(liste, vorlageVon) {
+  for (let i = 0; i < liste.length; i++) {
+    const a = liste[i];
+    const da = vorlageVon(a);
+    if (!da || !da.stapel) continue;
+    for (let j = liste.length - 1; j > i; j--) {
+      const b = liste[j];
+      if (b.id !== a.id || (b.sel || null) !== (a.sel || null)) continue;
+      const platz = da.stapel - mengeVon(a);
+      if (platz <= 0) break;
+      const nimmt = Math.min(platz, mengeVon(b));
+      a.menge = mengeVon(a) + nimmt;
+      b.menge = mengeVon(b) - nimmt;
+      if (b.menge <= 0) liste.splice(j, 1);
+    }
+  }
+  return liste;
+}
+
 function raeumeEin(p) {
+  stapelZusammen(p.bag.filter(e => Object.values(p.equipped).indexOf(e) < 0),
+                 e => e.def);
+  // Was dabei geleert wurde, ist schon aus der Hilfsliste raus - hier auch
+  for (let i = p.bag.length - 1; i >= 0; i--)
+    if (p.bag[i].menge === 0) p.bag.splice(i, 1);
   p = p || G.player;
   const { spalten, reihen } = raster();
   raeumeEinIn(imRucksack(p), spalten, reihen);
@@ -4100,15 +4184,20 @@ const LEGENDEN = ["schattenzahn", "aschebringer", "koenigsmoerder", "nachtmantel
 
    In der Tiefe verschieben sich die Gewichte nach oben. Auf Etage 1 ist fast
    alles gewoehnlich, ganz unten faellt regelmaessig Episches. */
+/* Die Stufen lagen zu dicht beieinander: zwischen "fein" und "selten" waren
+   fuenfundzwanzig Prozent auf einer Zahl, die ohnehin meist einstellig ist -
+   aus Angriff 7 wurde 8 statt 9, und "episch" fuehlte sich an wie
+   gewoehnlich. Jetzt sind die Abstaende gross genug, um sie zu sehen, und die
+   oberen Stufen sind seltener. */
 const SELTEN = [
   { key: "gewoehnlich", name: "Gewöhnlich", farbe: "#9BA4B4",
     mult: 1.00, wert: 1.0, affix: 0,   gewicht: 100 },
   { key: "fein",        name: "Fein",       farbe: "#7FC08A",
-    mult: 1.20, wert: 2.0, affix: .30, gewicht: 34 },
+    mult: 1.28, wert: 2.2, affix: .45, gewicht: 30 },
   { key: "selten",      name: "Selten",     farbe: "#6E9ED8",
-    mult: 1.45, wert: 4.2, affix: .60, gewicht: 9 },
+    mult: 1.70, wert: 5.0, affix: 1,   gewicht: 6 },
   { key: "episch",      name: "Episch",     farbe: "#B47ADE",
-    mult: 1.80, wert: 9.0, affix: .90, gewicht: 1.8 },
+    mult: 2.35, wert: 13.0, affix: 1,  gewicht: 1.0, zweiterAffix: true },
   { key: "legendaer",   name: "Legendär",   farbe: "#E8A94B",
     mult: 1.00, wert: 1.0, affix: 0,   gewicht: 0 },
 ];
@@ -4120,7 +4209,8 @@ const SELTEN_RANG = Object.fromEntries(SELTEN.map((r, i) => [r.key, i]));
    gewaehlt, dass Episches auf Etage 1 praktisch nie und ganz unten regelmaessig
    faellt - nachgemessen, nicht geraten. */
 function seltenGewichte(floor, glueck) {
-  const schub = 1 + (floor | 0) * .105 + (glueck || 0);
+  // Flacher als vorher: auf Etage 13 war sonst jedes zehnte Stueck episch
+  const schub = 1 + (floor | 0) * .07 + (glueck || 0);
   return SELTEN.filter(r => r.gewicht > 0)
     .map((r, i) => [r.key, r.gewicht * Math.pow(schub, i)]);
 }
@@ -4183,9 +4273,10 @@ const AFFIX_BY_KEY = Object.fromEntries(AFFIXES.map(a => [a.key, a]));
 
 /* Baut eine Gegenstands-Instanz. Ohne Affix teilen sich alle dieselbe Vorlage,
    mit Affix bekommt jedes Stück seine eigene. */
-function buildItem(id, affixKey, sel) {
+function buildItem(id, affixKey, sel, affixKey2) {
   const base = ITEMS[id];
   const a = affixKey ? AFFIX_BY_KEY[affixKey] : null;
+  const a2 = affixKey2 && affixKey2 !== affixKey ? AFFIX_BY_KEY[affixKey2] : null;
   // Legendaere tragen ihren Namen und ihre Werte selbst - da kommt nichts dran
   if (base.legendaer) return { id, def: base };
   if (!base.slot) {
@@ -4210,9 +4301,21 @@ function buildItem(id, affixKey, sel) {
       : `${base.name} ${a.text}`;
     def.affix = a.key;
   }
+  /* Der zweite Affix legt sich obendrauf. Ein Praefix kommt vor den Namen,
+     ein Suffix dahinter - so bleibt "Geschliffene Kriegsaxt des Zorns"
+     lesbar, statt zwei Beiwoerter auf derselben Seite zu stapeln. */
+  if (a2) {
+    def.atk = (def.atk || 0) + (a2.atk || 0);
+    def.def = (def.def || 0) + (a2.def || 0);
+    def.maxhp = (def.maxhp || 0) + (a2.maxhp || 0);
+    def.name = a2.pos === "prefix"
+      ? `${a2.text}${ADJ_ENDING[base.g] || "es"} ${def.name}`
+      : `${def.name} ${a2.text}`;
+    def.affix2 = a2.key;
+  }
   // Die Stufe legt sich zuletzt darauf, damit sie auch den Affix hebt
   def = wendeSeltenAn(def, stufe);
-  return { id, def, ax: a ? a.key : null, sel: stufe };
+  return { id, def, ax: a ? a.key : null, ax2: a2 ? a2.key : null, sel: stufe };
 }
 
 // Wie oft ein Fund verzaubert ist, steigt mit der Tiefe.
@@ -4234,13 +4337,18 @@ function rollItem(id, floor, boost) {
 
   // Der Affix haengt jetzt an der Stufe, nicht mehr allein an der Tiefe
   const r = SELTEN_VON[sel];
-  let ax = null;
-  if (r.affix > 0 && rng() < r.affix) {
-    const avoid = base.avoid || [];
-    const pool = AFFIXES.filter(a => (a.minFloor || 1) <= floor && !avoid.includes(a.key));
-    if (pool.length) ax = weighted(pool.map(a => [a.key, a.weight]));
+  const avoid = base.avoid || [];
+  const pool = AFFIXES.filter(a => (a.minFloor || 1) <= floor && !avoid.includes(a.key));
+  let ax = null, ax2 = null;
+  if (r.affix > 0 && rng() < r.affix && pool.length)
+    ax = weighted(pool.map(a => [a.key, a.weight]));
+  /* Episches traegt zwei. Das ist der Unterschied, den man auf der Kachel
+     sofort sieht - zwei Beinamen statt einem, und die Zahlen dazu. */
+  if (r.zweiterAffix && ax) {
+    const rest = pool.filter(a => a.key !== ax);
+    if (rest.length) ax2 = weighted(rest.map(a => [a.key, a.weight]));
   }
-  return buildItem(id, ax, sel);
+  return buildItem(id, ax, sel, ax2);
 }
 
 const MONSTER_TABLE = {
@@ -4257,10 +4365,10 @@ const MONSTER_TABLE = {
 
 const ITEM_TABLE = {
   1: [["potion", 3], ["oil", 26], ["dagger", 8], ["leather", 8], ["modWall", 5]],
-  2: [["confusion", 10], ["chart", 8], ["sword", 10], ["modLanze", 4]],
-  3: [["lightning", 14], ["poison", 11], ["might", 9], ["chain", 10], ["spiess", 8],
+  2: [["wurfmesser", 12], ["chart", 8], ["sword", 10], ["modLanze", 4]],
+  3: [["blendpulver", 11], ["netz", 9], ["might", 9], ["chain", 10], ["spiess", 8],
       ["modSchatten", 4]],
-  4: [["fireball", 14], ["blink", 9], ["ward", 9], ["reisemantel", 7], ["modDonner", 4]],
+  4: [["wurfoel", 13], ["wurfmesser", 9], ["ward", 9], ["reisemantel", 7], ["modDonner", 4]],
   5: [["greatPotion", 2], ["regen", 2], ["axe", 9], ["guard", 5], ["bigoil", 11]],
   6: [["vitality", 6], ["wrath", 6], ["plate", 7], ["kolben", 7], ["modZoll", 4]],
   7: [["plate", 9], ["schuppen", 7]],
@@ -4290,14 +4398,14 @@ const TOTENSTADT_THEMES = [
     wallDim: "#23241E", wallLit: "#5E6152", wallTop: "#7E8270",
     floorDim: "#1A1B17", floorLit: "#3A3D33",
     speck: "216,224,190", glow: "168,200,150", mote: "#C8DCB0",
-    rock: "#0D0E0B", decor: "none", gen: "built", style: "masonry",
+    rock: "#0D0E0B", decor: "grab", gen: "gassen", style: "masonry",
   },
   {
     from: 6, name: "Die Katakomben",
     wallDim: "#221E1A", wallLit: "#605448", wallTop: "#8A7A66",
     floorDim: "#151310", floorLit: "#332C24",
     speck: "232,224,196", glow: "200,190,150", mote: "#E8E0C4",
-    rock: "#0C0A08", decor: "ash", gen: "cave", style: "cave",
+    rock: "#0C0A08", decor: "ash", gen: "katakomben", style: "masonry",
   },
 ];
 
@@ -4314,8 +4422,9 @@ const TOTENSTADT_MONSTER = {
    findet man Gewoehnliches, unten das, wofuer man gekommen ist. */
 const TOTENSTADT_ITEMS = {
   1: [["potion", 3], ["oil", 22], ["chain", 8], ["sword", 6], ["modWall", 4]],
-  3: [["greatPotion", 2], ["bigoil", 9], ["grabmal", 7], ["axe", 6], ["modSchatten", 4]],
-  5: [["knochenhemd", 8], ["grabklinge", 8], ["regen", 3], ["modZehr", 5]],
+  3: [["greatPotion", 2], ["bigoil", 9], ["salzbeutel", 10], ["grabmal", 7], ["axe", 6],
+      ["modSchatten", 4]],
+  5: [["knochenhemd", 8], ["grabklinge", 8], ["salzbeutel", 9], ["regen", 3], ["modZehr", 5]],
   7: [["salzpanzer", 7], ["totenaxt", 7], ["plate", 5], ["modZoll", 4]],
   9: [["grabklinge", 9], ["salzpanzer", 8], ["totenaxt", 8], ["grabmal", 8]],
 };
@@ -4323,20 +4432,21 @@ const TOTENSTADT_ITEMS = {
 // Etwas voller als das Schloss - sie steht eine Stufe darueber.
 const TOTENSTADT_MAX_MONSTER = [[1, 2], [3, 3], [6, 4], [8, 5]];
 
-/* Drei Namentliche statt vier, dafuer haerter - und mit denselben drei
-   Kunststuecken, die es schon gibt: die Waescherin ruft, der Vogt deckt sich
-   hinter Saeulen, der Trauernde singt. */
+/* Drei Namentliche statt vier, dafuer haerter, und jeder mit einem eigenen
+   Kunststueck: die Waescherin heilt und hebt, was gefallen ist; der Vogt
+   hebt Graeber aus, in die man faellt, wenn man stehen bleibt; der
+   Trauernde wirft dich mit seiner Klage fort und macht dich langsam. */
 const TOTENSTADT_ELITES = {
   4: { base: "klageweib", name: "Die Leichenwäscherin", epithet: "die nie fertig wird",
-       power: "brut", hp: 420, atk: 14, def: 4, xp: 560, size: 1.34,
+       power: "waschen", hp: 420, atk: 14, def: 4, xp: 560, size: 1.34,
        body: "#7E8AA6", dark: "#2A3040", eye: "#DCE8FF", glow: "#8E9CBE",
        drop: "grabmal" },
   7: { base: "grabwache", name: "Der Knochenvogt", epithet: "zählt die Gräber",
-       power: "waechter", hp: 880, atk: 19, def: 9, xp: 1050, size: 1.46,
+       power: "vogt", hp: 880, atk: 19, def: 9, xp: 1050, size: 1.46,
        body: "#B0A88C", dark: "#464234", eye: "#D8E8A0", glow: "#C0D090",
        drop: "knochenhemd" },
   9: { base: "leichnam", name: "Der Erste Trauernde", epithet: "seit dem ersten Grab",
-       power: "chor", hp: 980, atk: 21, def: 7, xp: 1400, size: 1.48,
+       power: "trauer", hp: 980, atk: 21, def: 7, xp: 1400, size: 1.48,
        body: "#8E9878", dark: "#343A28", eye: "#E8F4C8", glow: "#B8C898",
        drop: "salzpanzer" },
 };
@@ -4377,6 +4487,9 @@ ORT_INHALT.totenstadt = {
   maxMonster: TOTENSTADT_MAX_MONSTER,
   maxItems: MAX_ITEMS,
   maxFloor: 10,
+  // Die Fackel brennt hier schlecht - dafuer stehen ueberall Grablichter
+  sicht: .58,
+  grablichter: true,
 };
 
 /* == Konkurrenz ==========================================================
@@ -4432,7 +4545,10 @@ const RAEUBER_RUESTUNG = [
   ["leather", 1], ["reisemantel", 2], ["chain", 3], ["schuppen", 6], ["plate", 7],
 ];
 // Was sie im Beutel haben, wenn sie dir begegnen - sie waren ja schon unterwegs.
-const RAEUBER_BEUTEL = ["potion", "oil", "bigoil", "greatPotion", "might", "ward"];
+/* Was ein Pluenderer bei sich traegt. Wurfgeraet gehoert dazu - sie leben
+   von demselben Zeug wie du. */
+const RAEUBER_BEUTEL = ["potion", "oil", "bigoil", "greatPotion", "might", "ward",
+                        "wurfmesser", "blendpulver", "wurfoel"];
 
 const RAEUBER_AUFSTIEG = 5.5;   // sie sind geuebter als du
 const RAEUBER_SICHT = 7.5;      // ab hier bemerken sie dich
@@ -4495,12 +4611,12 @@ const QUESTS = {
        reward: { xp: 40, items: ["potion", "oil"] } },
   2: { type: "collect", title: "Der verlorene Beutel", relic: "Beutel eines Absteigers",
        desc: "Finde, was ein Vorgänger hier zurückließ.",
-       reward: { xp: 70, items: ["lightning", "oil"] } },
+       reward: { xp: 70, items: ["wurfmesser", "oil"] } },
   3: { type: "elite", title: "Grimmzahn", desc: "Erschlage Grimmzahn, den Rudelführer.",
        reward: { xp: 110, gear: "sword", items: ["might"] } },
   4: { type: "slay", target: "archer", count: 3, title: "Stille die Schützen",
        desc: "Zerschlage 3 Skelettschützen.",
-       reward: { xp: 130, items: ["fireball", "oil"] } },
+       reward: { xp: 130, items: ["wurfoel", "oil"] } },
   5: { type: "elite", title: "Mutter der Brut", desc: "Beende die Brut an ihrer Wurzel.",
        reward: { xp: 180, gear: "chain", items: ["greatPotion"] } },
   6: { type: "collect", title: "Das Siegel der Tiefe", relic: "Siegel der Tiefe",
@@ -4608,6 +4724,17 @@ function ladeMeta() {
 /* Aus einem rohen Datensatz einen vollstaendigen machen. Steht fuer sich,
    damit auch ein Uebertragungscode hier durchlaeuft und nichts Halbes in
    META landet. */
+/* Was vor der Stapelbarkeit gespeichert wurde, traegt kein Mengenfeld. Ohne
+   das laesst es sich nie wieder zusammenlegen - also wird es beim Laden
+   nachgetragen. */
+function mengenNachtragen(liste) {
+  for (const b of (liste || [])) {
+    const d = ITEMS[b.id];
+    if (d && d.stapel && !b.menge) b.menge = 1;
+  }
+  return liste;
+}
+
 function ladeMetaAus(roh) {
   const leer = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
                  mitnahme: [], anlegen: {}, guertel: Array(GUERTEL_PLAETZE).fill(null),
@@ -4617,7 +4744,7 @@ function ladeMetaAus(roh) {
     if (roh && typeof roh === "object") {
       return {
         muenzen: roh.muenzen | 0,
-        lager: Array.isArray(roh.lager) ? roh.lager : [],
+        lager: mengenNachtragen(Array.isArray(roh.lager) ? roh.lager : []),
         umsatz: roh.umsatz | 0,
         laeufe: roh.laeufe | 0,
         beste: roh.beste | 0,
@@ -4628,7 +4755,7 @@ function ladeMetaAus(roh) {
         punkte: roh.punkte | 0,
         skills: (roh.skills && typeof roh.skills === "object") ? roh.skills : {},
         erweiterungen: Array.isArray(roh.erweiterungen) ? roh.erweiterungen : [],
-        mitnahme: Array.isArray(roh.mitnahme) ? roh.mitnahme : [],
+        mitnahme: mengenNachtragen(Array.isArray(roh.mitnahme) ? roh.mitnahme : []),
         anlegen: (roh.anlegen && typeof roh.anlegen === "object") ? roh.anlegen : {},
         // Aeltere Spielstaende kennen den Guertel noch nicht
         guertel: Array.from({ length: GUERTEL_PLAETZE }, (_, i) =>
@@ -4677,8 +4804,12 @@ function wert(eintrag) {
   w += (d.killHeal || 0) * 30 + Math.abs(d.fovBonus || 0) * 40;
   w += (d.oilSteps || 0) * 25 + (d.lootLuck || 0) * 300;
   if (d.use) {
-    const grund = { heal: 2.3, oil: .9, status: 55, lightning: 70, fireball: 80,
-                    confuse: 50, poison: 50, blink: 45, chart: 40 }[d.use] || 30;
+    /* Wurfgeraet stapelt sich, also zaehlt der Preis je Stueck. Die Karte
+       ist teurer als alles andere: es gibt nur einen versteckten Schacht je
+       Etage, und ohne sie findet man ihn selten. */
+    const grund = { heal: 2.3, oil: .9, status: 55, chart: 90,
+                    wurf: { stich: 34, brand: 46, netz: 40, blind: 38, salz: 44 }[d.wirkung] || 36
+                  }[d.use] || 30;
     w = d.amount ? Math.round(grund * d.amount) : grund;
   }
   if (d.kind === "seil") w = 150;
@@ -4783,7 +4914,7 @@ function kostenText(kosten) {
 
 /* Ein Stueck als schlichter Datensatz, wie er im Lager liegt. */
 function alsBestand(e) {
-  const b = { id: e.id, ax: e.ax || null, stufe: e.stufe || 0,
+  const b = { id: e.id, ax: e.ax || null, ax2: e.ax2 || null, stufe: e.stufe || 0,
               sel: e.sel || null,
               q: e.def && e.def.quest ? e.def.name : null };
   if (e.menge) b.menge = e.menge;
@@ -4795,7 +4926,7 @@ function alsBestand(e) {
 function ausBestand(b) {
   const e = b.q
     ? { id: "relic", def: Object.assign({}, RELIC, { name: b.q }) }
-    : buildItem(b.id, b.ax, b.sel);
+    : buildItem(b.id, b.ax, b.sel, b.ax2);
   if (b.menge) e.menge = b.menge;
   if (b.dreh) e.dreh = true;
   if (b.stufe) wendeStufeAn(e, b.stufe);
@@ -4893,7 +5024,7 @@ function verbucheLauf(gerettet) {
    deinem Modulplatz steckt. */
 const RUMPF = {
   hp: 70, atk: 4, def: 2,
-  oilSteps: 5, fovBonus: 0, scrollPower: 1, crit: 0, evade: 0,
+  oilSteps: 5, fovBonus: 0, wurfKraft: 1, crit: 0, evade: 0,
 };
 
 /* Wer gar nichts hat, bekommt das hier - kostenlos und unverlierbar. Es ist
@@ -5417,6 +5548,8 @@ function generateFloor(floor) {
   if (art === "cave") return generateCave(floor);
   if (art === "forge") return generateForge(floor);
   if (art === "arena") return generateArena(floor);
+  if (art === "gassen") return generateGassen(floor);
+  if (art === "katakomben") return generateKatakomben(floor);
 
   const rooms = [];
   const maxRooms = 16 + Math.floor(floor / 2);
@@ -5448,6 +5581,266 @@ function generateFloor(floor) {
 
   markDoorways(map);
   return { map, zones: rooms.map(r => ({ tiles: roomTiles(r), center: roomCenter(r) })) };
+}
+
+/* ── Die Gassen: ein Strassenraster mit Mausoleen ─────────────────────────
+   Nicht Raeume mit Gaengen dazwischen, sondern Strassen mit Bloecken
+   dazwischen. Der Unterschied ist der ganze Punkt: hier sieht man eine Gasse
+   entlang bis ans andere Ende, und alles, was etwas wert ist, liegt hinter
+   einer Tuer. */
+function generateGassen(floor) {
+  const map = newMap();
+  const zones = [];
+
+  // Drei bis vier senkrechte und zwei bis drei waagerechte Zuege
+  const spalten = ri(3, 4), reihen = ri(2, 3);
+  const gassenX = [], gassenY = [];
+  for (let i = 1; i <= spalten; i++)
+    gassenX.push(Math.round((MAP_W - 4) * i / (spalten + 1)) + 2);
+  for (let i = 1; i <= reihen; i++)
+    gassenY.push(Math.round((MAP_H - 4) * i / (reihen + 1)) + 2);
+
+  const strasse = (x, y) => {
+    if (x < 1 || y < 1 || x >= MAP_W - 1 || y >= MAP_H - 1) return;
+    map.tiles[idx(x, y)] = FLOOR;
+  };
+
+  // Die Zuege selbst, zwei bis drei Kacheln breit
+  for (const gx of gassenX) {
+    const breit = rng() < .35 ? 3 : 2;
+    for (let y = 2; y < MAP_H - 2; y++)
+      for (let b = 0; b < breit; b++) strasse(gx + b, y);
+  }
+  for (const gy of gassenY) {
+    const breit = rng() < .35 ? 3 : 2;
+    for (let x = 2; x < MAP_W - 2; x++)
+      for (let b = 0; b < breit; b++) strasse(x, gy + b);
+  }
+
+  /* Die Bloecke zwischen den Zuegen. In jeden kommen ein bis drei Mausoleen -
+     kleine Kammern mit genau einer Schwelle zur Strasse. */
+  const raender = (achse, gassen, ende) => {
+    const kanten = [2];
+    for (const g of gassen) kanten.push(g);
+    kanten.push(ende - 2);
+    return kanten;
+  };
+  const xk = raender("x", gassenX, MAP_W), yk = raender("y", gassenY, MAP_H);
+
+  /* Der groesste Block wird zur Grabhalle: ein Raum statt einer Reihe kleiner
+     Grabmaeler. Ohne ihn hatte kein Namentlicher eine Kammer, die gross genug
+     war - gemessen stand die Waescherin nur in sechzehn von zwanzig Laeufen
+     auf ihrer Etage. Und eine Nekropole hat ohnehin ein Hauptgebaeude. */
+  let halleI = 0, halleJ = 0, halleFlaeche = 0;
+  for (let i = 0; i < xk.length - 1; i++)
+    for (let j = 0; j < yk.length - 1; j++) {
+      const bw = (xk[i + 1] - 1) - (xk[i] + (i ? 3 : 0));
+      const bh = (yk[j + 1] - 1) - (yk[j] + (j ? 3 : 0));
+      if (bw * bh > halleFlaeche) { halleFlaeche = bw * bh; halleI = i; halleJ = j; }
+    }
+
+  for (let i = 0; i < xk.length - 1; i++)
+    for (let j = 0; j < yk.length - 1; j++) {
+      const bx1 = xk[i] + (i ? 3 : 0), bx2 = xk[i + 1] - 1;
+      const by1 = yk[j] + (j ? 3 : 0), by2 = yk[j + 1] - 1;
+      const bw = bx2 - bx1, bh = by2 - by1;
+      if (bw < 5 || bh < 5) continue;
+
+      /* Die Grabhalle: der ganze Block wird ein Raum, mit genau einer Tuer
+         zur Gasse. Gross genug fuer eine Bosskammer. */
+      if (i === halleI && j === halleJ && bw >= 7 && bh >= 6) {
+        const tiles = [];
+        for (let y = by1 + 1; y < by2; y++)
+          for (let x = bx1 + 1; x < bx2; x++) {
+            map.tiles[idx(x, y)] = FLOOR;
+            map.room[idx(x, y)] = 1;
+            tiles.push([x, y]);
+          }
+        // Ein paar Saeulen, damit die Halle nicht leer wirkt
+        for (let y = by1 + 3; y < by2 - 1; y += 4)
+          for (let x = bx1 + 3; x < bx2 - 1; x += 4)
+            if (map.tiles[idx(x, y)] === FLOOR) map.tiles[idx(x, y)] = PILLAR;
+
+        const kanten = [];
+        for (let x = bx1 + 1; x < bx2; x++) {
+          kanten.push([x, by1, 0, -1]);
+          kanten.push([x, by2, 0, 1]);
+        }
+        for (let y = by1 + 1; y < by2; y++) {
+          kanten.push([bx1, y, -1, 0]);
+          kanten.push([bx2, y, 1, 0]);
+        }
+        const offen = kanten.filter(([x, y, dx, dy]) => {
+          const ax = x + dx, ay = y + dy;
+          return inBounds(ax, ay) && map.tiles[idx(ax, ay)] === FLOOR;
+        });
+        if (offen.length) {
+          const [tx, ty] = offen[Math.floor(rng() * offen.length)];
+          map.tiles[idx(tx, ty)] = DOOR;
+          zones.push({ tiles: tiles.filter(([x, y]) => map.tiles[idx(x, y)] === FLOOR),
+                       center: [Math.round((bx1 + bx2) / 2), Math.round((by1 + by2) / 2)],
+                       raum: { x1: bx1, y1: by1, x2: bx2, y2: by2, shape: "rect" },
+                       halle: true });
+          continue;
+        }
+        // Keine Tuer moeglich - wieder zuschuetten und normal bebauen
+        for (const [x, y] of tiles) {
+          map.tiles[idx(x, y)] = WALL;
+          map.room[idx(x, y)] = 0;
+        }
+      }
+
+      // Ein Block in fuenf ist ein Platz statt einer Reihe Grabmaeler
+      if (rng() < .20) {
+        const tiles = [];
+        for (let y = by1 + 1; y < by2; y++)
+          for (let x = bx1 + 1; x < bx2; x++) { strasse(x, y); tiles.push([x, y]); }
+        if (tiles.length > 8)
+          zones.push({ tiles, center: [Math.round((bx1 + bx2) / 2),
+                                       Math.round((by1 + by2) / 2)], platz: true });
+        continue;
+      }
+
+      /* Buendig an eine Blockkante, und die grenzt an eine Gasse. Vorher
+         standen die Kammern irgendwo im Block - wer mitten im Fels sitzt, hat
+         keine Kante fuer eine Schwelle, und gemessen wurden dadurch achtzehn
+         von zwanzig Mausoleen wieder verworfen. */
+      const wieViele = 1 + (bw > 12 ? 1 : 0) + (bh > 11 ? 1 : 0);
+      const seiten = ["links", "rechts", "oben", "unten"];
+      for (let k = 0; k < wieViele; k++) {
+        const mw = ri(4, Math.min(7, bw - 1)), mh = ri(4, Math.min(6, bh - 1));
+        const seite = seiten[Math.floor(rng() * 4)];
+        let mx, my;
+        if (seite === "links")       { mx = bx1;      my = ri(by1, by2 - mh); }
+        else if (seite === "rechts") { mx = bx2 - mw; my = ri(by1, by2 - mh); }
+        else if (seite === "oben")   { mx = ri(bx1, bx2 - mw); my = by1; }
+        else                         { mx = ri(bx1, bx2 - mw); my = by2 - mh; }
+        if (mx < 1 || my < 1 || mx + mw >= MAP_W - 1 || my + mh >= MAP_H - 1) continue;
+
+        const kammer = { x1: mx, y1: my, x2: mx + mw, y2: my + mh, shape: "rect" };
+        if (zones.some(z => z.raum && overlaps(kammer, z.raum))) continue;
+
+        // Innenraum aushoehlen, Mauer stehen lassen
+        const tiles = [];
+        for (let y = my + 1; y < my + mh; y++)
+          for (let x = mx + 1; x < mx + mw; x++) {
+            map.tiles[idx(x, y)] = FLOOR;
+            map.room[idx(x, y)] = 1;
+            tiles.push([x, y]);
+          }
+        if (tiles.length < 4) continue;
+
+        /* Genau eine Schwelle, und zwar in der Wand, die zur Gasse zeigt. */
+        const kanten = [];
+        if (seite !== "rechts")
+          for (let y = my + 1; y < my + mh; y++) kanten.push([mx, y, -1, 0]);
+        if (seite !== "links")
+          for (let y = my + 1; y < my + mh; y++) kanten.push([mx + mw, y, 1, 0]);
+        if (seite !== "unten")
+          for (let x = mx + 1; x < mx + mw; x++) kanten.push([x, my, 0, -1]);
+        if (seite !== "oben")
+          for (let x = mx + 1; x < mx + mw; x++) kanten.push([x, my + mh, 0, 1]);
+
+        const offen = kanten.filter(([x, y, dx, dy]) => {
+          const ax = x + dx, ay = y + dy;
+          return inBounds(ax, ay) && map.tiles[idx(ax, ay)] === FLOOR;
+        });
+        if (!offen.length) {
+          // Doch eingemauert: wieder zuschuetten, sonst liegt Beute unerreichbar
+          for (const [x, y] of tiles) {
+            map.tiles[idx(x, y)] = WALL;
+            map.room[idx(x, y)] = 0;
+          }
+          continue;
+        }
+        const [tx, ty] = offen[Math.floor(rng() * offen.length)];
+        map.tiles[idx(tx, ty)] = DOOR;
+
+        zones.push({ tiles, center: [mx + (mw >> 1), my + (mh >> 1)],
+                     raum: kammer });
+      }
+    }
+
+  // Ohne einen einzigen Innenraum waere die Etage leer - dann ein Platz
+  if (!zones.length) {
+    const tiles = [];
+    for (let y = 4; y < MAP_H - 4; y++)
+      for (let x = 4; x < MAP_W - 4; x++)
+        if (map.tiles[idx(x, y)] === FLOOR) tiles.push([x, y]);
+    zones.push({ tiles: tiles.slice(0, 60), center: tiles[0] || [4, 4] });
+  }
+
+  return { map, zones };
+}
+
+/* ── Die Katakomben: ein Geflecht aus Gaengen und Nischen ─────────────────
+   Keine Raeume. Ein einzelner Gang windet sich durch den Fels, wirft
+   Seitenaeste ab und endet immer wieder in Grabnischen. Man sieht drei
+   Kacheln weit und weiss nie, ob es weitergeht. */
+function generateKatakomben(floor) {
+  const map = newMap();
+  const zones = [];
+  const gang = [];
+
+  const grabe = (x, y) => {
+    if (x < 2 || y < 2 || x >= MAP_W - 2 || y >= MAP_H - 2) return false;
+    if (map.tiles[idx(x, y)] !== FLOOR) { map.tiles[idx(x, y)] = FLOOR; gang.push([x, y]); }
+    return true;
+  };
+
+  /* Ein Gang, der sich windet: er behaelt seine Richtung eine Weile und biegt
+     dann rechtwinklig ab. Gerade Stuecke von drei bis neun Kacheln. */
+  const RICHTUNGEN = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  function wuehle(x, y, laenge, tiefe) {
+    let [dx, dy] = RICHTUNGEN[Math.floor(rng() * 4)];
+    for (let i = 0; i < laenge; i++) {
+      const strecke = ri(3, 9);
+      for (let k = 0; k < strecke; k++) {
+        if (!grabe(x + dx, y + dy)) break;
+        x += dx; y += dy;
+        // Grabnischen an den Seiten: eine Kachel tief, blind
+        if (rng() < .17) {
+          const nx = x + dy, ny = y + dx;          // quer zur Laufrichtung
+          if (grabe(nx, ny) && rng() < .4) grabe(nx + dy, ny + dx);
+        }
+      }
+      // Abbiegen, nie umkehren
+      const quer = dx ? [[0, 1], [0, -1]] : [[1, 0], [-1, 0]];
+      [dx, dy] = quer[Math.floor(rng() * 2)];
+      // Gelegentlich ein Seitenast
+      if (tiefe < 2 && rng() < .30) wuehle(x, y, ri(2, 4), tiefe + 1);
+    }
+    return [x, y];
+  }
+
+  const startX = MAP_W >> 1, startY = MAP_H >> 1;
+  grabe(startX, startY);
+  const aeste = 3 + Math.floor(floor / 3);
+  for (let a = 0; a < aeste; a++) wuehle(startX, startY, ri(4, 7), 0);
+
+  /* Ein paar Kreuzungen: kleine Kammern dort, wo sich Gaenge treffen. Sie
+     sind der einzige Ort mit Platz - und deshalb der Ort, an dem etwas steht. */
+  const kammern = 5 + Math.floor(floor / 2);
+  for (let versuch = 0; versuch < 400 && zones.length < kammern; versuch++) {
+    const [x, y] = gang[Math.floor(rng() * gang.length)];
+    if (zones.some(z => Math.hypot(z.center[0] - x, z.center[1] - y) < 8)) continue;
+    const r = ri(1, 2);
+    const tiles = [];
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 2 || ny < 2 || nx >= MAP_W - 2 || ny >= MAP_H - 2) continue;
+        map.tiles[idx(nx, ny)] = FLOOR;
+        map.room[idx(nx, ny)] = 1;
+        tiles.push([nx, ny]);
+      }
+    if (tiles.length >= 6) zones.push({ tiles, center: [x, y] });
+  }
+
+  if (!zones.length)
+    zones.push({ tiles: gang.slice(0, 40), center: gang[0] || [startX, startY] });
+
+  return { map, zones };
 }
 
 /* ── Höhle: gewachsener Fels statt Mauerwerk ──────────────────────────────
@@ -5749,7 +6142,8 @@ function stelleKisten(map, zones, floor, extra) {
       const schub = .12 + Math.min(.26, floor * .016);
       for (let i = 0; i < stueck; i++) {
         const gebaut = rollItem(weighted(chancen), floor, schub);
-        beute.push({ id: gebaut.id, ax: gebaut.ax || null, sel: gebaut.sel || null });
+        beute.push({ id: gebaut.id, ax: gebaut.ax || null, ax2: gebaut.ax2 || null,
+                     sel: gebaut.sel || null });
       }
       // Fast jede Kiste hat Werkstoff dabei - er ist die Waehrung des Aufwertens
       const w = wuerfelWerkstoff(floor, .6);
@@ -5778,6 +6172,31 @@ function oeffneKiste() {
   }
   showChest(kiste);
   return true;
+}
+
+/* ── Wenn wirklich etwas Gutes auftaucht ──────────────────────────────────
+   Ein Legendaeres erschien vorher als Zeile im Protokoll, zwischen zwei
+   Meldungen ueber Ratten. Wenn ein Fund selten sein soll, muss er sich auch
+   so anfuehlen: die Kachel leuchtet auf, es gibt einen eigenen Ton, und ein
+   Banner sagt den Namen. */
+function feiereFund(e, x, y) {
+  if (!e || !e.def) return;
+  const legendaer = !!e.def.legendaer;
+  const episch = e.sel === "episch";
+  if (!legendaer && !episch) return;
+
+  const farbe = legendaer ? "#E8A94B" : "#B47ADE";
+  const wo = [x != null ? x : G.player.x, y != null ? y : G.player.y];
+  burst(wo[0], wo[1], farbe, legendaer ? 44 : 26);
+  ring(wo[0], wo[1], legendaer ? 3.4 : 2.2, farbe);
+  for (let i = 1; i <= (legendaer ? 3 : 2); i++)
+    setTimeout(() => { if (G) ring(wo[0], wo[1], 1 + i * 1.3, farbe); }, i * 130);
+  anim.shake = Math.max(anim.shake, legendaer ? 8 : 4);
+  Sfx.spiel(legendaer ? "sieg" : "kritisch");
+  banner(legendaer ? "Legendär" : "Episch", e.def.name, legendaer ? "good" : "alert");
+  log(legendaer
+    ? `${e.def.name}. So etwas findet man nicht zweimal.`
+    : `${e.def.name} — episch.`, "alert");
 }
 
 /* Erschlagene Gegner lassen gelegentlich etwas fallen. */
@@ -6744,11 +7163,13 @@ function stelleGeheimkammern(map, zones, floor) {
       const beute = [rng() < .25
         ? { id: ziehLegende(), ax: null }
         : (() => { const g = rollItem(weighted(chancesFor(ort().items, floor)), floor, true);
-                   return { id: g.id, ax: g.ax || null, sel: "episch" }; })()];
+                   return { id: g.id, ax: g.ax || null, ax2: g.ax2 || null,
+                            sel: "episch" }; })()];
       const chancen = chancesFor(ort().items, floor);
       for (let i = 0; i < 2 && chancen.length; i++) {
         const gebaut = rollItem(weighted(chancen), floor, .5);
-        beute.push({ id: gebaut.id, ax: gebaut.ax || null, sel: gebaut.sel || null });
+        beute.push({ id: gebaut.id, ax: gebaut.ax || null, ax2: gebaut.ax2 || null,
+                     sel: gebaut.sel || null });
       }
       const wg = wuerfelWerkstoff(floor + 3, 1);
       if (wg) beute.push(wg);
@@ -7004,6 +7425,34 @@ function populateFloor(floor) {
 
   // Fackelschalen geben den Räumen eigenes Licht statt nur Spielerfackel
   G.braziers = [];
+
+  /* Grablichter: wo die eigene Fackel wenig taugt, steht das Licht am Weg.
+     Sie saeumen die Gassen und die Gaenge, nicht nur die Kammern - deshalb
+     werden sie ueber den ganzen begehbaren Boden gestreut, mit Abstand
+     zueinander, damit dazwischen dunkle Strecken bleiben. */
+  if (ort().grablichter) {
+    const felder = [];
+    for (let y = 1; y < MAP_H - 1; y++)
+      for (let x = 1; x < MAP_W - 1; x++) {
+        if (map.tiles[idx(x, y)] !== FLOOR) continue;
+        if (x === sx && y === sy) continue;
+        // An einer Wand, nicht mitten im Weg
+        let waende = 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+          if (!WALKABLE[map.tiles[idx(x + dx, y + dy)]]) waende++;
+        if (waende >= 1 && waende <= 2) felder.push([x, y]);
+      }
+    for (let i = felder.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [felder[i], felder[j]] = [felder[j], felder[i]];
+    }
+    for (const [lx, ly] of felder) {
+      if (G.braziers.length >= 30) break;
+      if (G.braziers.some(b => Math.hypot(b.x - lx, b.y - ly) < 7.5)) continue;
+      G.braziers.push({ x: lx, y: ly });
+    }
+  }
+
   for (const zone of zones) {
     if (rng() > .45) continue;
     const candidates = zone.tiles.filter(([x, y]) => {
@@ -7017,7 +7466,9 @@ function populateFloor(floor) {
     });
     if (candidates.length) {
       const [bx, by] = candidates[Math.floor(rng() * candidates.length)];
-      if (!G.ground.some(i => i.x === bx && i.y === by)) G.braziers.push({ x: bx, y: by });
+      if (!G.ground.some(i => i.x === bx && i.y === by) &&
+          !G.braziers.some(b => b.x === bx && b.y === by))
+        G.braziers.push({ x: bx, y: by });
     }
   }
   G.decals = [];
@@ -7108,10 +7559,12 @@ function populateFloor(floor) {
       if (k === 0) beute.push(rng() < .40
         ? { id: ziehLegende(), ax: null }
         : (() => { const g = rollItem(weighted(chancen), floor + 2, true);
-                   return { id: g.id, ax: g.ax || null, sel: "episch" }; })());
+                   return { id: g.id, ax: g.ax || null, ax2: g.ax2 || null,
+                            sel: "episch" }; })());
       for (let i = beute.length; i < 3 && chancen.length; i++) {
         const gebaut = rollItem(weighted(chancen), floor + 2, .45);
-        beute.push({ id: gebaut.id, ax: gebaut.ax || null, sel: gebaut.sel || null });
+        beute.push({ id: gebaut.id, ax: gebaut.ax || null, ax2: gebaut.ax2 || null,
+                     sel: gebaut.sel || null });
       }
       // Die Schatzkammer traegt auch den Werkstoff der tieferen Etagen
       const wk = wuerfelWerkstoff(floor + 4, 1);
@@ -7950,6 +8403,7 @@ function pickUp() {
      Stapel von vier Schrott wurde zu einem Stueck, ein episches Schwert vom
      Boden zu einem gewoehnlichen. */
   const stueck = { id: item.id, def: item.def, ax: item.ax || null,
+                   ax2: item.ax2 || null,
                    sel: item.sel || null, stufe: item.stufe || 0 };
   if (item.menge) stueck.menge = item.menge;
   const hindernis = nimmAuf(G.player, stueck);
@@ -7963,6 +8417,7 @@ function pickUp() {
   G.ground.splice(G.ground.indexOf(item), 1);
   Sfx.spiel("aufheben");
   log(`Du nimmst ${item.def.name} auf.`, "you");
+  feiereFund(stueck, item.x, item.y);
   floatText(item.x, item.y, item.def.name, item.def.tint);
   if (item.def.quest) questProgress("relic");
   return true;
@@ -8071,6 +8526,51 @@ function trefferbar(a, x0, y0) {
   return lineOfSight(qx, qy, ax, ay);
 }
 
+/* Was als untot gilt - Salz wirkt nur darauf. */
+const UNTOT = ["wraith", "leichnam", "knochen", "archer", "klageweib",
+               "grabwache", "gebein", "totengraeber"];
+
+/* Wohin ein Wurf geht: dorthin, wo der Zeiger steht, aber nicht weiter als
+   die Wurfweite und nicht durch eine Wand. */
+function wurfZiel(weite) {
+  const p = G.player;
+  let zx, zy;
+  if (mausWelt) { zx = mausWelt[0]; zy = mausWelt[1]; }
+  else {
+    const f = p.facing || [0, 1];
+    zx = p.x + f[0] * weite; zy = p.y + f[1] * weite;
+  }
+  const dx = zx - p.x, dy = zy - p.y;
+  const d = Math.hypot(dx, dy) || 1;
+  if (d > weite) { zx = p.x + (dx / d) * weite; zy = p.y + (dy / d) * weite; }
+  // Bis zur ersten Wand zurueckziehen
+  let letzterGut = [p.x, p.y];
+  const schritte = Math.ceil(Math.hypot(zx - p.x, zy - p.y) * 3);
+  for (let i = 1; i <= schritte; i++) {
+    const t = i / schritte;
+    const px = p.x + (zx - p.x) * t, py = p.y + (zy - p.y) * t;
+    if (!isWalkable(Math.floor(px), Math.floor(py))) break;
+    letzterGut = [px, py];
+  }
+  /* Wer mit der Nase an der Wand steht und dagegen wirft, traf sonst den
+     eigenen Fuss - und die Brandflasche legte die Glut unter sich selbst.
+     Anderthalb Felder Luft muessen sein. */
+  if (Math.hypot(letzterGut[0] - p.x, letzterGut[1] - p.y) < 1.5) return null;
+  return letzterGut;
+}
+
+/* Die Flugbahn - kurz, aber man soll sehen, dass etwas geflogen ist. */
+function wurfSpur(x1, y1, x2, y2, farbe) {
+  const n = 7;
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    setTimeout(() => {
+      if (!G) return;
+      burst(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, farbe || "#E8DCC4", 3);
+    }, i * 18);
+  }
+}
+
 function useItem(entry, targetXY) {
   const d = entry.def;
   const p = G.player;
@@ -8112,74 +8612,113 @@ function useItem(entry, targetXY) {
       log(`${d.name}: ${d.status} für ${d.turns} Runden.`, "good");
       consume(); return true;
     }
-    case "lightning": {
-      let best = null, bestDist = d.range + 1;
-      for (const a of G.actors) {
-        if (a.isPlayer || !a.alive || !seesTile(kachelX(a), kachelY(a))) continue;
-        if (!trefferbar(a)) continue;
-        const dist = Math.hypot(a.x - p.x, a.y - p.y);
-        if (dist < bestDist) { best = a; bestDist = dist; }
+    /* ── Wurfgeraet ────────────────────────────────────────────────────
+       Ein Wurf fliegt dorthin, wo der Zeiger steht, und wirkt dort. Kein
+       Zielschritt, kein Anhalten: man wirft im Laufen. */
+    case "wurf": {
+      const arm = p.wurfKraft || 1;         // Der Rang "Wurfarm" hebt den Schaden
+      const ziel = wurfZiel(d.weite);
+      if (!ziel) {
+        log("Zu weit weg. Näher heran.", "system");
+        Sfx.spiel("nein");
+        return false;
       }
-      if (!best) { log("Kein Ziel in Reichweite.", "system"); return false; }
-      const boltDmg = Math.round(d.damage * (p.scrollPower || 1));
-      Sfx.spiel("blitz");
-      bolt(p.x, p.y, best.x, best.y, "#F2DE8A");
-      log(`Ein Blitz fährt in ${best.spec.name} — ${boltDmg} Schaden.`, "alert");
-      damage(best, boltDmg, p);
-      consume(); return true;
-    }
-    case "fireball": {
-      const [tx, ty] = targetXY;
-      if (!seesTile(tx, ty)) { log("Du kannst dieses Feld nicht sehen.", "system"); return false; }
-      // Die Druckwelle geht nicht um die Ecke: freie Bahn vom Einschlag zum Opfer
-      const hit = G.actors.filter(a => a.alive &&
-        Math.hypot(a.x - tx, a.y - ty) <= d.radius &&
-        trefferbar(a, Math.floor(tx), Math.floor(ty)) &&
-        !schleierTrennt(kachelX(p), kachelY(p), kachelX(a), kachelY(a)));
-      if (!hit.length) { log("Dort gibt es nichts zu verbrennen.", "system"); return false; }
-      Sfx.spiel("feuer");
-      ring(tx, ty, d.radius, "#E8703A");
-      burst(tx, ty, "#E8903A", 30);
-      const fireDmg = Math.round(d.damage * (p.scrollPower || 1));
-      for (const a of hit) {
-        log(`${a.isPlayer ? "Du verbrennst" : a.spec.name + " verbrennt"} für ${fireDmg} Schaden.`,
-            a.isPlayer ? "bad" : "alert");
-        damage(a, fireDmg, p);
+      const [zx, zy] = ziel;
+      wurfSpur(p.x, p.y, zx, zy, d.tint);
+
+      if (d.wirkung === "stich") {
+        const opfer = actorAt(Math.floor(zx), Math.floor(zy)) ||
+          G.actors.find(a => !a.isPlayer && a.alive &&
+            Math.hypot(a.x - zx, a.y - zy) < 1.1);
+        if (!opfer) { log("Das Messer schlägt in den Stein.", "system"); consume(); return true; }
+        Sfx.spiel("kritisch");
+        log(`Das Wurfmesser trifft ${opfer.spec.name}.`, "you");
+        damage(opfer, Math.round(d.schaden * arm), p);
+        consume(); return true;
       }
-      consume(); return true;
+
+      if (d.wirkung === "brand") {
+        burst(zx, zy, "#E8763A", 24);
+        ring(zx, zy, d.radius, "#E8763A");
+        Sfx.spiel("kritisch");
+        log("Die Flasche zerschellt, und der Boden brennt.", "you");
+        for (const a of G.actors) {
+          if (a.isPlayer || !a.alive) continue;
+          if (Math.hypot(a.x - zx, a.y - zy) > d.radius) continue;
+          damage(a, Math.round(d.schaden * arm), p);
+        }
+        /* Glut, die noch eine Weile liegt. Sie geht als Feuerkachel ins
+           Fallensystem, aber nicht scharf: eine scharfe Falle loest fuer
+           jeden aus, der darauf tritt, also auch fuer dich. "eigen" heisst,
+           dass der eigene Brand einen selbst verschont. */
+        for (let dy = -2; dy <= 2; dy++)
+          for (let dx = -2; dx <= 2; dx++) {
+            const tx = Math.floor(zx) + dx, ty = Math.floor(zy) + dy;
+            if (!inBounds(tx, ty) || !isWalkable(tx, ty)) continue;
+            if (Math.hypot(dx, dy) > d.radius) continue;
+            const schon = G.traps.find(f => f.x === tx && f.y === ty && f.brenntBis);
+            if (schon) { schon.brenntBis = Math.max(schon.brenntBis, G.time + 4); continue; }
+            G.traps.push({ x: tx, y: ty, art: "feuer", scharf: false, entdeckt: true,
+                           brenntBis: G.time + 4, eigen: true,
+                           wucht: Math.max(2, Math.round(d.schaden * arm * .3)) });
+          }
+        consume(); return true;
+      }
+
+      if (d.wirkung === "netz") {
+        ring(zx, zy, d.radius, "#A89878");
+        Sfx.spiel("abgeprallt");
+        let erwischt = 0;
+        for (const a of G.actors) {
+          if (a.isPlayer || !a.alive) continue;
+          if (Math.hypot(a.x - zx, a.y - zy) > d.radius) continue;
+          a.stunned = Math.max(a.stunned || 0, d.dauer);
+          burst(a.x, a.y, "#A89878", 10);
+          erwischt++;
+        }
+        log(erwischt ? `Das Netz hält ${erwischt} fest.` : "Das Netz fällt ins Leere.",
+            erwischt ? "you" : "system");
+        consume(); return true;
+      }
+
+      if (d.wirkung === "blind") {
+        burst(zx, zy, "#E8E0C4", 30);
+        ring(zx, zy, d.radius, "#E8E0C4");
+        Sfx.spiel("oel");
+        let erwischt = 0;
+        for (const a of G.actors) {
+          if (a.isPlayer || !a.alive) continue;
+          if (Math.hypot(a.x - zx, a.y - zy) > d.radius) continue;
+          a.confused = Math.max(a.confused || 0, d.dauer);
+          a.wach = false;
+          a.feind = null;
+          erwischt++;
+        }
+        log(erwischt ? `${erwischt} ${erwischt === 1 ? "Wesen sucht" : "Wesen suchen"} dich vergeblich.`
+                     : "Das Pulver verweht.", erwischt ? "you" : "system");
+        consume(); return true;
+      }
+
+      if (d.wirkung === "salz") {
+        ring(zx, zy, d.radius, "#B8E8C0");
+        burst(zx, zy, "#B8E8C0", 22);
+        Sfx.spiel("gift");
+        let untot = 0;
+        for (const a of G.actors) {
+          if (a.isPlayer || !a.alive) continue;
+          if (Math.hypot(a.x - zx, a.y - zy) > d.radius) continue;
+          /* Salz beisst, was nicht mehr lebt. Was lebt, huestet nur. */
+          const trifft = UNTOT.includes(a.id);
+          damage(a, Math.round(d.schaden * arm * (trifft ? 1 : .2)), p);
+          if (trifft) { untot++; burst(a.x, a.y, "#E8FFE8", 12); }
+        }
+        log(untot ? `Das Salz frisst sich in ${untot} ${untot === 1 ? "Leib" : "Leiber"}.`
+                  : "Salz auf Lebendem — es zischt nur.", untot ? "you" : "system");
+        consume(); return true;
+      }
+      return false;
     }
-    case "confuse": {
-      const [tx, ty] = targetXY;
-      const target = actorAt(tx, ty);
-      if (!seesTile(tx, ty)) { log("Du kannst dieses Feld nicht sehen.", "system"); return false; }
-      if (!target || target.isPlayer) { log("Dort ist kein Ziel.", "system"); return false; }
-      target.confused = d.turns * CONFUSE_STEP;
-      ring(tx, ty, 1.2, d.tint);
-      log(`${target.spec.name} taumelt orientierungslos.`, "alert");
-      consume(); return true;
-    }
-    case "poison": {
-      const [tx, ty] = targetXY;
-      const target = actorAt(tx, ty);
-      if (!seesTile(tx, ty)) { log("Du kannst dieses Feld nicht sehen.", "system"); return false; }
-      if (!target || target.isPlayer) { log("Dort ist kein Ziel.", "system"); return false; }
-      addStatus(target, "Gift", d.turns, d.mag);
-      ring(tx, ty, 1.2, d.tint);
-      log(`Gift zerfrisst ${target.spec.name}.`, "alert");
-      consume(); return true;
-    }
-    case "blink": {
-      const spots = [];
-      for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++)
-        if (isWalkable(x, y) && !actorAt(x, y)) spots.push([x, y]);
-      if (!spots.length) { log("Die Magie verpufft.", "system"); return false; }
-      burst(p.x, p.y, "#78C8E2", 18);
-      const [nx, ny] = pick(spots);
-      p.x = nx; p.y = ny; p.ax = nx; p.ay = ny;
-      burst(nx, ny, "#78C8E2", 18);
-      log("Die Welt verschwimmt — du stehst woanders.", "alert");
-      consume(); updateFov(); return true;
-    }
+
     case "chart": {
       G.map.explored.fill(1);
       log("Der Grundriss dieser Etage prägt sich dir ein.", "good");
@@ -8295,7 +8834,7 @@ function useAbility(dx, dy) {
     if (weit < .6) { log("Die Wand ist im Weg.", "system"); return false; }
 
     const zx = p.x + rx * weit, zy = p.y + ry * weit;
-    const wucht = Math.round((7 + p.level * 2.2) * (p.scrollPower || 1));
+    const wucht = Math.round((7 + p.level * 2.2) * (p.wurfKraft || 1));
 
     Sfx.spiel("feuer");
     anim.shake = 7;
@@ -8692,6 +9231,114 @@ function elitePower(a, cheb) {
     return false;
   }
 
+  /* ── Die Leichenwäscherin: was bei ihr faellt, steht wieder auf ──────── */
+  if (a.power === "waschen") {
+    if (zweitePhase(a, "Die Wäscherin beugt sich vor",
+                    "Sie arbeitet jetzt schneller")) return true;
+
+    // Sie heilt, was um sie herum steht - erst sie holen, dann den Rest
+    if (!a.cooldown && cheb <= 9) {
+      const nahe = G.actors.filter(m => !m.isPlayer && m.alive && m !== a &&
+        m.ai !== "raeuber" && Math.hypot(m.x - a.x, m.y - a.y) < 6.5 &&
+        m.hp < m.maxhp);
+      if (nahe.length) {
+        for (const m of nahe) {
+          const kam = healActor(m, Math.round(m.maxhp * (a.phase2 ? .22 : .14)));
+          if (kam) { floatText(m.x, m.y - .5, "+" + kam, C.verd); ring(m.x, m.y, .9, "#9FD8B0"); }
+        }
+        a.cooldown = a.phase2 ? 4 : 7;
+        log(`${a.spec.name} wäscht die Wunden — sie stehen wieder auf.`, "bad");
+        Sfx.spiel("trank");
+        return true;
+      }
+    }
+
+    /* Und wenn nichts zu heilen ist, holt sie sich neues. Der Unterschied zur
+       Brut: sie hebt, was schon da lag, statt etwas zu rufen. */
+    if (!a.cooldown && a.summons < (a.phase2 ? 6 : 4) && cheb <= 8 && summon(a)) {
+      a.cooldown = a.phase2 ? 4 : 6;
+      return true;
+    }
+    return false;
+  }
+
+  /* ── Der Knochenvogt: er hebt ein Grab aus, und zwar fuer dich ────────── */
+  if (a.power === "vogt") {
+    if (zweitePhase(a, "Der Vogt zählt schneller",
+                    "Er hebt jetzt zwei auf einmal aus")) return true;
+
+    // Ausgehobene Graeber reifen und schlagen zu
+    a.graeber = (a.graeber || []).filter(gr => {
+      gr.bis -= 1;
+      if (gr.bis > 0) {
+        ring(mitte(gr.x), mitte(gr.y), .7 + (3 - gr.bis) * .25, "#C0D090");
+        return true;
+      }
+      // Zeit um: wer noch darauf steht, faellt hinein
+      const drauf = kachelX(p) === gr.x && kachelY(p) === gr.y;
+      burst(mitte(gr.x), mitte(gr.y), "#8C8578", 22);
+      if (drauf) {
+        log("Der Boden gibt nach — du fällst in ein offenes Grab.", "bad");
+        Sfx.spiel("wehgetan");
+        damage(p, Math.round(18 * bossSkala(G.floor)), a);
+        p.stunned = STUN_TIME;
+      }
+      return false;
+    });
+
+    if (!a.cooldown && cheb <= 10) {
+      const wieViele = a.phase2 ? 2 : 1;
+      let gelegt = 0;
+      for (let k = 0; k < wieViele; k++) {
+        const tx = kachelX(p) + (k ? Math.round((rng() - .5) * 4) : 0);
+        const ty = kachelY(p) + (k ? Math.round((rng() - .5) * 4) : 0);
+        if (!inBounds(tx, ty) || !isWalkable(tx, ty)) continue;
+        if (a.graeber.some(gr => gr.x === tx && gr.y === ty)) continue;
+        a.graeber.push({ x: tx, y: ty, bis: 3 });
+        gelegt++;
+      }
+      if (gelegt) {
+        a.cooldown = a.phase2 ? 4 : 6;
+        log(`${a.spec.name} sticht den Spaten ein — geh da weg.`, "bad");
+        Sfx.spiel("elite");
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /* ── Der Erste Trauernde: seine Klage wirft dich fort ─────────────────── */
+  if (a.power === "trauer") {
+    if (zweitePhase(a, "Der Trauernde hebt die Stimme",
+                    "Die Klage trägt jetzt weiter")) return true;
+
+    if (a.cooldown || cheb > (a.phase2 ? 9 : 6)) return false;
+    if (!lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p))) return false;
+
+    const l = Math.hypot(p.x - a.x, p.y - a.y) || 1;
+    const rx = (p.x - a.x) / l, ry = (p.y - a.y) / l;
+    const weite = a.phase2 ? 5.5 : 4;
+
+    // Wegwerfen, so weit die Wand es zulaesst
+    let geschoben = 0;
+    for (let k = 0; k < weite * 4; k++) {
+      const vor = [p.x, p.y];
+      bewege(p, rx * .25, ry * .25);
+      if (Math.abs(p.x - vor[0]) < .01 && Math.abs(p.y - vor[1]) < .01) break;
+      geschoben += .25;
+    }
+    damage(p, Math.round(7 * bossSkala(G.floor)), a);
+    addStatus(p, "Langsam", 6, 1);
+    ring(a.x, a.y, weite, "#E8F4C8");
+    anim.shake = 10;
+    Sfx.spiel("nein");
+    log(geschoben > 1
+      ? `${a.spec.name} klagt auf — es wirft dich ${geschoben.toFixed(0)} Schritte zurück.`
+      : `${a.spec.name} klagt auf. Die Wand hält dich.`, "bad");
+    a.cooldown = a.phase2 ? 5 : 8;
+    return true;
+  }
+
   /* ── Der Steinerne Wächter: unverwundbar, solange seine Säulen stehen ── */
   if (a.power === "waechter") {
     if (zweitePhase(a, "Der Wächter erwacht ganz",
@@ -8851,19 +9498,31 @@ function stelleWaechterSaeulen(a, map) {
 }
 
 function summon(a) {
+  /* In Kacheln rechnen, nicht in Weltmass: a.x ist die Kachelmitte (27,5),
+     und isWalkable schlaegt mit einer gebrochenen Zahl ins Leere. Das war
+     der Grund, warum hier jahrelang nie etwas herauskam. */
+  const ax = kachelX(a), ay = kachelY(a);
   const spots = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     if (!dx && !dy) continue;
-    const nx = a.x + dx, ny = a.y + dy;
+    const nx = ax + dx, ny = ay + dy;
     if (isWalkable(nx, ny) && !actorAt(nx, ny)) spots.push([nx, ny]);
   }
+  // Wenn es eng ist, reicht auch ein Feld eine Kachel weiter
+  if (!spots.length)
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const nx = ax + dx, ny = ay + dy;
+      if (Math.abs(dx) < 2 && Math.abs(dy) < 2) continue;
+      if (isWalkable(nx, ny) && !actorAt(nx, ny) &&
+          lineOfSight(ax, ay, nx, ny)) spots.push([nx, ny]);
+    }
   if (!spots.length) return false;
   const [x, y] = pick(spots);
   /* Was der Boss hervorbringt, haengt an ihm: der Namenlose reisst einen Riss
      auf, der Totengraeber hebt ein Grab aus. */
   const art = a.spec.hebt || "spawn";
   G.actors.push(makeMonster(art, x, y));
-  burst(x, y, MONSTERS[art].body, 16);
+  burst(mitte(x), mitte(y), MONSTERS[art].body, 16);
   a.summons++;
   a.cooldown = 4;
   log(a.spec.hebt
@@ -9408,7 +10067,7 @@ function schritt(dt) {
   if (!mausWelt) p.facing = [dx, dy];
 
   const weite = SPEED_PLAYER * dt * (p.speedMult || 1) * lastTempo(p) *
-                Math.max(.55, 1 + equipBonus("tempo"));
+                klageTempo(p) * Math.max(.55, 1 + equipBonus("tempo"));
   const vorher = [Math.floor(p.x), Math.floor(p.y)];
   bewege(p, dx * weite, dy * weite);
 
@@ -9984,6 +10643,7 @@ function drawFrame(dt) {
   if (mode.kind === "target") drawTargeting(camX, camY);
 
   /* --- Effekte --- */
+  drawGraeber(camX, camY);
   drawZehrstrang(camX, camY);
   drawEffects(dt, camX, camY);
 
@@ -10474,6 +11134,20 @@ function drawDecor(T, x, y, mx, my, light) {
     ctx.lineTo(sx + 2 + hash2(mx + 2, my) * 10, sy + 11 + hash2(my + 2, mx) * 6);
     ctx.stroke();
     ctx.restore();
+  } else if (T.decor === "grab" && n > .80) {
+    /* Grabsteine am Strassenrand: kleine, schiefe Platten. Sie machen aus
+       einem leeren Zug eine Gasse, durch die jemand einmal getragen wurde. */
+    const h = TILE * (.16 + (n - .80) * .9);
+    const b = TILE * .13;
+    ctx.save();
+    ctx.translate(x + TILE * .5, y + TILE * .78);
+    ctx.rotate((n - .85) * .9);
+    ctx.fillStyle = mix(T.rock, "#8E9878", .18 + light * .45);
+    roundRect(ctx, -b, -h, b * 2, h, b * .5);
+    ctx.fill();
+    ctx.fillStyle = `rgba(0,0,0,${.30 * light})`;
+    ctx.fillRect(-b * .5, -h * .62, b, 1.2);
+    ctx.restore();
   } else if (T.decor === "ash" && n > .82) {
     // Asche und Knochensplitter
     ctx.save();
@@ -10840,6 +11514,214 @@ const PAINT = {
     ctx.beginPath();
     ctx.arc(lx, ly, s * .055, 0, 6.283);
     ctx.fill();
+  },
+
+  /* Ein Schleier ohne Koerper darunter: der Stoff haengt an nichts, faellt in
+     langen Bahnen und weht traege. Wo ein Gesicht sein muesste, ist ein
+     Ausschnitt aus Dunkelheit mit zwei Lichtern darin. */
+  klage(P) {
+    const { cx, g, s, body, dark, eye, t } = P;
+    const weht = Math.sin(t * 1.1) * s * .05;
+    const saum = g - s * .06;
+
+    // Der Schleier: oben schmal, unten in Bahnen ausgefranst
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .10 + weht * .4, g - s * .92);
+    ctx.quadraticCurveTo(cx - s * .34, g - s * .48, cx - s * .30 + weht, saum);
+    for (let i = 0; i < 5; i++) {
+      const fx = cx - s * .30 + weht + (s * .60 * (i + .5)) / 5;
+      const zack = Math.sin(t * 2.2 + i * 1.7) * s * .05;
+      ctx.lineTo(fx, saum + s * .10 + zack);
+      ctx.lineTo(fx + s * .06, saum - s * .02);
+    }
+    ctx.quadraticCurveTo(cx + s * .34, g - s * .48, cx + s * .10 + weht * .4, g - s * .92);
+    ctx.closePath();
+    ctx.fill();
+
+    // Faltenwurf, damit der Stoff Gewicht bekommt
+    ctx.strokeStyle = "rgba(0,0,0,.24)";
+    ctx.lineWidth = Math.max(1, s * .03);
+    for (const d of [-.16, -.04, .10]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + s * d * .4 + weht * .5, g - s * .78);
+      ctx.quadraticCurveTo(cx + s * d, g - s * .40, cx + s * d * 1.3 + weht, saum);
+      ctx.stroke();
+    }
+
+    // Die Kapuze, und darunter nichts
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .16 + weht * .4, g - s * .84);
+    ctx.quadraticCurveTo(cx - s * .14, g - s * 1.10, cx + weht * .4, g - s * 1.14);
+    ctx.quadraticCurveTo(cx + s * .14, g - s * 1.10, cx + s * .16 + weht * .4, g - s * .84);
+    ctx.quadraticCurveTo(cx + weht * .4, g - s * .92, cx - s * .16 + weht * .4, g - s * .84);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.86)";
+    ctx.beginPath();
+    ctx.ellipse(cx + weht * .4, g - s * .94, s * .105, s * .13, 0, 0, 6.283);
+    ctx.fill();
+    slitEyes(cx + weht * .4, g - s * .96, s, eye, 2, .05);
+  },
+
+  /* Ein Sarkophagdeckel, der laufen gelernt hat: ein schwerer Steinquader mit
+     eingemeisseltem Gesicht, darunter zwei viel zu kurze Beine. Er soll
+     aussehen, als gehoerte er liegend auf ein Grab. */
+  sarg(P) {
+    const { cx, g, s, body, dark, eye } = P;
+
+    // Zwei kurze, dicke Beine
+    limb(cx - s * .16, g - s * .26, cx - s * .18, g - s * .02, s * .13, dark);
+    limb(cx + s * .16, g - s * .26, cx + s * .18, g - s * .02, s * .13, dark);
+
+    // Der Deckel: oben schmaler als unten, wie ein Sargdeckel von vorn
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .22, g - s * .30);
+    ctx.lineTo(cx - s * .30, g - s * .74);
+    ctx.lineTo(cx - s * .20, g - s * 1.00);
+    ctx.lineTo(cx + s * .20, g - s * 1.00);
+    ctx.lineTo(cx + s * .30, g - s * .74);
+    ctx.lineTo(cx + s * .22, g - s * .30);
+    ctx.closePath();
+    ctx.fill();
+
+    // Eingemeisselte Fugen
+    ctx.strokeStyle = "rgba(0,0,0,.34)";
+    ctx.lineWidth = Math.max(1.2, s * .035);
+    for (const y of [-.44, -.60, -.78]) {
+      ctx.beginPath();
+      ctx.moveTo(cx - s * .27, g + s * y);
+      ctx.lineTo(cx + s * .27, g + s * y);
+      ctx.stroke();
+    }
+
+    // Ein Gesicht, flach eingeschlagen
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.ellipse(cx, g - s * .84, s * .13, s * .11, 0, 0, 6.283);
+    ctx.fill();
+    slitEyes(cx, g - s * .85, s, eye, 2, .055);
+
+    // Zwei gefaltete Haende in Relief
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.ellipse(cx, g - s * .56, s * .10, s * .07, .3, 0, 6.283);
+    ctx.fill();
+  },
+
+  /* Ein mageres Tier mit zu langem Ruecken und blossliegenden Rippen. Die
+     Ratte des Kerkers ist rund und satt; das hier ist es nicht. */
+  aas(P) {
+    const { cx, g, s, body, dark, eye, t } = P;
+
+    // Ein duenner, langer Schwanz
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = Math.max(1.4, s * .04);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .30, g - s * .22);
+    ctx.quadraticCurveTo(cx - s * .74, g - s * .30 + Math.sin(t * 4.4) * s * .08,
+                         cx - s * .62, g - s * .62);
+    ctx.stroke();
+
+    // Vier duenne Beine
+    for (const dx of [-.24, -.06, .12, .26])
+      limb(cx + s * dx, g - s * .24, cx + s * dx * 1.1, g - s * .02, s * .055, dark);
+
+    // Ein langer, eingefallener Ruecken
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .36, g - s * .24);
+    ctx.quadraticCurveTo(cx - s * .30, g - s * .44, cx - s * .06, g - s * .40);
+    ctx.quadraticCurveTo(cx + s * .18, g - s * .36, cx + s * .34, g - s * .30);
+    ctx.quadraticCurveTo(cx + s * .10, g - s * .16, cx - s * .36, g - s * .24);
+    ctx.closePath();
+    ctx.fill();
+
+    // Rippen
+    ctx.strokeStyle = "rgba(0,0,0,.34)";
+    ctx.lineWidth = Math.max(1, s * .025);
+    for (const d of [-.16, -.06, .04]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + s * d, g - s * .38);
+      ctx.lineTo(cx + s * d + s * .02, g - s * .22);
+      ctx.stroke();
+    }
+
+    // Spitze Schnauze, aufgerissen
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.moveTo(cx + s * .30, g - s * .34);
+    ctx.lineTo(cx + s * .52, g - s * .28);
+    ctx.lineTo(cx + s * .30, g - s * .22);
+    ctx.closePath();
+    ctx.fill();
+    slitEyes(cx + s * .32, g - s * .36, s, eye, 1, 0);
+  },
+
+  /* Ein Bogenschuetze aus Knochen: das Skelett des Kerkers traegt ein
+     Kurzschwert, dieses hier einen Bogen und einen Koecher aus Rippen. */
+  schuetze(P) {
+    const { cx, g, s, body, dark, eye, t } = P;
+    const zug = .5 + Math.sin(t * 1.7) * .5;
+
+    // Beine
+    limb(cx - s * .10, g - s * .40, cx - s * .16, g - s * .02, s * .075, body);
+    limb(cx + s * .10, g - s * .40, cx + s * .16, g - s * .02, s * .075, body);
+
+    // Wirbelsaeule und Rippenkorb
+    ctx.strokeStyle = body;
+    ctx.lineWidth = Math.max(1.6, s * .055);
+    ctx.beginPath();
+    ctx.moveTo(cx, g - s * .40);
+    ctx.lineTo(cx, g - s * .76);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1.2, s * .034);
+    for (const y of [-.48, -.57, -.66]) {
+      ctx.beginPath();
+      ctx.moveTo(cx - s * .16, g + s * y - s * .02);
+      ctx.quadraticCurveTo(cx, g + s * y + s * .04, cx + s * .16, g + s * y - s * .02);
+      ctx.stroke();
+    }
+
+    // Koecher aus Rippen auf dem Ruecken
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = Math.max(1.2, s * .036);
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx - s * .20 - i * s * .03, g - s * .50);
+      ctx.lineTo(cx - s * .30 - i * s * .04, g - s * .84);
+      ctx.stroke();
+    }
+
+    // Der Bogen, halb gespannt
+    ctx.strokeStyle = mix(dark, "#E8DCC0", .5);
+    ctx.lineWidth = Math.max(1.5, s * .045);
+    ctx.beginPath();
+    ctx.arc(cx + s * .30, g - s * .62, s * .28, -1.25, 1.25);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(232,232,208,.55)";
+    ctx.lineWidth = Math.max(1, s * .022);
+    ctx.beginPath();
+    ctx.moveTo(cx + s * .30 + Math.cos(-1.25) * s * .28, g - s * .62 + Math.sin(-1.25) * s * .28);
+    ctx.lineTo(cx + s * .30 - s * .10 * zug, g - s * .62);
+    ctx.lineTo(cx + s * .30 + Math.cos(1.25) * s * .28, g - s * .62 + Math.sin(1.25) * s * .28);
+    ctx.stroke();
+
+    // Arme zum Bogen
+    limb(cx + s * .06, g - s * .70, cx + s * .26, g - s * .62, s * .06, body);
+    limb(cx - s * .06, g - s * .70, cx + s * .18 - s * .10 * zug, g - s * .60, s * .06, body);
+
+    // Schaedel
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.ellipse(cx, g - s * .88, s * .13, s * .15, 0, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = dark;
+    ctx.fillRect(cx - s * .07, g - s * .81, s * .14, s * .05);
+    slitEyes(cx, g - s * .92, s, eye, 2, .05);
   },
 
   /* Ein Leichnam, der sich wieder aufgerappelt hat: schiefe Schultern, ein
@@ -11805,6 +12687,20 @@ function drawItem(ctx, x, y, def, light, t) {
     ctx.closePath(); ctx.fill();
     ctx.fillStyle = "rgba(255,255,255,.42)";
     roundRect(ctx, cx - 3.4 * k, cy - 1 * k, 1.8 * k, 5 * k, .9 * k); ctx.fill();
+  } else if (def.kind === "wurf") {
+    /* Ein Buendel: Griff unten, Kopf oben. Genug, um es im Halbdunkel von
+       einer Flasche zu unterscheiden. */
+    ctx.fillStyle = mix("#14110C", "#8A7A5E", .3 + light * .7);
+    roundRect(ctx, cx - 1.4 * k, cy - 2 * k, 2.8 * k, 10 * k, 1.2 * k); ctx.fill();
+    ctx.fillStyle = tint;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 9 * k);
+    ctx.lineTo(cx + 4.6 * k, cy - 1 * k);
+    ctx.lineTo(cx, cy + 1.4 * k);
+    ctx.lineTo(cx - 4.6 * k, cy - 1 * k);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.34)";
+    roundRect(ctx, cx - 1 * k, cy - 7.4 * k, 1.2 * k, 5 * k, .6 * k); ctx.fill();
   } else if (def.kind === "scroll") {
     ctx.fillStyle = mix("#171410", "#DCD1B6", .3 + light * .7);
     roundRect(ctx, cx - 7 * k, cy - 8 * k, 14 * k, 16 * k, 2 * k); ctx.fill();
@@ -11986,6 +12882,31 @@ function drawTargeting(camX, camY) {
   ctx.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4);
   ctx.fillStyle = `rgba(232,169,75,${.10 + pulse * .08})`;
   ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+}
+
+/* Die Graeber, die der Knochenvogt aushebt. Sie muessen deutlich sein - wer
+   sie uebersieht, faellt hinein, und dann war es kein Kampf, sondern Pech. */
+function drawGraeber(camX, camY) {
+  for (const a of G.actors) {
+    if (!a.alive || !a.graeber || !a.graeber.length) continue;
+    for (const gr of a.graeber) {
+      const x = (gr.x - camX) * TILE, y = (gr.y - camY) * TILE;
+      if (!G.map.visible[idx(gr.x, gr.y)]) continue;
+      const reif = 1 - gr.bis / 3;
+      ctx.save();
+      ctx.fillStyle = `rgba(12,14,10,${.35 + reif * .45})`;
+      roundRect(ctx, x + 4, y + 6, TILE - 8, TILE - 12, 3);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(200,224,160,${.5 + reif * .5})`;
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([4, 3]);
+      ctx.lineDashOffset = -anim.t * 12;
+      roundRect(ctx, x + 3, y + 5, TILE - 6, TILE - 10, 3);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
 }
 
 /* Der Strang, solange er haelt. */
@@ -12651,6 +13572,9 @@ const ART_BILD = {
   potion: '<path d="M10 2.5h4v4.2l3.8 9.6c.8 2-.7 4.2-2.9 4.2H9.1c-2.2 0-3.7-2.2-2.9-4.2L10 6.7z" ' +
           'fill="currentColor" opacity=".9"/><path d="M7.6 13.5h8.8l1.4 3.5c.6 1.5-.5 3-2.1 3H8.3' +
           'c-1.6 0-2.7-1.5-2.1-3z" fill="#000" opacity=".28"/>',
+  wurf: '<path d="M12 2.4 17 11.2 12 13.6 7 11.2z" fill="currentColor" opacity=".92"/>' +
+        '<path d="M10.9 12.6h2.2v8.8h-2.2z" fill="currentColor" opacity=".6"/>' +
+        '<path d="M8.4 19.2h7.2v2.2H8.4z" fill="currentColor" opacity=".85"/>',
   scroll: '<path d="M6 3.5h12v17H6z" fill="currentColor" opacity=".9"/>' +
           '<path d="M6 3.5c-1.4 0-2.4 1-2.4 2.3S4.6 8.1 6 8.1zM18 15.9c1.4 0 2.4 1 2.4 2.3s-1 2.3-2.4 2.3z" ' +
           'fill="currentColor" opacity=".55"/><path d="M8.6 8.6h6.8M8.6 11.4h6.8M8.6 14.2h4.5" ' +
@@ -12896,21 +13820,77 @@ function bagBinde() {
     else Sfx.spiel("nein");
     bagFrisch();
   };
-  /* Ein Klick auf einen belegten Guertelplatz legt die Flasche zurueck ins
-     Raster - benutzt wird sie draussen mit ihrer Ziffer, nicht hier drin. */
+  /* Ein Guertelplatz gibt her, was darauf liegt: ziehen sortiert um oder legt
+     ins Raster, ein Klick legt zurueck. Vorher ging nur der Klick, und der
+     legte irgendwohin - umsortieren war unmoeglich. */
   overlay.querySelectorAll("[data-gband]").forEach(el => {
     const nr = +el.dataset.gband;
-    el.onclick = () => {
-      if (!guertel(p)[nr]) return;
-      const hindernis = ausDemGuertel(p, nr);
-      if (hindernis) {
-        log(hindernis === "gewicht"
-          ? "Zu schwer für den Rucksack."
-          : "Im Rucksack ist keine Lücke dafür.", "system");
-        Sfx.spiel("nein");
-      } else Sfx.spiel("aufheben");
-      bagWahl = null;
-      bagFrisch();
+    const e = guertel(p)[nr];
+    if (!e) return;
+    el.onpointerdown = ev => {
+      if (ev.button !== 0) return;
+      ev.preventDefault();
+      const kasten = el.getBoundingClientRect();
+      const griffX = ev.clientX - kasten.left, griffY = ev.clientY - kasten.top;
+      const startX = ev.clientX, startY = ev.clientY;
+      let geist = null;
+
+      const bewegt = ev2 => {
+        if (!geist) {
+          if (Math.abs(ev2.clientX - startX) < ZUG_SCHWELLE &&
+              Math.abs(ev2.clientY - startY) < ZUG_SCHWELLE) return;
+          geist = baueGeist(e, kasten);
+          el.classList.add("hebt");
+        }
+        geist.style.left = (ev2.clientX - griffX) + "px";
+        geist.style.top = (ev2.clientY - griffY) + "px";
+        overlay.querySelectorAll(".gplatz.nimmt").forEach(g => g.classList.remove("nimmt"));
+        const auf = guertelPlatzUnter(ev2, "gband");
+        if (auf >= 0 && auf !== nr)
+          overlay.querySelector('[data-gband="' + auf + '"]').classList.add("nimmt");
+        const ziel = zielZelle(ev2, griffX, griffY);
+        geist.classList.toggle("nein", auf < 0 && !ziel);
+      };
+
+      const los = ev2 => {
+        window.removeEventListener("pointermove", bewegt);
+        window.removeEventListener("pointerup", los);
+        if (geist) geist.remove();
+        el.classList.remove("hebt");
+        overlay.querySelectorAll(".gplatz.nimmt").forEach(g => g.classList.remove("nimmt"));
+
+        if (!geist) {                       // war doch nur ein Klick
+          const hindernis = ausDemGuertel(p, nr);
+          if (hindernis) {
+            log(hindernis === "gewicht" ? "Zu schwer für den Rucksack."
+              : "Im Rucksack ist keine Lücke dafür.", "system");
+            Sfx.spiel("nein");
+          } else Sfx.spiel("aufheben");
+          bagWahl = null;
+          bagFrisch();
+          return;
+        }
+
+        const auf = guertelPlatzUnter(ev2, "gband");
+        if (auf >= 0) {
+          if (guertelTausch(guertel(p), nr, auf)) Sfx.spiel("aufheben");
+          bagFrisch();
+          return;
+        }
+        const ziel = zielZelle(ev2, griffX, griffY);
+        if (ziel) {
+          const hindernis = ausDemGuertel(p, nr);
+          if (!hindernis) {
+            // Genau dorthin, wohin gezogen wurde, wenn es passt
+            if (passtHin(p, e, ziel.gx, ziel.gy)) { e.gx = ziel.gx; e.gy = ziel.gy; }
+            Sfx.spiel("aufheben");
+          } else Sfx.spiel("nein");
+        }
+        bagFrisch();
+      };
+
+      window.addEventListener("pointermove", bewegt);
+      window.addEventListener("pointerup", los);
     };
   });
 
@@ -13092,7 +14072,7 @@ function showChest(kiste) {
    Name steht im Eintrag, genau wie im Spielstand. */
 function ausKisteBauen(eintrag) {
   if (eintrag.q) return { id: "relic", def: Object.assign({}, RELIC, { name: eintrag.q }) };
-  const e = buildItem(eintrag.id, eintrag.ax, eintrag.sel);
+  const e = buildItem(eintrag.id, eintrag.ax, eintrag.sel, eintrag.ax2);
   if (eintrag.menge) e.menge = eintrag.menge;
   return e;
 }
@@ -13113,6 +14093,7 @@ function nimmAusKiste(kiste, i) {
   kiste.loot.splice(i, 1);
   Sfx.spiel("aufheben");
   log(`Du nimmst ${gebaut.def.name} aus der Kiste.`, "you");
+  feiereFund(gebaut, kiste.x, kiste.y);
   if (gebaut.def.quest) questProgress("relic");
   refreshUI();
   if (!kiste.loot.length) { closeModal(); log("Die Kiste ist leer.", "system"); }
@@ -13613,9 +14594,9 @@ const SKILLS = [
     wirk: (p, r) => { p.restHeal = (p.restHeal || 0) + r; } },
   { key: "leise", zweig: "zunft", name: "Leiser Tritt", max: 4, braucht: ["genesung", 2],
     text: r => `Rasten macht ${r * 12} % weniger Lärm`, wirk: () => {} },
-  { key: "gelehrt", zweig: "zunft", name: "Gelehrig", max: 4,
-    text: r => `Rollen und Fähigkeit ${r * 10} % stärker`,
-    wirk: (p, r) => { p.scrollPower = (p.scrollPower || 1) * (1 + r * .10); } },
+  { key: "gelehrt", zweig: "zunft", name: "Wurfarm", max: 4,
+    text: r => `Wurfgerät und Fähigkeit ${r * 10} % stärker`,
+    wirk: (p, r) => { p.wurfKraft = (p.wurfKraft || 1) * (1 + r * .10); } },
   { key: "stille", zweig: "zunft", name: "Stille Stunde", max: 1, braucht: ["leise", 3],
     text: () => "Erste Rast je Etage lautlos", wirk: () => {} },
   { key: "zaehrung", zweig: "zunft", name: "Zehrung", max: 3, braucht: ["gelehrt", 2],
@@ -13635,10 +14616,20 @@ function skillOffen(t) {
   return skillRang(t.braucht[0]) >= t.braucht[1];
 }
 
-const SKILL_KOSTEN = 1;
+/* Zwei Punkte je Stufe. Der Baum hat 119 Raenge - mit einem Punkt je Stufe
+   haette man ihn nach hundertneunzehn Stufen voll, also nie. */
+const SKILL_KOSTEN = 2;
 
 /* Die Stufenkurve: anfangs schnell, spaeter zaeh - so wie es sich gehoert. */
-function xpFuerStufe(stufe) { return Math.round(180 * Math.pow(stufe, 1.45)); }
+/* Gemessen war die Kurve zu steil: ein vollstaendig ausgeraeumter Durchgang
+   durch das Schloss bringt 20 729 Erfahrung, und Stufe 25 kostete allein
+   19 155. Ab Stufe 20 gab es also eine Stufe je Lauf - und das nur, wenn man
+   wirklich alles erschlaegt und lebend herauskommt. Ein realistischer Lauf
+   brachte einen Bruchteil davon.
+
+   Flacher: 130 mal Stufe hoch 1,25. Stufe 20 kostet damit 5 486 statt 13 860,
+   ein voller Durchgang bringt dort knapp vier Stufen, ein halber gut einen. */
+function xpFuerStufe(stufe) { return Math.round(130 * Math.pow(stufe, 1.25)); }
 function xpNeeded() { return xpFuerStufe(Math.max(1, META.stufe | 0)); }
 function offenePunkte() { return (META.punkte | 0); }
 
@@ -13886,9 +14877,10 @@ function loescheFortschritt() {
 const SORTIMENT = {
   0: ["potion", "oil", "dagger", "leather"],   // Traenke gibt es auf jedem Rang
   1: ["potion", "oil", "dagger", "sword", "leather", "chart", "seil"],
-  2: ["greatPotion", "bigoil", "sword", "spiess", "chain", "lightning", "might", "seil"],
-  3: ["greatPotion", "bigoil", "axe", "spiess", "chain", "kolben", "ward", "fireball", "seil"],
-  4: ["greatPotion", "bigoil", "axe", "kolben", "plate", "guard", "regen", "blink", "seil"],
+  2: ["greatPotion", "bigoil", "sword", "spiess", "chain", "wurfmesser", "might", "seil"],
+  3: ["greatPotion", "bigoil", "axe", "spiess", "chain", "kolben", "ward", "wurfoel", "seil"],
+  4: ["greatPotion", "bigoil", "axe", "kolben", "plate", "guard", "regen", "blendpulver",
+      "netz", "seil"],
   5: ["greatPotion", "bigoil", "runeblade", "hellebarde", "plate", "vitality", "wrath", "seil"],
   6: ["greatPotion", "bigoil", "runeblade", "hellebarde", "plate", "vitality", "wrath", "guard", "seil"],
 };
@@ -15365,15 +16357,78 @@ function ladeBinde() {
     if (b) greife(el, b, "platz");
     else el.onclick = () => { ladeWahl = null; ladeFrisch(); };
   });
-  // Ein Klick auf einen belegten Guertelplatz legt die Flasche zurueck
+  /* Auch hier gibt der Platz her, was darauf liegt: ziehen sortiert um oder
+     legt ins Raster, ein Klick legt zurueck ins Lager. */
   overlay.querySelectorAll("[data-gplatz]").forEach(el => {
     const nr = +el.dataset.gplatz;
-    el.onclick = () => {
-      if (!(META.guertel || [])[nr]) return;
-      if (ladeVomGuertel(nr, "lager")) { speichereMeta(META); Sfx.spiel("aufheben"); }
-      else { log("Im Lager ist keine Lücke dafür.", "system"); Sfx.spiel("nein"); }
-      ladeWahl = null;
-      ladeFrisch();
+    const b = (META.guertel || [])[nr];
+    if (!b) return;
+    el.onpointerdown = ev => {
+      if (ev.button !== 0) return;
+      ev.preventDefault();
+      const kasten = el.getBoundingClientRect();
+      const griffX = ev.clientX - kasten.left, griffY = ev.clientY - kasten.top;
+      const startX = ev.clientX, startY = ev.clientY;
+      let geist = null;
+
+      const bewegt = ev2 => {
+        if (!geist) {
+          if (Math.abs(ev2.clientX - startX) < 4 &&
+              Math.abs(ev2.clientY - startY) < 4) return;
+          geist = document.createElement("div");
+          geist.className = "kachelgeist";
+          geist.style.setProperty("--tint", seltenFarbe(b));
+          geist.style.width = "46px";
+          geist.style.height = "46px";
+          geist.innerHTML = '<span class="kachelbild">' + kachelBild(b) + "</span>";
+          document.body.appendChild(geist);
+          el.classList.add("hebt");
+        }
+        geist.style.left = (ev2.clientX - griffX) + "px";
+        geist.style.top = (ev2.clientY - griffY) + "px";
+        overlay.querySelectorAll(".gplatz.nimmt").forEach(g => g.classList.remove("nimmt"));
+        const auf = guertelPlatzUnter(ev2, "gplatz");
+        if (auf >= 0 && auf !== nr)
+          overlay.querySelector('[data-gplatz="' + auf + '"]').classList.add("nimmt");
+        const z = zielVon(ev2, griffX, griffY);
+        geist.classList.toggle("nein", auf < 0 && !z);
+      };
+
+      const los = ev2 => {
+        window.removeEventListener("pointermove", bewegt);
+        window.removeEventListener("pointerup", los);
+        if (geist) geist.remove();
+        el.classList.remove("hebt");
+        overlay.querySelectorAll(".gplatz.nimmt").forEach(g => g.classList.remove("nimmt"));
+
+        if (!geist) {
+          if (ladeVomGuertel(nr, "lager")) { speichereMeta(META); Sfx.spiel("aufheben"); }
+          else { log("Im Lager ist keine Lücke dafür.", "system"); Sfx.spiel("nein"); }
+          ladeWahl = null;
+          ladeFrisch();
+          return;
+        }
+
+        const auf = guertelPlatzUnter(ev2, "gplatz");
+        if (auf >= 0) {
+          if (guertelTausch(META.guertel, nr, auf)) {
+            speichereMeta(META);
+            Sfx.spiel("aufheben");
+          }
+          ladeFrisch();
+          return;
+        }
+        const z = zielVon(ev2, griffX, griffY);
+        if (z) {
+          if (ladeVomGuertel(nr, z.feld)) { speichereMeta(META); Sfx.spiel("aufheben"); }
+          else Sfx.spiel("nein");
+        }
+        ladeWahl = null;
+        ladeFrisch();
+      };
+
+      window.addEventListener("pointermove", bewegt);
+      window.addEventListener("pointerup", los);
     };
   });
 
@@ -15584,7 +16639,7 @@ function freshState() {
     facing: [0, 1], nextSwing: 0, radius: R_PLAYER,
     abilityCd: 0,
     wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0, blutzollBis: 0,
-    oilSteps: 4, fovBonus: 0, scrollPower: 1, crit: 0, evade: 0,
+    oilSteps: 4, fovBonus: 0, wurfKraft: 1, crit: 0, evade: 0,
     speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
     killHeal: 0, restHeal: 0, lootLuck: 0, brazierBonus: 1, trotz: 0,
     bag: [], equipped: { "Waffe": null, "Rüstung": null, "Amulett": null, "Modul": null },
@@ -15619,7 +16674,7 @@ function startNewGame() {
     baseMaxHp: RUMPF.hp, hp: RUMPF.hp,
     baseAtk: RUMPF.atk, baseDef: RUMPF.def,
     flamme: "normal", finsternis: 0, laerm: 0, oilTick: 0,
-    oilSteps: RUMPF.oilSteps, fovBonus: RUMPF.fovBonus, scrollPower: RUMPF.scrollPower,
+    oilSteps: RUMPF.oilSteps, fovBonus: RUMPF.fovBonus, wurfKraft: RUMPF.wurfKraft,
     crit: RUMPF.crit, evade: RUMPF.evade,
     speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
     killHeal: 0, restHeal: 0, lootLuck: 0, brazierBonus: 1, trotz: 0,
