@@ -4273,8 +4273,15 @@ const AFFIX_BY_KEY = Object.fromEntries(AFFIXES.map(a => [a.key, a]));
 
 /* Baut eine Gegenstands-Instanz. Ohne Affix teilen sich alle dieselbe Vorlage,
    mit Affix bekommt jedes Stück seine eigene. */
+/* Ein Name, den es nicht mehr gibt - aus einem alten Spielstand oder einer
+   alten Kiste. Frueher warf das hier, und weil jedes Fenster mit Kacheln
+   ueber buildItem geht, ging dann das ganze Fenster nicht mehr auf. Lieber
+   ein leeres Buendel, das man verkaufen kann. */
+const VERSCHOLLEN = { name: "Verwittertes Bündel", g: "n", kind: "relic",
+                      tint: "#8A8272", note: "Was einmal darin lag, ist dahin." };
+
 function buildItem(id, affixKey, sel, affixKey2) {
-  const base = ITEMS[id];
+  const base = ITEMS[id] || VERSCHOLLEN;
   const a = affixKey ? AFFIX_BY_KEY[affixKey] : null;
   const a2 = affixKey2 && affixKey2 !== affixKey ? AFFIX_BY_KEY[affixKey2] : null;
   // Legendaere tragen ihren Namen und ihre Werte selbst - da kommt nichts dran
@@ -4727,6 +4734,14 @@ function ladeMeta() {
 /* Was vor der Stapelbarkeit gespeichert wurde, traegt kein Mengenfeld. Ohne
    das laesst es sich nie wieder zusammenlegen - also wird es beim Laden
    nachgetragen. */
+/* Was das Spiel nicht mehr kennt, hat im Lager nichts zu suchen. Ohne das
+   schleppt ein Spielstand die Zauberrollen ewig mit sich herum. Quest-
+   Andenken tragen ihren Namen selbst und haben keinen Eintrag in ITEMS -
+   die bleiben. */
+function nurBekanntes(liste) {
+  return (Array.isArray(liste) ? liste : []).filter(b => b && (b.q || ITEMS[b.id]));
+}
+
 function mengenNachtragen(liste) {
   for (const b of (liste || [])) {
     const d = ITEMS[b.id];
@@ -4744,7 +4759,7 @@ function ladeMetaAus(roh) {
     if (roh && typeof roh === "object") {
       return {
         muenzen: roh.muenzen | 0,
-        lager: mengenNachtragen(Array.isArray(roh.lager) ? roh.lager : []),
+        lager: mengenNachtragen(nurBekanntes(roh.lager)),
         umsatz: roh.umsatz | 0,
         laeufe: roh.laeufe | 0,
         beste: roh.beste | 0,
@@ -4755,11 +4770,21 @@ function ladeMetaAus(roh) {
         punkte: roh.punkte | 0,
         skills: (roh.skills && typeof roh.skills === "object") ? roh.skills : {},
         erweiterungen: Array.isArray(roh.erweiterungen) ? roh.erweiterungen : [],
-        mitnahme: mengenNachtragen(Array.isArray(roh.mitnahme) ? roh.mitnahme : []),
-        anlegen: (roh.anlegen && typeof roh.anlegen === "object") ? roh.anlegen : {},
+        mitnahme: mengenNachtragen(nurBekanntes(roh.mitnahme)),
+        anlegen: (() => {
+          const a = {}, roh_a = roh.anlegen;
+          if (roh_a && typeof roh_a === "object")
+            for (const slot of Object.keys(roh_a)) {
+              const b = roh_a[slot];
+              if (b && (b.q || ITEMS[b.id])) a[slot] = b;
+            }
+          return a;
+        })(),
         // Aeltere Spielstaende kennen den Guertel noch nicht
-        guertel: Array.from({ length: GUERTEL_PLAETZE }, (_, i) =>
-          (Array.isArray(roh.guertel) ? roh.guertel[i] : null) || null),
+        guertel: Array.from({ length: GUERTEL_PLAETZE }, (_, i) => {
+          const b = Array.isArray(roh.guertel) ? roh.guertel[i] : null;
+          return (b && (b.q || ITEMS[b.id])) ? b : null;
+        }),
       };
     }
   }
