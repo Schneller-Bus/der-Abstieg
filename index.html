@@ -2771,12 +2771,18 @@ const BRAZIER_RANGE = 4.6;
 
 /* ── Grablichter ─────────────────────────────────────────────────────────
    In der Totenstadt brennt keine Fackel; man zuendet an, was dasteht.
-   Dreissig Oel je Licht sind ein Viertel einer vollen Fuellung - bei bis zu
-   dreissig Lichtern auf der Etage kann man sie also nicht erleuchten,
-   sondern nur einen Weg hineinlegen. */
-const GRABLICHT_KOSTEN = 30;
+   Zwanzig Oel je Licht sind ein Sechstel einer vollen Fuellung - man kann
+   die Stadt also nicht erleuchten, sondern nur einen Weg hineinlegen.
+
+   Die Lichter stehen in einer Kette: jedes ist von seinem Vorgaenger aus zu
+   sehen. Die Frage soll sein, ob ein Raum das Oel lohnt - nicht, wo das
+   naechste Licht ueberhaupt steht. */
+const GRABLICHT_KOSTEN = 20;
 const GRABLICHT_SCHEIN = 6.5;    // so weit sieht man in seinem Schein
 const GRABLICHT_SICHT = 2.0;     // und so weit ausserhalb davon
+const GRABLICHT_KETTE = 6.0;     // so weit darf das naechste hoechstens weg sein
+const GRABLICHT_ABSTAND = 4.0;   // und so nah hoechstens, sonst stehen sie sich im Weg
+const GRABLICHT_ZAHL = 48;       // Obergrenze, damit eine Etage nicht ausufert
 const LAVA_RANGE = 3.8;
 
 /* ── Echtzeit ─────────────────────────────────────────────────────────────
@@ -7527,7 +7533,9 @@ const LAUNEN = [
   { key: "zugig", name: "Zugig", gewicht: 8,
     text: "Ein Zug aus der Tiefe — deine Fackel brennt doppelt so schnell." },
   { key: "verlassen", name: "Verlassen", gewicht: 7,
-    text: "Kaum noch ein Licht am Weg. Dafür blieb einiges zurück." },
+    text: "Keine Fackelschale brennt mehr. Dafür blieb einiges zurück.",
+    textLampen: "Die Dochte sind verkrustet — Anzünden kostet mehr. " +
+                "Dafür blieb einiges zurück." },
   { key: "vermint", name: "Vermint", gewicht: 7,
     text: "Wer hier baute, wollte niemanden hereinlassen. Dreimal so viele Fallen." },
   { key: "erstickend", name: "Erstickend", gewicht: 6,
@@ -7710,15 +7718,43 @@ function populateFloor(floor) {
       const j = Math.floor(rng() * (i + 1));
       [felder[i], felder[j]] = [felder[j], felder[i]];
     }
-    for (const [lx, ly] of felder) {
-      if (G.braziers.length >= 30) break;
-      if (G.braziers.some(b => Math.hypot(b.x - lx, b.y - ly) < 7.5)) continue;
-      // Sie stehen da, aber sie brennen nicht. Das ist der ganze Ort.
-      G.braziers.push({ x: lx, y: ly, aus: true });
+
+    /* Das erste Licht steht dort, wo man ankommt - und es brennt schon. Wer
+       im Stockdunkeln anfaengt, hat keine Wahl, sondern ein Problem. */
+    const nahAmStart = felder.find(([x, y]) =>
+      Math.hypot(x - sx, y - sy) <= 3.5 && lineOfSight(sx, sy, x, y));
+    const erstes = { x: nahAmStart ? nahAmStart[0] : sx,
+                     y: nahAmStart ? nahAmStart[1] : sy,
+                     aus: false, ankunft: true };
+    G.braziers.push(erstes);
+
+    /* Und von dort waechst die Reihe: jedes neue Licht steht in Sichtweite
+       eines schon gesetzten. Wer an einem steht, sieht das naechste - und
+       ueberlegt, ob es ihm das Oel wert ist. Vorher lagen sie siebeneinhalb
+       Kacheln auseinander, bei sechseinhalb Kacheln Schein: man sah das
+       naechste grundsaetzlich nicht und musste im Dunkeln danach suchen. */
+    const warteschlange = [erstes];
+    for (let k = 0; k < warteschlange.length && G.braziers.length < GRABLICHT_ZAHL; k++) {
+      const von = warteschlange[k];
+      for (const [lx, ly] of felder) {
+        if (G.braziers.length >= GRABLICHT_ZAHL) break;
+        const d = Math.hypot(von.x - lx, von.y - ly);
+        if (d < GRABLICHT_ABSTAND || d > GRABLICHT_KETTE) continue;
+        if (G.braziers.some(b => Math.hypot(b.x - lx, b.y - ly) < GRABLICHT_ABSTAND)) continue;
+        if (!lineOfSight(von.x, von.y, lx, ly)) continue;
+        const neu = { x: lx, y: ly, aus: true };
+        G.braziers.push(neu);
+        warteschlange.push(neu);
+      }
     }
   }
 
   for (const zone of zones) {
+    /* Wo die Lichter eine Kette bilden, hat der Nachschlag nichts zu suchen:
+       er setzte je Raum eines an eine zufaellige Stelle, und gemessen standen
+       dadurch 148 von 1130 Lichtern ausser Sichtweite jedes anderen - genau
+       die, nach denen man dann im Dunkeln suchen musste. */
+    if (ort().lampenlicht) break;
     if (rng() > .45) continue;
     const candidates = zone.tiles.filter(([x, y]) => {
       if (!isWalkable(x, y) || actorAt(x, y)) return false;
@@ -7744,10 +7780,13 @@ function populateFloor(floor) {
      In der Totenstadt hat man keine: dort waere das kein Ort ohne Nachschub,
      sondern ein Ort ohne Licht, und der Balken liefe vom ersten Schritt an
      hoch. Dort nimmt die Laune die Haelfte. */
-  if (hatLaune("verlassen"))
-    G.braziers = ort().lampenlicht
-      ? G.braziers.filter((_, i) => i % 2 === 0)
-      : [];
+  /* "Verlassen" nimmt im Schloss alle Schalen - man hat ja seine Fackel.
+     In der Totenstadt nimmt sie keine: die Lichter stehen dort in einer
+     Kette, und wer jedes zweite herausnimmt, zerreisst sie - dann stehen die
+     uebrigen weiter auseinander, als eines leuchtet, und man sucht im
+     Dunkeln. Stattdessen sind die Doechte verkrustet: Anzuenden kostet drei
+     Viertel mehr. */
+  if (hatLaune("verlassen") && !ort().lampenlicht) G.braziers = [];
   G.hasLava = map.tiles.includes(LAVA);
 
   // Zwischenboss in einem mittleren Raum, weit weg vom Eingang
@@ -7914,6 +7953,7 @@ function populateFloor(floor) {
 
   rettteKisten(map);
   rettteSchaechte();
+  rettteGrablichter();
 
   /* Zuletzt die Konkurrenz. Sie kommt nach allem anderen, weil sie die Truhen
      kennen muss, auf die sie zulaeuft - und damit kein spaet gebauter
@@ -8450,27 +8490,58 @@ function burnOil(n) {
   }
 }
 
+/* Die Kette der Grablichter muss auch nach dem Bau der Bosskammer halten.
+   Die schlaegt zuletzt Kacheln aus dem Weg und nimmt dabei manchmal ein Licht
+   mit - dessen Nachbarn haengen dann in der Luft, und genau die sind es, nach
+   denen man im Dunkeln suchen wuerde. Gemessen betraf das neun von 1244.
+   Was vom Ankunftslicht aus nicht mehr ueber Sichtlinien zu erreichen ist,
+   kommt darum weg; die zwei Schalen der Bosskammer bleiben, die brennen
+   ohnehin von selbst. */
+function rettteGrablichter() {
+  if (!ort().lampenlicht || !G.braziers.length) return;
+  const wurzel = G.braziers.find(b => b.ankunft);
+  if (!wurzel) return;
+  const drin = new Set([wurzel]);
+  const rand = [wurzel];
+  for (let k = 0; k < rand.length; k++)
+    for (const b of G.braziers) {
+      if (drin.has(b)) continue;
+      if (Math.hypot(b.x - rand[k].x, b.y - rand[k].y) > GRABLICHT_KETTE) continue;
+      if (!lineOfSight(rand[k].x, rand[k].y, b.x, b.y)) continue;
+      drin.add(b);
+      rand.push(b);
+    }
+  G.braziers = G.braziers.filter(b => drin.has(b) || b.kammer);
+}
+
 /* Ein Grablicht anzuenden kostet - und brennt dann fuer immer. Das ist die
    Waehrung der Totenstadt: nicht wie lange du unten bleibst, sondern wie
    viel Weg du dir leistest. */
+/* Was ein Licht heute kostet. Auf einer verlassenen Etage sind die Doechte
+   verkrustet - dort kostet es mehr, statt dass Lichter fehlen. */
+function grablichtKosten() {
+  return Math.round(GRABLICHT_KOSTEN * (hatLaune("verlassen") ? 1.75 : 1));
+}
+
 function zuendeGrablicht() {
   if (!ort().lampenlicht) return false;
   const p = G.player;
   for (const b of (G.braziers || [])) {
     if (!b.aus) continue;
     if (Math.hypot(mitte(b.x) - p.x, mitte(b.y) - p.y) > 1.6) continue;
-    if (p.oil < GRABLICHT_KOSTEN) {
-      log(`Zu wenig Öl. Ein Grablicht braucht ${GRABLICHT_KOSTEN}, du hast ${p.oil | 0}.`,
+    const kostet = grablichtKosten();
+    if (p.oil < kostet) {
+      log(`Zu wenig Öl. Ein Grablicht braucht ${kostet}, du hast ${p.oil | 0}.`,
           "system");
       Sfx.spiel("nein");
       return true;                  // angefasst hat er es trotzdem
     }
-    p.oil = Math.max(0, p.oil - GRABLICHT_KOSTEN);
+    p.oil = Math.max(0, p.oil - kostet);
     b.aus = false;
     Sfx.spiel("schale");
     ring(mitte(b.x), mitte(b.y), 2.4, "#6FC8E8");
     burst(mitte(b.x), mitte(b.y), "#9FE4FF", 22);
-    log(`Das Grablicht nimmt ${GRABLICHT_KOSTEN} Öl und brennt. Blau, wie hier alles.`,
+    log(`Das Grablicht nimmt ${kostet} Öl und brennt. Blau, wie hier alles.`,
         "good");
     updateFov();
     refreshUI();
@@ -13602,7 +13673,8 @@ function refreshUI() {
   $("launeTag").hidden = !l;
   if (l) {
     $("launeTag").textContent = l.name;
-    $("launeTag").title = l.text;
+    // Dieselbe Laune tut an zwei Orten Verschiedenes - dann sagt sie das auch
+    $("launeTag").title = (ort().lampenlicht && l.textLampen) || l.text;
   }
   $("levelTag").textContent = "Stufe " + (ROMAN[p.level] || p.level);
 
