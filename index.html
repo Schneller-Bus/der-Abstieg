@@ -1187,6 +1187,30 @@ body {
    Kachel nicht zu verdecken, deutlich genug, um sie im Vorbeigehen zu lesen.
    Farbe, nicht nur Pfeil - aber der Pfeil steht auch da, denn Farbe allein
    traegt keine Aussage. */
+/* Ein Regler liest sich nur, wenn die Zahl danebensteht. */
+.klangregler {
+  display: grid;
+  grid-template-columns: 1fr 160px 52px;
+  grid-template-areas: "wort regler wert" "note note note";
+  align-items: center;
+  gap: 2px 12px;
+  padding: 10px 14px;
+  margin-top: 6px;
+  border: 1px solid var(--stone-700);
+  border-radius: 8px;
+  background: var(--stone-900);
+}
+
+.klangregler label { grid-area: wort; font-family: var(--rubric); letter-spacing: .04em; }
+.klangregler input { grid-area: regler; width: 100%; accent-color: var(--torch); }
+.klangregler b { grid-area: wert; text-align: right; font-variant-numeric: tabular-nums; }
+.klangregler .note { grid-area: note; color: var(--vellum-dim); font-size: 12px; }
+
+@media (max-width: 520px) {
+  .klangregler { grid-template-columns: 1fr 52px;
+                 grid-template-areas: "wort wert" "regler regler" "note note"; }
+}
+
 .kachelmarke {
   position: absolute;
   top: 1px;
@@ -2780,9 +2804,9 @@ const BRAZIER_RANGE = 4.6;
 const GRABLICHT_KOSTEN = 20;
 const GRABLICHT_SCHEIN = 6.5;    // so weit sieht man in seinem Schein
 const GRABLICHT_SICHT = 2.0;     // und so weit ausserhalb davon
-const GRABLICHT_KETTE = 6.0;     // so weit darf das naechste hoechstens weg sein
-const GRABLICHT_ABSTAND = 4.0;   // und so nah hoechstens, sonst stehen sie sich im Weg
-const GRABLICHT_ZAHL = 48;       // Obergrenze, damit eine Etage nicht ausufert
+const GRABLICHT_KETTE = 9;       // so viele Schritte darf die Kette hoechstens springen
+const GRABLICHT_ABSTAND = 5;     // und so nah hoechstens, sonst stehen sie sich im Weg
+const GRABLICHT_ZAHL = 64;       // Obergrenze, damit eine Etage nicht ausufert
 const GRABLICHT_AHNUNG = 10;     // so weit ahnt man ein kaltes, ohne es zu beleuchten
 const LAVA_RANGE = 3.8;
 
@@ -2904,6 +2928,11 @@ const C = {
    Der Tonkanal darf erst nach einer Eingabe starten, das verlangen Browser. */
 const Sfx = {
   ctx: null, master: null, rausch: null,
+  /* Zwei Busse unter dem Hauptregler: Musik und Geraeusche. So laesst sich
+     das Stueck im Lager leiser stellen, ohne die Kulisse mitzunehmen - und
+     umgekehrt. Der Ton-Schalter sitzt darueber und schaltet weiter alles. */
+  musikBus: null, geraeuschBus: null,
+  lautMusik: .7, lautGeraeusch: 1,
   an: true, laut: .45, letzte: Object.create(null),
 
   init() {
@@ -2915,6 +2944,12 @@ const Sfx = {
       this.master = this.ctx.createGain();
       this.master.gain.value = this.an ? this.laut : 0;
       this.master.connect(this.ctx.destination);
+      this.musikBus = this.ctx.createGain();
+      this.musikBus.gain.value = this.lautMusik;
+      this.musikBus.connect(this.master);
+      this.geraeuschBus = this.ctx.createGain();
+      this.geraeuschBus.gain.value = this.lautGeraeusch;
+      this.geraeuschBus.connect(this.master);
       // Ein Sekundenpuffer weißes Rauschen als Grundlage für alles Perkussive
       const n = this.ctx.sampleRate;
       this.rausch = this.ctx.createBuffer(1, n, n);
@@ -2927,15 +2962,37 @@ const Sfx = {
     this.an = an;
     try { localStorage.setItem("der-abstieg-ton", an ? "1" : "0"); } catch (e) {}
     if (this.master) this.master.gain.value = an ? this.laut : 0;
-    if (an && this.musikWunsch && !this.musik) this.kulisse(this.musikWunsch);
-    if (!an) this.stoppeKulisse();
+    if (an && this.musikWunsch && !this.musik) this.musik_an(true);
+    if (!an) { this.stoppeKulisse(); this.stoppeAtmo(); this.stoppeRegen(); }
+    else if (an && G && mode && mode.kind === "play") {
+      this.atmo(theme().gen);
+      if (regnetHier()) this.starteRegen();
+    }
   },
 
   ladeEinstellung() {
     try {
       const v = localStorage.getItem("der-abstieg-ton");
       if (v !== null) this.an = v === "1";
+      const m = parseFloat(localStorage.getItem("der-abstieg-musik"));
+      if (isFinite(m)) this.lautMusik = Math.max(0, Math.min(1, m));
+      const g = parseFloat(localStorage.getItem("der-abstieg-geraeusch"));
+      if (isFinite(g)) this.lautGeraeusch = Math.max(0, Math.min(1, g));
     } catch (e) {}
+  },
+
+  /* Die Regler wirken sofort - man soll beim Schieben hoeren, was man tut,
+     statt hinterher nachzusehen. */
+  setLautMusik(v) {
+    this.lautMusik = Math.max(0, Math.min(1, v));
+    if (this.musikBus) this.musikBus.gain.value = this.lautMusik;
+    try { localStorage.setItem("der-abstieg-musik", String(this.lautMusik)); } catch (e) {}
+  },
+
+  setLautGeraeusch(v) {
+    this.lautGeraeusch = Math.max(0, Math.min(1, v));
+    if (this.geraeuschBus) this.geraeuschBus.gain.value = this.lautGeraeusch;
+    try { localStorage.setItem("der-abstieg-geraeusch", String(this.lautGeraeusch)); } catch (e) {}
   },
 
   jetzt() { return this.ctx.currentTime; },
@@ -2952,7 +3009,7 @@ const Sfx = {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(pegel, t + ab);
     g.gain.exponentialRampToValueAtTime(.0008, t + dauer);
-    o.connect(g); g.connect(this.master);
+    o.connect(g); g.connect(this.geraeuschBus || this.master);
     o.start(t); o.stop(t + dauer + .02);
   },
 
@@ -2972,7 +3029,7 @@ const Sfx = {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(pegel, t + .006);
     g.gain.exponentialRampToValueAtTime(.0008, t + dauer);
-    s.connect(f); f.connect(g); g.connect(this.master);
+    s.connect(f); f.connect(g); g.connect(this.geraeuschBus || this.master);
     s.start(t); s.stop(t + dauer + .02);
   },
 
@@ -3009,8 +3066,11 @@ const Sfx = {
 
   hz(n) { return 440 * Math.pow(2, (n - 69) / 12); },
 
-  kulisse(name) {
-    this.musikWunsch = this.TIEFEN[name] ? name : "built";
+  /* Musik gibt es nur noch im Lager. Unten erzaehlt eine Akkordfolge gegen
+     den Ort statt mit ihm - dort steht stattdessen die Kulisse. */
+  musik_an(an) {
+    if (!an) { this.musikWunsch = null; this.stoppeKulisse(); return; }
+    this.musikWunsch = "cycle";
     this.init();
     if (!this.ctx) return;
     if (this.musikName === this.musikWunsch && this.musik) return;
@@ -3033,7 +3093,7 @@ const Sfx = {
       const gain = this.ctx.createGain();
       gain.gain.setValueAtTime(0, t);
       gain.gain.linearRampToValueAtTime(.0001, t + 1.2);
-      gain.connect(this.master);
+      gain.connect(this.geraeuschBus || this.master);
 
       const quellen = [];
       // Die Flaeche: dumpfes Rauschen, das den Raum fuellt
@@ -3063,7 +3123,8 @@ const Sfx = {
       const g = this.regen.gain.gain;
       g.cancelScheduledValues(t);
       g.setValueAtTime(Math.max(.0001, g.value), t);
-      g.linearRampToValueAtTime(Math.max(.0001, wert * this.laut), t + .55);
+      // Der Bus regelt schon - hier nur noch, wie nass es gerade ist
+      g.linearRampToValueAtTime(Math.max(.0001, wert), t + .55);
     } catch (e) {}
   },
 
@@ -3078,6 +3139,257 @@ const Sfx = {
       r.gain.gain.linearRampToValueAtTime(0, t + .9);
       for (const q of r.quellen) { try { q.stop(t + 1.0); } catch (e) {} }
       setTimeout(() => { try { r.gain.disconnect(); } catch (e) {} }, 1400);
+    } catch (e) {}
+  },
+
+  /* ══════════════════════════════════════════════════════ Die Kulisse
+     Statt eines Stuecks, das ueberall laeuft, hoert man, wo man ist. Jede
+     Karte hat ein Bett - etwas Dauerndes, das nichts behauptet - und
+     Ereignisse, die in ungleichen Abstaenden dazwischenfallen. Ungleich mit
+     Absicht: was im Takt kommt, hoert man nach zwei Minuten nicht mehr. */
+  atmoLauf: null, atmoName: null, atmoDraussen: 1,
+
+  /* Ein Bett: gefiltertes Rauschen mit langsamer Schwankung, oder ein Ton. */
+  bettRauschen({ filter = 400, güte = 1, art = "bandpass", pegel = .2,
+                 atem = 0, tiefe = .5 }, ziel) {
+    const t = this.jetzt();
+    const s = this.ctx.createBufferSource();
+    s.buffer = this.rausch;
+    s.loop = true;
+    const f = this.ctx.createBiquadFilter();
+    f.type = art; f.frequency.value = filter; f.Q.value = güte;
+    const g = this.ctx.createGain();
+    g.gain.value = pegel;
+    s.connect(f); f.connect(g); g.connect(ziel);
+    s.start(t);
+    const dauernd = [s];
+    // Der Atem: eine sehr langsame Schwingung auf der Lautstaerke
+    if (atem) {
+      const lfo = this.ctx.createOscillator();
+      const tief = this.ctx.createGain();
+      lfo.frequency.value = atem;
+      tief.gain.value = pegel * tiefe;
+      lfo.connect(tief); tief.connect(g.gain);
+      lfo.start(t);
+      dauernd.push(lfo);
+    }
+    return dauernd;
+  },
+
+  bettTon({ f = 110, form = "sine", pegel = .05, atem = 0, tiefe = .5 }, ziel) {
+    const t = this.jetzt();
+    const o = this.ctx.createOscillator();
+    o.type = form; o.frequency.value = f;
+    const g = this.ctx.createGain();
+    g.gain.value = pegel;
+    o.connect(g); g.connect(ziel);
+    o.start(t);
+    const dauernd = [o];
+    if (atem) {
+      const lfo = this.ctx.createOscillator();
+      const tief = this.ctx.createGain();
+      lfo.frequency.value = atem;
+      tief.gain.value = pegel * tiefe;
+      lfo.connect(tief); tief.connect(g.gain);
+      lfo.start(t);
+      dauernd.push(lfo);
+    }
+    return dauernd;
+  },
+
+  /* Die Ereignisse. Jedes ist ein kurzer Griff in ton() und krach() - die
+     beiden gab es schon, sie mussten nur anders benutzt werden. */
+  KLANG: {
+    tropfen() {
+      const f = 760 + Math.random() * 880;
+      this.ton(f, .5, { form: "sine", pegel: .055, nach: f * .55 });
+      this.ton(f * 2.01, .16, { form: "sine", pegel: .018 });
+    },
+    tropfstein() {
+      const f = 1100 + Math.random() * 1100;
+      this.ton(f, .9, { form: "sine", pegel: .05, nach: f * .42 });
+      this.krach(.05, { pegel: .02, filter: f * 1.6, güte: 5 });
+    },
+    kette() {
+      const n = 4 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++)
+        this.krach(.07, { pegel: .04 + Math.random() * .025, filter: 2200 + Math.random() * 1600,
+                          güte: 3.5, start: i * (.06 + Math.random() * .1) });
+    },
+    ratten() {
+      const n = 5 + Math.floor(Math.random() * 5);
+      const laut = .012 + Math.random() * .022;      // mal naeher, mal ferner
+      for (let i = 0; i < n; i++)
+        this.krach(.022, { pegel: laut, filter: 4400 + Math.random() * 2600,
+                           güte: 2.4, start: i * (.045 + Math.random() * .05) });
+    },
+    tor() {
+      this.krach(.55, { pegel: .10, filter: 190, nach: 65, güte: .8, art: "lowpass" });
+      this.ton(58, 1.4, { form: "sine", pegel: .07, nach: 40 });
+    },
+    sporen() {
+      this.krach(.018, { pegel: .008 + Math.random() * .01,
+                         filter: 5200 + Math.random() * 3500, güte: 2.2 });
+    },
+    steinschlag() {
+      const n = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++)
+        this.krach(.13, { pegel: .05, filter: 420 - i * 70, nach: 120, güte: 1.2,
+                          art: "lowpass", start: i * (.11 + Math.random() * .13) });
+    },
+    wummern() {
+      this.ton(31 + Math.random() * 9, 3.2, { form: "sine", pegel: .10, ab: 1.1 });
+    },
+    blasebalg() {
+      this.krach(1.25, { pegel: .07, filter: 300, nach: 150, güte: .7, art: "lowpass" });
+    },
+    metall() {
+      const f = 1700 + Math.random() * 1800;
+      this.ton(f, .13, { form: "triangle", pegel: .02 });
+    },
+    hammer() {
+      this.krach(.10, { pegel: .07, filter: 260, nach: 90, güte: .9, art: "lowpass" });
+      this.ton(430 + Math.random() * 180, .5, { form: "triangle", pegel: .028, start: .01 });
+    },
+    zischen() {
+      this.krach(1.2, { pegel: .10, filter: 3400, nach: 640, güte: 1.1 });
+    },
+    glocke() {
+      const f = 196 + Math.random() * 24;
+      for (const [teil, pegel, dauer] of [[1, .07, 4.5], [2.76, .03, 3.2], [5.4, .015, 2.1]])
+        this.ton(f * teil, dauer, { form: "sine", pegel, ab: .01 });
+    },
+    fluestern() {
+      this.krach(1.7, { pegel: .028, filter: 1500, nach: 850, güte: 6 });
+    },
+    kraehe() {
+      const n = 1 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < n; i++) {
+        const f = 780 + Math.random() * 180;
+        this.ton(f, .3, { form: "sawtooth", pegel: .022 * this.atmoDraussen,
+                          nach: f * .55, start: i * .42 });
+      }
+    },
+    atem() {
+      this.krach(.5, { pegel: .035, filter: 480, güte: .8, art: "lowpass" });
+      this.krach(.7, { pegel: .028, filter: 380, güte: .8, art: "lowpass", start: .62 });
+    },
+  },
+
+  /* Was auf welcher Karte laeuft. `jede` ist die Spanne in Sekunden. */
+  ATMO: {
+    built: {
+      betten: [{ art: "rausch", filter: 110, güte: .7, pegel: .22, typ: "lowpass", atem: .05 }],
+      ereignisse: [["tropfen", 1.4, 5.5], ["kette", 22, 45],
+                   ["ratten", 7, 16], ["tor", 50, 100]],
+    },
+    cave: {
+      betten: [{ art: "rausch", filter: 420, güte: 1.1, pegel: .2, atem: .14, tiefe: .8 }],
+      ereignisse: [["tropfstein", 1, 4], ["sporen", .15, .7],
+                   ["steinschlag", 16, 38], ["wummern", 30, 65]],
+    },
+    forge: {
+      betten: [],
+      ereignisse: [["blasebalg", 5, 7], ["metall", .3, 1.3],
+                   ["hammer", 3, 9], ["zischen", 45, 90]],
+    },
+    arena: {
+      betten: [{ art: "ton", f: 55, pegel: .05, atem: .07 },
+               { art: "ton", f: 82.4, pegel: .035, atem: .05 },
+               { art: "ton", f: 110, pegel: .022, atem: .09 }],
+      ereignisse: [["glocke", 45, 95], ["fluestern", 20, 55]],
+    },
+    gassen: {
+      // Der Wind wird drinnen leise - das macht tickWetter, nicht die Tabelle
+      betten: [{ art: "rausch", filter: 620, güte: .8, pegel: .16, atem: .09, tiefe: .9 }],
+      ereignisse: [["kraehe", 30, 75]],
+    },
+    katakomben: {
+      /* Grabesstille ist nicht nichts: ein Ton am Rand des Hoerbaren und ein
+         Sub darunter machen den Druck auf den Ohren, den man in einem engen
+         Stollen hat. */
+      betten: [{ art: "ton", f: 2870, pegel: .009, atem: .03 },
+               { art: "ton", f: 41, pegel: .09, atem: .04 }],
+      ereignisse: [["atem", 3.4, 4.8]],
+    },
+  },
+
+  atmo(name) {
+    if (this.atmoName === name && this.atmoLauf) return;
+    this.stoppeAtmo();
+    if (!name || !this.ATMO[name]) return;
+    this.atmoName = name;
+    this.init();
+    if (!this.ctx) return;
+    if (this.ctx.state === "suspended") this.ctx.resume();
+    this.starteAtmo();
+  },
+
+  starteAtmo() {
+    const T = this.ATMO[this.atmoName];
+    if (!T || !this.ctx) return;
+    try {
+      const t = this.jetzt();
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(1, t + 2.2);   // langsam auf, nicht schlagartig
+      gain.connect(this.geraeuschBus || this.master);
+
+      const dauernd = [];
+      for (const b of (T.betten || []))
+        dauernd.push(...(b.art === "ton"
+          ? this.bettTon(b, gain)
+          : this.bettRauschen({ filter: b.filter, güte: b.güte, art: b.typ || "bandpass",
+                                pegel: b.pegel, atem: b.atem, tiefe: b.tiefe }, gain)));
+
+      /* Die Ereignisse haengen an einzelnen Weckern, die sich selbst neu
+         stellen - so bleibt der Abstand ungleich, ohne dass es einen Takt
+         gibt, auf den man sich einstellt. */
+      const uhren = [];
+      const lauf = { gain, dauernd, uhren };
+      for (const [was, min, max] of (T.ereignisse || [])) {
+        const stelle = () => {
+          if (this.atmoLauf !== lauf) return;
+          const u = setTimeout(() => {
+            if (this.atmoLauf !== lauf) return;
+            try { this.KLANG[was].call(this); } catch (e) {}
+            stelle();
+          }, (min + Math.random() * (max - min)) * 1000);
+          uhren.push(u);
+        };
+        stelle();
+      }
+      this.atmoLauf = lauf;
+    } catch (e) { this.atmoLauf = null; }
+  },
+
+  stoppeAtmo() {
+    const l = this.atmoLauf;
+    this.atmoLauf = null;
+    this.atmoName = null;
+    if (!l) return;
+    try {
+      for (const u of l.uhren) clearTimeout(u);
+      const t = this.jetzt();
+      l.gain.gain.cancelScheduledValues(t);
+      l.gain.gain.setValueAtTime(l.gain.gain.value, t);
+      l.gain.gain.linearRampToValueAtTime(0, t + .8);
+      for (const q of l.dauernd) { try { q.stop(t + .9); } catch (e) {} }
+      setTimeout(() => { try { l.gain.disconnect(); } catch (e) {} }, 1300);
+    } catch (e) {}
+  },
+
+  /* Drinnen ist Wind so wenig zu hoeren wie Regen. Dieselbe Zahl regelt
+     beides, damit eine Schwelle nicht zweimal woanders liegt. */
+  atmoPegel(wert) {
+    this.atmoDraussen = wert;
+    if (!this.atmoLauf || this.atmoName !== "gassen") return;
+    try {
+      const t = this.jetzt();
+      const g = this.atmoLauf.gain.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(Math.max(.0001, g.value), t);
+      g.linearRampToValueAtTime(Math.max(.12, wert), t + .55);
     } catch (e) {}
   },
 
@@ -3106,7 +3418,7 @@ const Sfx = {
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0, t0);
     gain.gain.linearRampToValueAtTime(this.musikLaut, t0 + 3.0);
-    gain.connect(this.master);
+    gain.connect(this.musikBus || this.master);
 
     // Ein weiches Echo dahinter, damit die Tiefe Raum bekommt
     const hall = this.ctx.createDelay(1.0);
@@ -7729,20 +8041,38 @@ function populateFloor(floor) {
                      aus: false, ankunft: true };
     G.braziers.push(erstes);
 
-    /* Und von dort waechst die Reihe: jedes neue Licht steht in Sichtweite
-       eines schon gesetzten. Wer an einem steht, sieht das naechste - und
-       ueberlegt, ob es ihm das Oel wert ist. Vorher lagen sie siebeneinhalb
-       Kacheln auseinander, bei sechseinhalb Kacheln Schein: man sah das
-       naechste grundsaetzlich nicht und musste im Dunkeln danach suchen. */
+    /* Und von dort waechst die Reihe entlang des Fusswegs: das naechste Licht
+       steht hoechstens sechs Schritte entfernt, gemessen an dem Weg, den man
+       wirklich geht.
+
+       Vorher hing das an der Sichtlinie, und die kommt nicht durch eine Tuer
+       und nicht um eine Ecke. Was im Ankunftsraum anfing, blieb dort; gemessen
+       lagen 44 Prozent der Etage ueber zwanzig Schritte von jedem Licht
+       entfernt, und im Bild standen fuenf Lichter im ersten Raum und draussen
+       keines. Sehen tut man das naechste jetzt nicht immer sofort - aber man
+       laeuft nie mehr als sechs Schritte im Dunkeln, und auf zehn Kacheln
+       ahnt man es ohnehin. */
     const warteschlange = [erstes];
     for (let k = 0; k < warteschlange.length && G.braziers.length < GRABLICHT_ZAHL; k++) {
       const von = warteschlange[k];
-      for (const [lx, ly] of felder) {
+      const weg = gehweiteVon(map, von.x, von.y, GRABLICHT_KETTE);
+      /* Von aussen nach innen: die entferntesten Kacheln zuerst. Nimmt man
+         die naechstbeste, setzt sich das Licht direkt daneben, die Dichte-
+         sperre blockiert danach alles Weitere, und die Kette kommt nicht vom
+         Fleck - gemessen elf Lichter und dreiundsechzig Prozent der Etage
+         ausser Reichweite. */
+      const kandidaten = felder
+        .filter(([lx, ly]) => weg[idx(lx, ly)] >= 1)
+        .sort((a, b) => weg[idx(b[0], b[1])] - weg[idx(a[0], a[1])]);
+      for (const [lx, ly] of kandidaten) {
         if (G.braziers.length >= GRABLICHT_ZAHL) break;
-        const d = Math.hypot(von.x - lx, von.y - ly);
-        if (d < GRABLICHT_ABSTAND || d > GRABLICHT_KETTE) continue;
+        /* Zwei verschiedene Groessen, die vorher eine waren: wie weit die
+           Kette springen darf (der Fussweg, hoechstens sechs Schritte) und
+           wie dicht die Lichter stehen duerfen (die Luftlinie). Als beides
+           dasselbe Fenster war, blieben nur Kacheln in genau fuenf bis sechs
+           Schritten uebrig - in einem Gang gibt es die oft nicht, und die
+           Kette starb ab. */
         if (G.braziers.some(b => Math.hypot(b.x - lx, b.y - ly) < GRABLICHT_ABSTAND)) continue;
-        if (!lineOfSight(von.x, von.y, lx, ly)) continue;
         const neu = { x: lx, y: ly, aus: true };
         G.braziers.push(neu);
         warteschlange.push(neu);
@@ -7927,7 +8257,9 @@ function populateFloor(floor) {
       G.braziers.push({ x: bx2, y: by2, kammer: true });
     }
   }
-  Sfx.kulisse(theme().gen);
+  /* Unten laeuft keine Musik mehr - dort steht die Kulisse des Ortes. */
+  Sfx.musik_an(false);
+  Sfx.atmo(theme().gen);
   if (regnetHier()) Sfx.starteRegen(); else Sfx.stoppeRegen();
 
   // Namentliche kommen zuletzt: erst wenn Treppe und Boss stehen, laesst sich
@@ -8513,15 +8845,41 @@ function rettteGrablichter() {
   if (!wurzel) return;
   const drin = new Set([wurzel]);
   const rand = [wurzel];
-  for (let k = 0; k < rand.length; k++)
+  for (let k = 0; k < rand.length; k++) {
+    // Dieselbe Regel wie beim Setzen: der Fussweg, nicht die Sichtlinie
+    const weg = gehweiteVon(G.map, rand[k].x, rand[k].y, GRABLICHT_KETTE + 1);
     for (const b of G.braziers) {
       if (drin.has(b)) continue;
-      if (Math.hypot(b.x - rand[k].x, b.y - rand[k].y) > GRABLICHT_KETTE) continue;
-      if (!lineOfSight(rand[k].x, rand[k].y, b.x, b.y)) continue;
+      if (weg[idx(b.x, b.y)] < 0) continue;
       drin.add(b);
       rand.push(b);
     }
+  }
   G.braziers = G.braziers.filter(b => drin.has(b) || b.kammer);
+}
+
+/* Wie weit man von hier aus in hoechstens `tiefe` Schritten kommt - der Weg,
+   den man wirklich geht, nicht die Luftlinie. Die Kette der Grablichter
+   haengt daran: eine Sichtlinie kommt nicht durch eine Tuer und nicht um eine
+   Ecke, ein Weg schon. */
+function gehweiteVon(map, ax, ay, tiefe) {
+  const d = new Int16Array(MAP_W * MAP_H).fill(-1);
+  if (!inBounds(ax, ay)) return d;
+  d[idx(ax, ay)] = 0;
+  const q = [[ax, ay]];
+  for (let k = 0; k < q.length; k++) {
+    const [cx, cy] = q[k];
+    const hier = d[idx(cx, cy)];
+    if (hier >= tiefe) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (!inBounds(nx, ny) || d[idx(nx, ny)] >= 0) continue;
+      if (!WALKABLE[map.tiles[idx(nx, ny)]]) continue;
+      d[idx(nx, ny)] = hier + 1;
+      q.push([nx, ny]);
+    }
+  }
+  return d;
 }
 
 /* Ein Grablicht anzuenden kostet - und brennt dann fuer immer. Das ist die
@@ -10004,9 +10362,11 @@ function schickeGeist() {
 /* Unter einem Dach wird der Regen leise, statt auszusetzen - man hoert ihn
    ja noch, nur gedaempft. Das ist der ganze Unterschied zwischen Kulisse und
    Ort. */
-function tickRegen() {
-  if (!Sfx.regen) return;
-  Sfx.regenPegel(imRegen(G.player) ? .34 : .09);
+function tickWetter() {
+  const draussen = imRegen(G.player);
+  if (Sfx.regen) Sfx.regenPegel(draussen ? .34 : .09);
+  // Der Wind pfeift durch die Gassen, nicht durch das Mausoleum
+  Sfx.atmoPegel(draussen ? 1 : .22);
 }
 
 function tickFinsternis() {
@@ -10194,7 +10554,7 @@ function upkeep() {
   } else {
     laermSinkt();
     tickFinsternis();
-    tickRegen();
+    tickWetter();
     tickLichtscheu();
     if (!p.alive) return;
 
@@ -11099,6 +11459,54 @@ function drawFrame(dt) {
   ctx.fillRect(0, 0, VIEW_W * TILE, VIEW_H * TILE);
 
   ctx.restore();
+}
+
+/* ── Klang: der Schalter und zwei Regler ─────────────────────────────────
+   Musik regelt das Stueck im Lager, Geraeusche regeln Kulisse und Kampf.
+   Zwei Regler statt einem, weil beides Verschiedenes ist: wer die Kulisse
+   mag, aber im Lager Ruhe will, bekommt beides. Der Schalter darueber nimmt
+   nach wie vor alles mit. */
+function klangZeile(id, wort, wert, hinweis) {
+  return `<div class="klangregler">
+    <label for="${id}">${wort}</label>
+    <input type="range" id="${id}" min="0" max="100" step="5"
+           value="${Math.round(wert * 100)}"
+           aria-label="${wort}">
+    <b id="${id}Wert">${Math.round(wert * 100)} %</b>
+    <span class="note">${hinweis}</span>
+  </div>`;
+}
+
+function showKlang() {
+  openModal(`<h2>Klang</h2>
+    <p class="sub">Alles wird zur Laufzeit erzeugt — keine Dateien. Musik gibt
+      es nur hier oben; unten hörst du, wo du bist.</p>
+    <button class="choice" id="tonSchalter">
+      <span class="key">${tastenName(BELEGUNG.ton)}</span><span>Ton</span>
+      <span class="note" id="tonSchalterNote">${Sfx.an ? "an" : "aus"}</span></button>
+    ${klangZeile("reglerMusik", "Musik", Sfx.lautMusik, "das Stück im Lager")}
+    ${klangZeile("reglerGeraeusch", "Geräusche", Sfx.lautGeraeusch,
+                 "Kulisse, Schritte, Kampf")}
+    <div class="foot">Esc schließt · beide Regler bleiben gespeichert</div>`);
+
+  $("tonSchalter").onclick = () => {
+    Sfx.setAn(!Sfx.an);
+    if (Sfx.an) Sfx.spiel("aufheben");
+    $("tonSchalterNote").textContent = Sfx.an ? "an" : "aus";
+  };
+  const binde = (id, setze, probe) => {
+    const el = $(id);
+    if (!el) return;
+    el.oninput = () => {
+      const v = +el.value / 100;
+      setze(v);
+      $(id + "Wert").textContent = Math.round(v * 100) + " %";
+      // Man soll beim Schieben hoeren, was man tut
+      if (probe && Sfx.an) Sfx.spiel(probe);
+    };
+  };
+  binde("reglerMusik", v => Sfx.setLautMusik(v), null);
+  binde("reglerGeraeusch", v => Sfx.setLautGeraeusch(v), "aufheben");
 }
 
 /* ── Der Regen auf den Gassen ────────────────────────────────────────────
@@ -14911,8 +15319,11 @@ function showMenu() {
       <span class="key" aria-hidden="true">·</span><span>Tastenbelegung</span>
       <span class="note">alles frei einstellbar</span></button>
     <button class="choice" id="tonBtn">
-      <span class="key">${tastenName(BELEGUNG.ton)}</span><span>Ton</span>
-      <span class="note" id="tonNote">${Sfx.an ? "an" : "aus"}</span></button>
+      <span class="key">${tastenName(BELEGUNG.ton)}</span><span>Klang</span>
+      <span class="note" id="tonNote">${Sfx.an
+        ? `Musik ${Math.round(Sfx.lautMusik * 100)} % · Geräusche ${
+            Math.round(Sfx.lautGeraeusch * 100)} %`
+        : "aus"}</span></button>
     <button class="choice" id="hilfeBtn">
       <span class="key">${tastenName(BELEGUNG.hilfe)}</span><span>Hilfe</span>
       <span class="note">alle Tasten und was sie tun</span></button>
@@ -14926,11 +15337,7 @@ function showMenu() {
 
   $("tastenBtn").onclick = () => showTasten();
   $("hilfeBtn").onclick = () => showHelp();
-  $("tonBtn").onclick = () => {
-    Sfx.setAn(!Sfx.an);
-    if (Sfx.an) Sfx.spiel("aufheben");
-    $("tonNote").textContent = Sfx.an ? "an" : "aus";
-  };
+  $("tonBtn").onclick = () => showKlang();
   $("aufgebenBtn").onclick = () => {
     if (!sicher) {
       sicher = true;
@@ -15795,6 +16202,11 @@ function lagerAufbruchTat() {
    Der Ort, an dem man zwischen zwei Abstiegen steht: die Figur gross in
    ihrer Kulisse, daneben, was man bisher geschafft hat. */
 function showUebersicht() {
+  /* Hier oben spielt das Stueck - und nur hier. Unten steht die Kulisse des
+     Ortes, und eine Akkordfolge dazu erzaehlte gegen ihn statt mit ihm. */
+  Sfx.musik_an(true);
+  Sfx.stoppeAtmo();
+  Sfx.stoppeRegen();
   openModal(lagerSchirm("uebersicht", uebersichtBereich(), {
     breit: true,
     tasten: [["↵", "hinabsteigen"]],
@@ -16374,6 +16786,9 @@ function lagerBindePillen() {
 }
 
 function showCamp(reiter) {
+  Sfx.musik_an(true);
+  Sfx.stoppeAtmo();
+  Sfx.stoppeRegen();
   if (reiter) lagerReiter = reiter;
   const rang = haendlerRang();
   const naechste = RANG_SCHWELLEN[rang + 1];
