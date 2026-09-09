@@ -1187,6 +1187,50 @@ body {
    Kachel nicht zu verdecken, deutlich genug, um sie im Vorbeigehen zu lesen.
    Farbe, nicht nur Pfeil - aber der Pfeil steht auch da, denn Farbe allein
    traegt keine Aussage. */
+/* Die vier Haendler nebeneinander. Jeder zeigt, was er nimmt und was er von
+   einem haelt - das ist die ganze Entscheidung, und sie soll auf einen Blick
+   dastehen. */
+.haendlerreihe {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 2px 0 12px;
+}
+
+.haendlerpille {
+  display: grid;
+  gap: 1px;
+  padding: 9px 10px;
+  border: 1px solid var(--stone-700);
+  border-radius: 8px;
+  background: var(--stone-900);
+  color: var(--vellum-dim);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.haendlerpille b {
+  font-family: var(--rubric);
+  font-size: 12.5px;
+  letter-spacing: .03em;
+  color: var(--vellum);
+}
+
+.haendlerpille span { font-size: 11px; color: var(--vellum-dim); }
+.haendlerpille em { font-size: 11px; font-style: normal; color: var(--torch); }
+
+.haendlerpille:hover, .haendlerpille:focus-visible { border-color: var(--stone-600); }
+
+.haendlerpille.an {
+  border-color: var(--torch);
+  background: var(--stone-800);
+}
+
+@media (max-width: 620px) {
+  .haendlerreihe { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Ein Regler liest sich nur, wenn die Zahl danebensteht. */
 .klangregler {
   display: grid;
@@ -3989,18 +4033,25 @@ const ITEMS = {
      keine Klassen mehr gibt: was du kannst, haengt daran, was du gefunden
      hast - und wer stirbt, verliert es. Ein Modul belegt seinen eigenen Platz
      am Koerper, nicht das Raster. */
+  /* `kraft` ist der Griff, an dem die Seltenheit ein Modul hebt: ein Modul
+     hat keinen Angriff, den sie heben koennte. Ein episches schlaegt gut
+     doppelt so hart und wartet deutlich kuerzer. */
   modWall:    { name: "Wallstein",     kind: "modul", tint: "#8FA6D8", slot: "Modul",
-                faehig: "wall",     note: "Fähigkeit: Schildwall" },
+                faehig: "wall",     kraft: 1, note: "Fähigkeit: Schildwall" },
   modSchatten:{ name: "Schattenmal",   kind: "modul", tint: "#9C7FE0", slot: "Modul",
-                faehig: "schatten", note: "Fähigkeit: Schattenschritt" },
+                faehig: "schatten", kraft: 1, note: "Fähigkeit: Schattenschritt" },
   modLanze:   { name: "Flammenkern",   kind: "modul", tint: "#E8763A", slot: "Modul",
-                faehig: "lanze",    note: "Fähigkeit: Flammenlanze" },
+                faehig: "lanze",    kraft: 1, note: "Fähigkeit: Flammenlanze" },
   modDonner:  { name: "Donnerkeil",    kind: "modul", tint: "#E8D06A", slot: "Modul",
-                faehig: "donner",   note: "Fähigkeit: Donnerschlag" },
+                faehig: "donner",   kraft: 1, note: "Fähigkeit: Donnerschlag" },
   modZoll:    { name: "Blutsiegel",    kind: "modul", tint: "#D9634F", slot: "Modul",
-                faehig: "zoll",     note: "Fähigkeit: Blutzoll" },
+                faehig: "zoll",     kraft: 1, note: "Fähigkeit: Blutzoll" },
   modZehr:    { name: "Zehrstein",     kind: "modul", tint: "#9FD8B0", slot: "Modul",
-                faehig: "zehren",   note: "Fähigkeit: Lebensentzug" },
+                faehig: "zehren",   kraft: 1, note: "Fähigkeit: Lebensentzug" },
+  modSplitter:{ name: "Splitterkern",  kind: "modul", tint: "#C8CEDA", slot: "Modul",
+                faehig: "splitter", kraft: 1, note: "Fähigkeit: Splitterstoss" },
+  modStille:  { name: "Schweigestein", kind: "modul", tint: "#7FA8A0", slot: "Modul",
+                faehig: "stille",   kraft: 1, note: "Fähigkeit: Grabesstille" },
 
   /* Werkstoffe. Sie tun nichts, solange man sie traegt - erst beim Haendler
      werden sie zu besserer Ausruestung. Damit hat Aufheben auch dann einen
@@ -4660,6 +4711,14 @@ function wendeSeltenAn(def, key) {
   if (d.maxhp) d.maxhp = Math.round(d.maxhp * r.mult);
   if (d.crit)  d.crit  = +(d.crit * r.mult).toFixed(3);
   if (d.evade) d.evade = +(d.evade * r.mult).toFixed(3);
+  /* Ein Modul hat keinen Angriff, den die Stufe heben koennte. Bei ihm hebt
+     sie, was es hat: die Wucht seiner Faehigkeit und die Wartezeit dazwischen.
+     Die Wartezeit sinkt langsamer als die Wucht steigt - sonst waere ein
+     episches Modul nicht besser, sondern ein anderes Spiel. */
+  if (d.kraft) {
+    d.kraft = +(d.kraft * r.mult).toFixed(2);
+    d.cdAb = +(1 - 1 / (1 + (r.mult - 1) * .55)).toFixed(3);
+  }
   return d;
 }
 
@@ -4724,8 +4783,9 @@ function buildItem(id, affixKey, sel, affixKey2) {
     if (base.stapel) e.menge = 1;
     return e;
   }
-  if (base.kind === "modul") return { id, def: base, sel: "selten" };
   const stufe = sel && SELTEN_VON[sel] ? sel : "gewoehnlich";
+  // Module tragen ihre Stufe wie alles andere - sie wirkt nur woanders
+  if (base.kind === "modul") return { id, def: wendeSeltenAn(base, stufe), sel: stufe };
   if (!a && stufe === "gewoehnlich") return { id, def: base, sel: stufe };
 
   let def = Object.assign({}, base);
@@ -4760,13 +4820,16 @@ function buildItem(id, affixKey, sel, affixKey2) {
 // eine Zahl erhöht nur die Chance (Schatzkammern).
 function rollItem(id, floor, boost) {
   const base = ITEMS[id];
-  if (base.legendaer || !base.slot || base.kind === "modul") return buildItem(id, null, null);
+  if (base.legendaer || !base.slot) return buildItem(id, null, null);
 
   const glueck = ((G.player && G.player.lootLuck) || 0) +
                  (G.player && G.player.equipped ? equipBonus("lootLuck") : 0) +
                  (typeof boost === "number" ? boost : 0);
   // boost === true (Elitebeute, Auftragslohn) hebt die Stufe um einen Rang
   let sel = rollSeltenheit(floor, glueck);
+  /* Module wuerfeln ihre Stufe mit, aber nie einen Affix: sie haben keine
+     Werte, an denen einer haengen koennte. */
+  if (base.kind === "modul") return buildItem(id, null, sel);
   if (boost === true) {
     const naechste = SELTEN[Math.min(3, SELTEN_RANG[sel] + 1)];
     sel = naechste.key;
@@ -4805,7 +4868,8 @@ const ITEM_TABLE = {
   2: [["wurfmesser", 12], ["chart", 8], ["sword", 10], ["modLanze", 4]],
   3: [["blendpulver", 11], ["netz", 9], ["might", 9], ["chain", 10], ["spiess", 8],
       ["modSchatten", 4]],
-  4: [["wurfoel", 13], ["wurfmesser", 9], ["ward", 9], ["reisemantel", 7], ["modDonner", 4]],
+  4: [["wurfoel", 13], ["wurfmesser", 9], ["ward", 9], ["reisemantel", 7],
+      ["modDonner", 4], ["modSplitter", 4]],
   5: [["greatPotion", 2], ["regen", 2], ["axe", 9], ["guard", 5], ["bigoil", 11]],
   6: [["vitality", 6], ["wrath", 6], ["plate", 7], ["kolben", 7], ["modZoll", 4]],
   7: [["plate", 9], ["schuppen", 7]],
@@ -4864,7 +4928,8 @@ const TOTENSTADT_ITEMS = {
   1: [["potion", 3], ["oil", 22], ["chain", 8], ["sword", 6], ["modWall", 4]],
   3: [["greatPotion", 2], ["bigoil", 9], ["salzbeutel", 10], ["grabmal", 7], ["axe", 6],
       ["modSchatten", 4]],
-  5: [["knochenhemd", 8], ["grabklinge", 8], ["salzbeutel", 9], ["regen", 3], ["modZehr", 5]],
+  5: [["knochenhemd", 8], ["grabklinge", 8], ["salzbeutel", 9], ["regen", 3],
+      ["modZehr", 5], ["modStille", 5]],
   7: [["salzpanzer", 7], ["totenaxt", 7], ["plate", 5], ["modZoll", 4]],
   9: [["grabklinge", 9], ["salzpanzer", 8], ["totenaxt", 8], ["grabmal", 8]],
 };
@@ -5112,6 +5177,17 @@ const ABILITIES = {
           "Sekunden lang zieht er drüben Leben ab und gibt es dir — solange " +
           "du stehen bleibst und die Sicht nicht abreißt.",
   },
+  splitter: {
+    name: "Splitterstoß", cd: 9, aim: false, weite: 4.6,
+    desc: "Ein Stoß Scherben in einen Kegel vor dir. Kurz, breit, ohne Zielen — " +
+          "die Antwort auf drei, die gleichzeitig herankommen.",
+  },
+  stille: {
+    name: "Grabesstille", cd: 14, aim: false, dauer: 5,
+    desc: "Fünf Sekunden lang bist du nicht zu hören. Wer dich gerade sucht, " +
+          "verliert dich; wer dich noch nicht bemerkt hat, bemerkt dich auch " +
+          "nicht. Die Antwort auf einen Kampf, den du nicht gewinnst.",
+  },
   zoll: {
     name: "Blutzoll", cd: 15, aim: false, dauer: 6,
     desc: "Sechs Sekunden lang gibt dir jeder Treffer die Hälfte des Schadens " +
@@ -5126,6 +5202,19 @@ const ABILITIES = {
 function faehigkeitVon(p) {
   const m = p && p.equipped && p.equipped["Modul"];
   return m && m.def.faehig ? m.def.faehig : null;
+}
+
+/* Wie stark das angelegte Modul ist und wie lange es braucht. Bei einem
+   gewoehnlichen ist beides eins - die Stufe hebt es von dort aus. */
+function modulKraft(p) {
+  const m = p && p.equipped && p.equipped["Modul"];
+  return (m && m.def.kraft) || 1;
+}
+
+function abklingzeit(p, ab) {
+  const m = p && p.equipped && p.equipped["Modul"];
+  const ab_ = (m && m.def.cdAb) || 0;
+  return ab.cd * (1 - ab_) * (p.abilityHaste || 1);
 }
 
 /* Die Passivfaehigkeit gehoert zur Klasse, nicht zur aktiven Faehigkeit.
@@ -5240,10 +5329,64 @@ let META = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
    nur, was man selbst wieder hinaufgetragen hat. Oben, im Lager, macht der
    Haendler daraus Muenzen und bietet dafuer Besseres an; sein Sortiment
    waechst mit dem Umsatz, den man ihm bringt. */
-const RANG_SCHWELLEN = [0, 400, 1200, 2800, 5600, 10000, 17000];
+/* Die Schwellen gelten je Haendler, nicht fuer den Gesamtumsatz - wer alles
+   bei einem laesst, hat einen guten und drei misstrauische. Sie liegen
+   darum niedriger als der Gesamtumsatz eines Laufs vermuten liesse. */
+const RANG_SCHWELLEN = [0, 350, 1100, 2600, 5200, 9600, 17000];
 
-function haendlerRang() {
-  const u = META.umsatz | 0;
+/* ── Die vier Haendler ───────────────────────────────────────────────────
+   Ein Laden, der alles fuehrt, stellt keine Frage. Vier stellen eine: bei
+   wem verkaufst du? Der Rang waechst nur bei dem, dem du etwas bringst, und
+   mit dem Rang waechst sein Sortiment.
+
+   `nimmt` entscheidet, wer ein Stueck kauft - jedes gehoert zu genau einem,
+   sonst waere die Entscheidung keine. Werkstoff nimmt niemand: er ist die
+   Waehrung des Aufwertens und wird verbraucht, nicht verkauft. */
+const HAENDLER = [
+  { id: "schmied", name: "Der Schmied", was: "Waffen",
+    zeile: "Er wiegt jede Klinge, ehe er sie ansieht.",
+    nimmt: d => d.kind === "weapon" },
+  { id: "ruestung", name: "Die Rüstmeisterin", was: "Rüstung",
+    zeile: "Sie klopft das Blech ab und hört, was fehlt.",
+    nimmt: d => d.kind === "armor" },
+  { id: "kraemer", name: "Der Krämer", was: "Verbrauchsgüter",
+    zeile: "Was man zweimal braucht, hat er dreimal.",
+    nimmt: d => d.kind === "potion" || d.kind === "oil" || d.kind === "wurf" ||
+                d.kind === "scroll" || d.kind === "seil" },
+  { id: "runen", name: "Der Runenschneider", was: "Module und Amulette",
+    zeile: "Er redet wenig und schneidet genau.",
+    nimmt: d => d.kind === "modul" || d.kind === "amulet" },
+];
+
+const HAENDLER_VON = Object.fromEntries(HAENDLER.map(h => [h.id, h]));
+
+/* Wer ein Stueck nimmt. Findet sich keiner - Andenken, Relikte -, dann der
+   Kraemer: er kauft, was sonst niemand will. */
+function haendlerFuer(eintrag) {
+  const d = vorlage(eintrag);
+  return HAENDLER.find(h => h.nimmt(d)) || HAENDLER_VON.kraemer;
+}
+
+/* Der Umsatz je Haendler. Aeltere Spielstaende kennen nur eine Zahl - die
+   wird auf alle vier verteilt, sonst stuenden sie ploetzlich alle bei null
+   und der Fortschritt waere weg. */
+function umsatzVon(id) {
+  const u = META.umsaetze;
+  if (u && typeof u === "object") return u[id] | 0;
+  return Math.round((META.umsatz | 0) / HAENDLER.length);
+}
+
+function bucheUmsatz(id, betrag) {
+  if (!META.umsaetze || typeof META.umsaetze !== "object") {
+    const alt = Math.round((META.umsatz | 0) / HAENDLER.length);
+    META.umsaetze = Object.fromEntries(HAENDLER.map(h => [h.id, alt]));
+  }
+  META.umsaetze[id] = (META.umsaetze[id] | 0) + Math.round(betrag);
+  META.umsatz = HAENDLER.reduce((a, h) => a + (META.umsaetze[h.id] | 0), 0);
+}
+
+function haendlerRang(id) {
+  const u = id ? umsatzVon(id) : (META.umsatz | 0);
   let r = 0;
   for (let k = 1; k < RANG_SCHWELLEN.length; k++) if (u >= RANG_SCHWELLEN[k]) r = k;
   return r;
@@ -5286,8 +5429,19 @@ function wert(eintrag) {
   return Math.max(4, Math.round(w));
 }
 
-const kaufPreis = e => Math.round(wert(e) * 2.4);
-const verkaufPreis = e => Math.max(2, Math.round(wert(e) * .55));
+/* Die Schere zwischen Finden und Kaufen. Sie stand bei 2,4 zu 0,55 - damit
+   bezahlte ein einziger tiefer Lauf (18 305 Muenzen) den ganzen Laden (5 216)
+   dreimal, und der Haendler war nach dem ersten Mal erledigt.
+
+   Jetzt bringt Beute weniger und Ausruestung kostet mehr: was man findet, ist
+   zum Tragen da, nicht zum Einloesen, und ein gutes Stueck beim Haendler ist
+   ein Ziel ueber mehrere Laeufe.
+
+   Weiter auseinander sollte sie nicht: bei 4,2 zu 0,30 verkaufte man eine
+   Kriegsaxt fuer 264 und kaufte dieselbe fuer 3 696. Ein Faktor von vierzehn
+   liest sich nicht wie ein Haendler, sondern wie Betrug. */
+const kaufPreis = e => Math.round(wert(e) * 3.4);
+const verkaufPreis = e => Math.max(2, Math.round(wert(e) * .40));
 
 /* Was die naechste Stufe bringt - vorher, nicht nachher. Bisher stand nur
    der Preis daneben; man bezahlte und schaute danach nach, was sich geaendert
@@ -5454,13 +5608,12 @@ function verbucheLauf(gerettet) {
     for (const e of beute) {
       if (insLager(alsBestand(e))) { stuecke++; continue; }
       // Kein Platz mehr: der Haendler nimmt es dir zum Verkaufspreis ab
-      erloes += verkaufPreis(e);
+      const preis = verkaufPreis(e);
+      erloes += preis;
+      bucheUmsatz(haendlerFuer(e).id, preis);
       verkauft++;
     }
-    if (verkauft) {
-      META.muenzen += erloes;
-      META.umsatz = (META.umsatz | 0) + erloes;
-    }
+    if (verkauft) META.muenzen += erloes;
   }
   /* Wer heil oben ankommt, behaelt, was er am Koerper trug. Und zwar das,
      was er WIRKLICH traegt, nicht das, was beim Aufbruch dort lag: bisher
@@ -9493,6 +9646,59 @@ function useAbility(dx, dy) {
   const p = G.player;
   const ab = ABILITIES[faehigkeitVon(p)];
 
+  if (faehigkeitVon(p) === "splitter") {
+    /* Ein Kegel vor dem Helden. Getroffen wird, wer nah genug an der
+       Blickrichtung steht - dieselbe Rechnung wie beim Nahkampfbogen, nur
+       weiter und ohne Wand dazwischen. */
+    const f = p.facing || [0, 1];
+    const l = Math.hypot(f[0], f[1]) || 1;
+    const rx = f[0] / l, ry = f[1] / l;
+    const wucht = Math.round((5 + p.level * 1.6) * modulKraft(p));
+    let getroffen = 0;
+    for (const z of G.actors) {
+      if (z.isPlayer || !z.alive) continue;
+      const ax = z.x - p.x, ay = z.y - p.y;
+      const laengs = ax * rx + ay * ry;
+      if (laengs < 0 || laengs > ab.weite) continue;
+      // Der Kegel wird nach hinten breiter, wie ein Streuschuss
+      if (Math.abs(ax * ry - ay * rx) > .8 + laengs * .45) continue;
+      if (!lineOfSight(kachelX(p), kachelY(p), kachelX(z), kachelY(z))) continue;
+      damage(z, wucht, p);
+      burst(z.x, z.y, "#C8CEDA", 12);
+      getroffen++;
+    }
+    anim.effects.push({ type: "kegel", x1: p.x, y1: p.y,
+                        x2: p.x + rx * ab.weite, y2: p.y + ry * ab.weite, life: 1 });
+    Sfx.spiel("stoss");
+    anim.shake = 5;
+    log(getroffen ? `Die Scherben erwischen ${getroffen}.`
+                  : "Die Scherben gehen ins Leere.", getroffen ? "you" : "system");
+    p.abilityCd = abklingzeit(p, ab);
+    return true;
+  }
+
+  if (faehigkeitVon(p) === "stille") {
+    /* Nicht unsichtbar, sondern unhoerbar: wer dich sucht, verliert die Spur.
+       Dieselbe Zeile wie beim Blendpulver - aber sie gilt fuer die ganze
+       Etage und haelt an, solange die Stille steht. */
+    p.stilleBis = G.time + ab.dauer * modulKraft(p);
+    let verloren = 0;
+    for (const a of G.actors) {
+      if (a.isPlayer || !a.alive) continue;
+      if (!a.wach && !a.feind) continue;
+      a.wach = false;
+      a.feind = null;
+      verloren++;
+    }
+    ring(p.x, p.y, 3.2, "#7FA8A0");
+    burst(p.x, p.y, "#7FA8A0", 26);
+    Sfx.spiel("erloschen");
+    log(verloren ? `${verloren} verlieren dich.` : "Es wird still.", "you");
+    banner("Grabesstille", "Fünf Sekunden lang bist du nicht zu hören", "good");
+    p.abilityCd = abklingzeit(p, ab);
+    return true;
+  }
+
   if (faehigkeitVon(p) === "wall") {
     /* Kein Schaden, sondern Zeit: 2,8 Sekunden, in denen dich fast nichts
        erreicht - und in denen jeder Nahkaempfer sich selbst betaeubt. */
@@ -9501,7 +9707,7 @@ function useAbility(dx, dy) {
     ring(p.x, p.y, 1.5, "#C8CEDA");
     log("Du gehst hinter den Schild. Sollen sie kommen.", "you");
     banner("Schildwall", "Drei Viertel weniger Schaden", "good");
-    p.abilityCd = ab.cd * (p.abilityHaste || 1);
+    p.abilityCd = abklingzeit(p, ab);
     return true;
   }
 
@@ -9544,7 +9750,7 @@ function useAbility(dx, dy) {
         ? `Du fährst durch ${durchquert.size} hindurch und lässt sie blutend zurück.`
         : "Du fährst durch den Schatten.", "you");
     refillFromBrazier();
-    p.abilityCd = ab.cd * (p.abilityHaste || 1);
+    p.abilityCd = abklingzeit(p, ab);
     return true;
   }
 
@@ -9604,7 +9810,7 @@ function useAbility(dx, dy) {
     log(getroffen
       ? `Die Flammenlanze fährt durch ${getroffen} ${getroffen === 1 ? "Wesen" : "Wesen"} — ${wucht} Schaden.`
       : "Die Flammenlanze verbrennt nur Luft.", getroffen ? "alert" : "you");
-    p.abilityCd = ab.cd * (p.abilityHaste || 1);
+    p.abilityCd = abklingzeit(p, ab);
     return true;
   }
 
@@ -9641,7 +9847,7 @@ function useAbility(dx, dy) {
     log(getroffen
       ? `Der Donnerschlag wirft ${getroffen} zurück — zwei Sekunden Luft.`
       : "Der Donnerschlag trifft nur Steine.", getroffen ? "alert" : "you");
-    p.abilityCd = ab.cd * (p.abilityHaste || 1);
+    p.abilityCd = abklingzeit(p, ab);
     return true;
   }
 
@@ -9670,7 +9876,7 @@ function useAbility(dx, dy) {
     p.zehrt = { ziel: best, bis: G.time + ab.dauer, ort: [p.x, p.y] };
     Sfx.spiel("trank");
     log(`Ein Strang legt sich um ${best.spec.name}.`, "you");
-    p.abilityCd = ab.cd * (p.abilityHaste || 1);
+    p.abilityCd = abklingzeit(p, ab);
     return true;
   }
 
@@ -9682,7 +9888,7 @@ function useAbility(dx, dy) {
     Sfx.spiel("trank");
     banner("Blutzoll", "Die Hälfte deines Schadens kommt zurück", "good");
     log("Du forderst deinen Zoll. Was du schlägst, trinkst du.", "you");
-    p.abilityCd = ab.cd * (p.abilityHaste || 1);
+    p.abilityCd = abklingzeit(p, ab);
     return true;
   }
 
@@ -9757,6 +9963,8 @@ function actorTurn(a) {
   const sicht = seesTile(kachelX(a), kachelY(a)) &&
                 lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
   if (!a.wach) {
+    // Grabesstille: solange sie steht, hoert dich niemand
+    if ((p.stilleBis || 0) > G.time) return false;
     /* Regen schluckt Schritte. Wer draussen steht, wird spaeter bemerkt -
        das ist der Grund, die Gasse der Halle vorzuziehen, wenn man sich
        anschleichen will. */
@@ -13777,7 +13985,7 @@ function drawEffects(dt, camX, camY) {
   for (let i = anim.effects.length - 1; i >= 0; i--) {
     const e = anim.effects[i];
     e.life -= dt * (e.type === "text" ? 1.05 : e.type === "bolt" ? 4
-                  : e.type === "lanze" ? 2.6 : 1.6);
+                  : e.type === "lanze" ? 2.6 : e.type === "kegel" ? 3.2 : 1.6);
     if (e.life <= 0) { anim.effects.splice(i, 1); continue; }
 
     if (e.type === "text") {
@@ -13819,6 +14027,41 @@ function drawEffects(dt, camX, camY) {
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (e.type === "kegel") {
+      /* Ein Faecher aus Scherben. Er wird nach vorn breiter, damit man sieht,
+         warum auch der getroffen wurde, der nicht genau davorstand. */
+      const x1 = (e.x1 - camX + .5) * TILE, y1 = (e.y1 - camY + .5) * TILE;
+      const x2 = (e.x2 - camX + .5) * TILE, y2 = (e.y2 - camY + .5) * TILE;
+      const dx = x2 - x1, dy = y2 - y1;
+      const l = Math.hypot(dx, dy) || 1;
+      const nx = -dy / l, ny = dx / l;
+      const breit = TILE * 1.9;
+      ctx.save();
+      ctx.globalAlpha = e.life * .55;
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0, "rgba(230,236,246,.85)");
+      grad.addColorStop(1, "rgba(160,172,190,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2 + nx * breit, y2 + ny * breit);
+      ctx.lineTo(x2 - nx * breit, y2 - ny * breit);
+      ctx.closePath();
+      ctx.fill();
+      // Einzelne Scherben darin, damit es kein Nebelkeil ist
+      ctx.globalAlpha = e.life;
+      ctx.strokeStyle = "#E8ECF6";
+      ctx.lineWidth = 1.4;
+      for (let k = 0; k < 9; k++) {
+        const t = .25 + (k / 9) * .75;
+        const seit = ((k * 37) % 100 / 50 - 1) * breit * t;
+        const mx = x1 + dx * t + nx * seit, my = y1 + dy * t + ny * seit;
+        ctx.beginPath();
+        ctx.moveTo(mx, my);
+        ctx.lineTo(mx + (dx / l) * 7, my + (dy / l) * 7);
         ctx.stroke();
       }
       ctx.restore();
@@ -15771,41 +16014,72 @@ function loescheFortschritt() {
   Sfx.spiel("nein");
 }
 
-/* == Das Sortiment =======================================================
-   Was der Haendler fuehrt, haengt an seinem Rang, und der waechst mit dem
-   Umsatz. Die Waren werden einmal je Rang gewuerfelt und bleiben dann
-   stehen, damit man sparen kann statt auf Glueck zu warten. */
-const SORTIMENT = {
-  0: ["potion", "oil", "dagger", "leather"],   // Traenke gibt es auf jedem Rang
-  1: ["potion", "oil", "dagger", "sword", "leather", "chart", "seil"],
-  2: ["greatPotion", "bigoil", "sword", "spiess", "chain", "wurfmesser", "might", "seil"],
-  3: ["greatPotion", "bigoil", "axe", "spiess", "chain", "kolben", "ward", "wurfoel", "seil"],
-  4: ["greatPotion", "bigoil", "axe", "kolben", "plate", "guard", "regen", "blendpulver",
-      "netz", "seil"],
-  5: ["greatPotion", "bigoil", "runeblade", "hellebarde", "plate", "vitality", "wrath", "seil"],
-  6: ["greatPotion", "bigoil", "runeblade", "hellebarde", "plate", "vitality", "wrath", "guard", "seil"],
+/* == Die Sortimente ======================================================
+   Was einer fuehrt, haengt an seinem Rang, und der waechst mit dem Umsatz,
+   den man ihm bringt. Die Waren werden einmal je Rang gewuerfelt und bleiben
+   dann stehen, damit man sparen kann statt auf Glueck zu warten. */
+const SORTIMENTE = {
+  schmied: {
+    0: ["dagger"],
+    1: ["sword"],
+    2: ["spiess"],
+    3: ["axe"],
+    4: ["kolben"],
+    5: ["runeblade", "hellebarde"],
+    6: ["grabklinge", "totenaxt"],     // was es sonst nur in der Tiefe gibt
+  },
+  ruestung: {
+    0: ["leather"],
+    1: ["leather"],
+    2: ["chain"],
+    3: ["reisemantel"],
+    4: ["plate"],
+    5: ["schuppen"],
+    6: ["salzpanzer", "knochenhemd"],
+  },
+  kraemer: {
+    /* Alles, was man trinkt oder wirft. Die Traenke der Staerke, der Wacht
+       und der Genesung stehen hier und nicht beim Runenschneider: sie sind
+       Traenke, und wer sie findet, verkauft sie ohnehin an ihn. Ein Stueck
+       zweimal woanders hin waere nur verwirrend. */
+    0: ["potion", "oil"],
+    1: ["potion", "oil", "seil", "chart"],
+    2: ["greatPotion", "bigoil", "wurfmesser", "might"],
+    3: ["wurfoel", "ward"],
+    4: ["blendpulver", "netz", "regen"],
+    5: ["salzbeutel"],
+    6: [],                              // sein Rang zeigt sich im Preis, nicht in neuer Ware
+  },
+  runen: {
+    // Nur Module und Amulette - dasselbe, was er auch ankauft
+    0: ["modWall"],
+    1: ["modSchatten"],
+    2: ["guard"],
+    3: ["modLanze", "modSplitter"],
+    4: ["vitality", "modDonner"],
+    5: ["wrath", "modZoll", "modStille"],
+    6: ["grabmal", "modZehr"],
+  },
 };
 
-function sortimentFuer(rang) {
+function sortimentFuer(id, rang) {
+  const tabelle = SORTIMENTE[id] || {};
   const raus = [];
-  for (let r = 0; r <= rang; r++) for (const id of (SORTIMENT[r] || [])) raus.push(id);
-  return [...new Set(raus)].filter(id => ITEMS[id]);
+  for (let r = 0; r <= rang; r++) for (const w of (tabelle[r] || [])) raus.push(w);
+  return [...new Set(raus)].filter(w => ITEMS[w]);
 }
 
-/* Der Laden wird einmal je Rang neu gewuerfelt und dann festgehalten. */
-function ladenWaren() {
-  const rang = haendlerRang();
-  if (!META.laden || META.ladenRang !== rang) {
-    const ids = sortimentFuer(rang);
-    META.laden = ids.map(id => {
-      // Ausruestung ab Rang 2 auch mal verzaubert
-      const ax = ITEMS[id].slot && rang >= 2 && rng() < .3 ? null : null;
-      return { id, ax };
-    });
-    META.ladenRang = rang;
+/* Der Laden wird einmal je Rang neu gewuerfelt und dann festgehalten - je
+   Haendler eigens, denn jeder steigt fuer sich. */
+function ladenWaren(id) {
+  if (!META.laeden || typeof META.laeden !== "object") META.laeden = {};
+  const rang = haendlerRang(id);
+  const stand = META.laeden[id];
+  if (!stand || stand.rang !== rang) {
+    META.laeden[id] = { rang, waren: sortimentFuer(id, rang).map(w => ({ id: w, ax: null })) };
     speichereMeta(META);
   }
-  return META.laden;
+  return META.laeden[id].waren;
 }
 
 /* Der Baum zum Anschauen und Ausgeben. Zweigweise nebeneinander, damit man
@@ -16014,6 +16288,7 @@ let lagerReiter = "verkaufen";
 
 /* Welche Kachel im Verkaufsraum gewaehlt ist. */
 let verkaufWahl = null;
+let kaufWahl = "schmied";        // welcher Haendler im Kaufen-Reiter offen ist
 
 function verkaufTafel() {
   const b = verkaufWahl;
@@ -16048,7 +16323,6 @@ const LAGER_REITER = [
 ];
 
 function lagerKopf() {
-  const rang = haendlerRang();
   const lm = lagerRaster();
   const belegt = belegungIn(META.lager, lm.spalten, lm.reihen).filter(Boolean).length;
   const zahl = (wort, wert, gold) =>
@@ -16059,7 +16333,7 @@ function lagerKopf() {
         ${zahl("Münzen", META.muenzen, true)}
         ${zahl("Stufe", META.stufe | 0)}
         ${(META.punkte | 0) ? zahl("Punkte frei", META.punkte | 0, true) : ""}
-        ${zahl("Händler", rangName(rang))}
+        ${zahl("Händler", HAENDLER.map(h => haendlerRang(h.id)).join("·"))}
         ${zahl("Lager", `${belegt}/${lm.spalten * lm.reihen}`)}
       </div>
     </div>`;
@@ -16704,7 +16978,8 @@ function showCamp(reiter) {
   const rang = haendlerRang();
   const naechste = RANG_SCHWELLEN[rang + 1];
   const bestand = META.lager.map((b, i) => ({ b, i, e: ausBestand(b) }));
-  const waren = ladenWaren().map(w => ({ w, e: buildItem(w.id, w.ax) }));
+  const waren = HAENDLER.flatMap(h =>
+    ladenWaren(h.id).map(w => ({ w, e: buildItem(w.id, w.ax) })));
 
   const zeile = (links, note, knopf, aus) => `
     <div class="bag-row">
@@ -16733,15 +17008,42 @@ function showCamp(reiter) {
           <span class="note">${wert} Münzen — Werkstoff bleibt liegen</span></button>`
       : '<p class="quiet" style="padding:14px 0">Dein Lager ist leer. Bring etwas herauf.</p>';
   } else if (lagerReiter === "kaufen") {
-    inhalt = waren.map(({ w, e }) => {
-      const preis = kaufPreis(e);
-      return zeile(
-        `<span style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(e.def.name)}${
-          e.menge > 1 ? ` ×${e.menge}` : ""}</span>`,
-        escapeHtml(e.def.slot ? bonusText(e.def) : (e.def.note || "")),
-        `<button class="bag-act" data-kauf="${w.id}" ${META.muenzen < preis ? "disabled" : ""}>${preis} M</button>`,
-        META.muenzen < preis);
+    /* Vier Haendler nebeneinander, jeder mit seinem Rang. Wer noch nichts bei
+       einem gelassen hat, findet dort zwei Waren und ein misstrauisches
+       Gesicht - das ist der Sinn der Sache. */
+    const h = HAENDLER_VON[kaufWahl] || HAENDLER[0];
+    const rangH = haendlerRang(h.id);
+    const reihe = HAENDLER.map(x => {
+      const r = haendlerRang(x.id);
+      return `<button class="haendlerpille${x.id === h.id ? " an" : ""}"
+        data-haendler="${x.id}">
+        <b>${escapeHtml(x.name)}</b>
+        <span>${escapeHtml(x.was)}</span>
+        <em>${escapeHtml(rangName(r))}</em>
+      </button>`;
     }).join("");
+
+    const naechste = RANG_SCHWELLEN[rangH + 1];
+    const bisher = umsatzVon(h.id);
+    const seine = ladenWaren(h.id).map(w => ({ w, e: buildItem(w.id, w.ax) }));
+
+    inhalt = `<div class="haendlerreihe">${reihe}</div>
+      <p class="feldkopf">${escapeHtml(h.zeile)}
+        <span class="rechts">${naechste
+          ? `${bisher} von ${naechste} M — dann führt er mehr`
+          : "höchster Rang"}</span></p>` +
+      (seine.length ? seine.map(({ w, e }) => {
+        const preis = kaufPreis(e);
+        return zeile(
+          `<span style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(e.def.name)}${
+            e.menge > 1 ? ` ×${e.menge}` : ""}</span>`,
+          escapeHtml(e.def.slot ? bonusText(e.def) : (e.def.note || "")),
+          `<button class="bag-act" data-kauf="${w.id}" ${
+            META.muenzen < preis ? "disabled" : ""}>${preis} M</button>`,
+          META.muenzen < preis);
+      }).join("")
+        : '<p class="quiet" style="padding:14px 0">Er hat dir nichts zu bieten. ' +
+          'Bring ihm etwas, dann ändert sich das.</p>');
   } else if (lagerReiter === "rucksack") {
     const { spalten, reihen } = raster();
     inhalt = `<p class="quiet" style="padding:2px 0 10px">Dein Rucksack fasst
@@ -16827,6 +17129,8 @@ function showCamp(reiter) {
   };
   overlay.querySelectorAll("[data-kauf]").forEach(b =>
     b.onclick = () => { kaufe(b.dataset.kauf); showCamp(); });
+  overlay.querySelectorAll("[data-haendler]").forEach(b =>
+    b.onclick = () => { kaufWahl = b.dataset.haendler; Sfx.spiel("aufheben"); showCamp(); });
   overlay.querySelectorAll("[data-erw]").forEach(b =>
     b.onclick = () => kaufeErweiterung(b.dataset.erw));
   overlay.querySelectorAll("[data-aufwert]").forEach(b =>
@@ -16849,13 +17153,15 @@ function showCamp(reiter) {
   };
 }
 
-/* Verkaufen hebt zugleich den Rang - der Umsatz ist der Fortschritt. */
+/* Verkaufen hebt zugleich den Rang - aber nur bei dem, der es nimmt. Das ist
+   die eigentliche Entscheidung: wen macht man gross? */
 function verkaufe(i) {
   const b = META.lager[i];
   if (!b) return;
-  const preis = verkaufPreis(ausBestand(b));
+  const e = ausBestand(b);
+  const preis = verkaufPreis(e);
   META.muenzen += preis;
-  META.umsatz = (META.umsatz | 0) + preis;
+  bucheUmsatz(haendlerFuer(e).id, preis);
   META.lager.splice(i, 1);
   Sfx.spiel("asche");
   speichereMeta(META);
@@ -16890,7 +17196,8 @@ function kaufeErweiterung(key) {
   if (!w || hatErweiterung(key) || META.muenzen < w.preis) { Sfx.spiel("nein"); return; }
   META.muenzen -= w.preis;
   META.erweiterungen = (META.erweiterungen || []).concat(key);
-  META.umsatz = (META.umsatz | 0) + w.preis;
+  // Ausbauten baut der Kraemer - er hat den Karren dafuer
+  bucheUmsatz("kraemer", w.preis);
   speichereMeta(META);
   Sfx.spiel("kauf");
   showCamp();
@@ -17246,9 +17553,10 @@ function ladeNotaufbruch() {
     lagerEinraeumen();
     for (const b of zurueck) if (b.gx == null) {
       if (insLager(b)) continue;
-      const preis = verkaufPreis(ausBestand(b));
+      const e = ausBestand(b);
+      const preis = verkaufPreis(e);
       META.muenzen += preis;
-      META.umsatz = (META.umsatz | 0) + preis;
+      bucheUmsatz(haendlerFuer(e).id, preis);
     }
   }
   speichereMeta(META);
@@ -17550,6 +17858,7 @@ function freshState() {
     facing: [0, 1], nextSwing: 0, radius: R_PLAYER,
     abilityCd: 0,
     wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0, blutzollBis: 0,
+    stilleBis: 0,
     oilSteps: 4, fovBonus: 0, wurfKraft: 1, crit: 0, evade: 0,
     speedMult: 1, swingHaste: 1, reachMult: 1, abilityHaste: 1,
     killHeal: 0, restHeal: 0, lootLuck: 0, brazierBonus: 1, trotz: 0,
@@ -17582,6 +17891,7 @@ function startNewGame() {
   Object.assign(p, {
     abilityCd: 0,
     wall: 0, unverwundbar: 0, trotzStapel: 0, trotzBis: 0, blutzollBis: 0,
+    stilleBis: 0,
     baseMaxHp: RUMPF.hp, hp: RUMPF.hp,
     baseAtk: RUMPF.atk, baseDef: RUMPF.def,
     flamme: "normal", finsternis: 0, laerm: 0, oilTick: 0,
