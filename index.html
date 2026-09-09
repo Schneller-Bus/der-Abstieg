@@ -3194,6 +3194,13 @@ const Sfx = {
      Absicht: was im Takt kommt, hoert man nach zwei Minuten nicht mehr. */
   atmoLauf: null, atmoName: null, atmoDraussen: 1,
 
+  /* Worauf man in welcher Welt geht. In den Katakomben sind die Schritte am
+     lautesten - dort ist sonst nichts, und dann sind sie der Ort. */
+  BODEN: {
+    built: ["stein", 1], cave: ["moos", .9], forge: ["eisen", 1],
+    arena: ["stein", 1.1], gassen: ["pflaster", 1.15], katakomben: ["kies", 1.35],
+  },
+
   /* Ein Bett: gefiltertes Rauschen mit langsamer Schwankung, oder ein Ton. */
   bettRauschen({ filter = 400, güte = 1, art = "bandpass", pegel = .2,
                  atem = 0, tiefe = .5 }, ziel) {
@@ -3247,115 +3254,143 @@ const Sfx = {
   KLANG: {
     tropfen() {
       const f = 760 + Math.random() * 880;
-      this.ton(f, .5, { form: "sine", pegel: .055, nach: f * .55 });
-      this.ton(f * 2.01, .16, { form: "sine", pegel: .018 });
+      this.ton(f, .5, { form: "sine", pegel: .12, nach: f * .55 });
+      this.ton(f * 2.01, .16, { form: "sine", pegel: .04 });
     },
     tropfstein() {
       const f = 1100 + Math.random() * 1100;
-      this.ton(f, .9, { form: "sine", pegel: .05, nach: f * .42 });
-      this.krach(.05, { pegel: .02, filter: f * 1.6, güte: 5 });
+      this.ton(f, .9, { form: "sine", pegel: .11, nach: f * .42 });
+      this.krach(.05, { pegel: .045, filter: f * 1.6, güte: 5 });
     },
     kette() {
       const n = 4 + Math.floor(Math.random() * 4);
       for (let i = 0; i < n; i++)
-        this.krach(.07, { pegel: .04 + Math.random() * .025, filter: 2200 + Math.random() * 1600,
+        this.krach(.07, { pegel: .085 + Math.random() * .05, filter: 2200 + Math.random() * 1600,
                           güte: 3.5, start: i * (.06 + Math.random() * .1) });
     },
     ratten() {
       const n = 5 + Math.floor(Math.random() * 5);
-      const laut = .012 + Math.random() * .022;      // mal naeher, mal ferner
+      const laut = .03 + Math.random() * .05;        // mal naeher, mal ferner
       for (let i = 0; i < n; i++)
         this.krach(.022, { pegel: laut, filter: 4400 + Math.random() * 2600,
                            güte: 2.4, start: i * (.045 + Math.random() * .05) });
     },
     tor() {
-      this.krach(.55, { pegel: .10, filter: 190, nach: 65, güte: .8, art: "lowpass" });
-      this.ton(58, 1.4, { form: "sine", pegel: .07, nach: 40 });
+      this.krach(.55, { pegel: .2, filter: 190, nach: 65, güte: .8, art: "lowpass" });
+      this.ton(58, 1.4, { form: "sine", pegel: .15, nach: 40 });
     },
     sporen() {
-      this.krach(.018, { pegel: .008 + Math.random() * .01,
+      this.krach(.018, { pegel: .018 + Math.random() * .022,
                          filter: 5200 + Math.random() * 3500, güte: 2.2 });
     },
     steinschlag() {
       const n = 3 + Math.floor(Math.random() * 3);
       for (let i = 0; i < n; i++)
-        this.krach(.13, { pegel: .05, filter: 420 - i * 70, nach: 120, güte: 1.2,
+        this.krach(.13, { pegel: .11, filter: 420 - i * 70, nach: 120, güte: 1.2,
                           art: "lowpass", start: i * (.11 + Math.random() * .13) });
     },
     wummern() {
-      this.ton(31 + Math.random() * 9, 3.2, { form: "sine", pegel: .10, ab: 1.1 });
+      this.ton(31 + Math.random() * 9, 3.2, { form: "sine", pegel: .22, ab: 1.1 });
     },
     blasebalg() {
-      this.krach(1.25, { pegel: .07, filter: 300, nach: 150, güte: .7, art: "lowpass" });
+      this.krach(1.25, { pegel: .16, filter: 300, nach: 150, güte: .7, art: "lowpass" });
     },
     metall() {
       const f = 1700 + Math.random() * 1800;
-      this.ton(f, .13, { form: "triangle", pegel: .02 });
+      this.ton(f, .13, { form: "triangle", pegel: .045 });
     },
     hammer() {
-      this.krach(.10, { pegel: .07, filter: 260, nach: 90, güte: .9, art: "lowpass" });
-      this.ton(430 + Math.random() * 180, .5, { form: "triangle", pegel: .028, start: .01 });
+      this.krach(.10, { pegel: .15, filter: 260, nach: 90, güte: .9, art: "lowpass" });
+      this.ton(430 + Math.random() * 180, .5, { form: "triangle", pegel: .06, start: .01 });
     },
     zischen() {
-      this.krach(1.2, { pegel: .10, filter: 3400, nach: 640, güte: 1.1 });
+      this.krach(1.2, { pegel: .2, filter: 3400, nach: 640, güte: 1.1 });
     },
     glocke() {
       const f = 196 + Math.random() * 24;
-      for (const [teil, pegel, dauer] of [[1, .07, 4.5], [2.76, .03, 3.2], [5.4, .015, 2.1]])
+      for (const [teil, pegel, dauer] of [[1, .15, 4.5], [2.76, .065, 3.2], [5.4, .03, 2.1]])
         this.ton(f * teil, dauer, { form: "sine", pegel, ab: .01 });
     },
     fluestern() {
-      this.krach(1.7, { pegel: .028, filter: 1500, nach: 850, güte: 6 });
+      this.krach(1.7, { pegel: .06, filter: 1500, nach: 850, güte: 6 });
     },
     kraehe() {
       const n = 1 + Math.floor(Math.random() * 2);
       for (let i = 0; i < n; i++) {
         const f = 780 + Math.random() * 180;
-        this.ton(f, .3, { form: "sawtooth", pegel: .022 * this.atmoDraussen,
+        this.ton(f, .3, { form: "sawtooth", pegel: .05 * this.atmoDraussen,
                           nach: f * .55, start: i * .42 });
       }
     },
+    /* Ein Schritt. Der Untergrund entscheidet, wie er klingt: Stein ist hart
+       und kurz, Moos weich und dumpf, nasses Pflaster hat ein Klatschen
+       obendrauf, Kies knirscht nach. */
+    schritt(art, laut) {
+      const BODENKLANG = {
+        stein:   { filter: 900,  güte: 1.4, pegel: .085, dauer: .055, art: "bandpass" },
+        moos:    { filter: 380,  güte: .9,  pegel: .07,  dauer: .085, art: "lowpass" },
+        eisen:   { filter: 1600, güte: 2.2, pegel: .075, dauer: .05,  art: "bandpass" },
+        pflaster:{ filter: 1100, güte: 1.6, pegel: .095, dauer: .06,  art: "bandpass" },
+        kies:    { filter: 2600, güte: 1.1, pegel: .1,   dauer: .13,  art: "bandpass" },
+      };
+      const S = BODENKLANG[art] || BODENKLANG.stein;
+      const k = laut || 1;
+      const streu = .88 + Math.random() * .24;      // kein Schritt wie der andere
+      this.krach(S.dauer, { pegel: S.pegel * streu * k, filter: S.filter * streu,
+                            güte: S.güte, art: S.art });
+      // Ein Hauch Tiefe darunter, sonst klingt es nach Klicken statt nach Tritt
+      this.ton(70 + Math.random() * 30, .07, { form: "sine", pegel: .05 * streu * k });
+      if (art === "pflaster")            // das Klatschen im Nassen
+        this.krach(.09, { pegel: .05, filter: 3200, nach: 1400, güte: 1.2, start: .012 });
+      if (art === "kies")                // und das Nachknirschen im Geroell
+        this.krach(.16, { pegel: .035, filter: 3400, nach: 1800, güte: .9, start: .03 });
+    },
+
     atem() {
-      this.krach(.5, { pegel: .035, filter: 480, güte: .8, art: "lowpass" });
-      this.krach(.7, { pegel: .028, filter: 380, güte: .8, art: "lowpass", start: .62 });
+      this.krach(.5, { pegel: .08, filter: 480, güte: .8, art: "lowpass" });
+      this.krach(.7, { pegel: .065, filter: 380, güte: .8, art: "lowpass", start: .62 });
     },
   },
 
-  /* Was auf welcher Karte laeuft. `jede` ist die Spanne in Sekunden. */
+  /* Was auf welcher Karte laeuft. `jede` ist die Spanne in Sekunden.
+
+     Die Zahlen standen anfangs viel zu niedrig: Betten bei .16 bis .25,
+     Ereignisse bei .01 bis .10, und Abstaende von zwanzig bis neunzig
+     Sekunden. Wer eine Etage in zwei Minuten durchquert, hat davon nichts
+     gehoert. Alles ist jetzt lauter und dichter. */
   ATMO: {
     built: {
-      betten: [{ art: "rausch", filter: 110, güte: .7, pegel: .22, typ: "lowpass", atem: .05 }],
-      ereignisse: [["tropfen", 1.4, 5.5], ["kette", 22, 45],
-                   ["ratten", 7, 16], ["tor", 50, 100]],
+      betten: [{ art: "rausch", filter: 110, güte: .7, pegel: .5, typ: "lowpass", atem: .05 }],
+      ereignisse: [["tropfen", .8, 3], ["kette", 10, 22],
+                   ["ratten", 4, 9], ["tor", 26, 55]],
     },
     cave: {
-      betten: [{ art: "rausch", filter: 420, güte: 1.1, pegel: .2, atem: .14, tiefe: .8 }],
-      ereignisse: [["tropfstein", 1, 4], ["sporen", .15, .7],
-                   ["steinschlag", 16, 38], ["wummern", 30, 65]],
+      betten: [{ art: "rausch", filter: 420, güte: 1.1, pegel: .46, atem: .14, tiefe: .8 }],
+      ereignisse: [["tropfstein", .6, 2.2], ["sporen", .12, .5],
+                   ["steinschlag", 8, 20], ["wummern", 16, 34]],
     },
     forge: {
-      betten: [],
-      ereignisse: [["blasebalg", 5, 7], ["metall", .3, 1.3],
-                   ["hammer", 3, 9], ["zischen", 45, 90]],
+      betten: [{ art: "rausch", filter: 180, güte: .6, pegel: .3, typ: "lowpass", atem: .06 }],
+      ereignisse: [["blasebalg", 4, 5.5], ["metall", .25, .9],
+                   ["hammer", 2, 5], ["zischen", 22, 45]],
     },
     arena: {
-      betten: [{ art: "ton", f: 55, pegel: .05, atem: .07 },
-               { art: "ton", f: 82.4, pegel: .035, atem: .05 },
-               { art: "ton", f: 110, pegel: .022, atem: .09 }],
-      ereignisse: [["glocke", 45, 95], ["fluestern", 20, 55]],
+      betten: [{ art: "ton", f: 55, pegel: .11, atem: .07 },
+               { art: "ton", f: 82.4, pegel: .075, atem: .05 },
+               { art: "ton", f: 110, pegel: .05, atem: .09 }],
+      ereignisse: [["glocke", 22, 48], ["fluestern", 10, 28]],
     },
     gassen: {
       // Der Wind wird drinnen leise - das macht tickWetter, nicht die Tabelle
-      betten: [{ art: "rausch", filter: 620, güte: .8, pegel: .16, atem: .09, tiefe: .9 }],
-      ereignisse: [["kraehe", 30, 75]],
+      betten: [{ art: "rausch", filter: 620, güte: .8, pegel: .34, atem: .09, tiefe: .9 }],
+      ereignisse: [["kraehe", 14, 38], ["tropfen", 1.5, 4]],
     },
     katakomben: {
-      /* Grabesstille ist nicht nichts: ein Ton am Rand des Hoerbaren und ein
-         Sub darunter machen den Druck auf den Ohren, den man in einem engen
-         Stollen hat. */
-      betten: [{ art: "ton", f: 2870, pegel: .009, atem: .03 },
-               { art: "ton", f: 41, pegel: .09, atem: .04 }],
-      ereignisse: [["atem", 3.4, 4.8]],
+      /* Hier ist wirklich nichts - kein Ton am Rand des Hoerbaren mehr, der
+         war ein Piepser und hoerte nie auf. Nur ein Sub, den man eher spuert
+         als hoert, und darueber der eigene Atem. Die Stille ist der Ort. */
+      betten: [{ art: "ton", f: 38, pegel: .16, atem: .04 }],
+      ereignisse: [["atem", 3.2, 4.4], ["steinschlag", 20, 45]],
     },
   },
 
@@ -8464,6 +8499,14 @@ function populateFloor(floor) {
    Gemessen hing dadurch auf jeder achten Etage ein Pluenderer bis in alle
    Ewigkeit fest, weil er keinen Ausgang erreichen konnte. Der Held haette an
    derselben Stelle vor demselben Schleier gestanden. */
+/* Der Aufstiegsschacht muss zu erreichen sein - sonst kommt man von der
+   Etage nicht mehr herunter.
+
+   Geflutet wird gerade aus, nicht ueber Eck: der Held ist ein Kreis und
+   bewegt sich achsenweise, kommt also durch eine Luecke, an der sich zwei
+   Waende nur in einer Ecke beruehren, nicht hindurch. Mit acht Richtungen
+   galt so ein Schacht als erreichbar und wurde nicht versetzt - gemessen
+   betraf das eine von sechzig Etagen der Totenstadt. */
 function rettteSchaechte() {
   const px = kachelX(G.player), py = kachelY(G.player);
   if (!isWalkable(px, py)) return;
@@ -8472,16 +8515,14 @@ function rettteSchaechte() {
   erreichbar[schlange[0]] = 1;
   for (let kopf = 0; kopf < schlange.length; kopf++) {
     const cur = schlange[kopf], cx = cur % MAP_W, cy = (cur / MAP_W) | 0;
-    for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
-        const nx = cx + dx, ny = cy + dy;
-        if (!isWalkable(nx, ny)) continue;
-        const ni = idx(nx, ny);
-        if (erreichbar[ni]) continue;
-        erreichbar[ni] = 1;
-        schlange.push(ni);
-      }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (!isWalkable(nx, ny)) continue;
+      const ni = idx(nx, ny);
+      if (erreichbar[ni]) continue;
+      erreichbar[ni] = 1;
+      schlange.push(ni);
+    }
   }
   for (const sch of G.schaechte) {
     if (erreichbar[idx(sch.x, sch.y)]) continue;
@@ -15762,7 +15803,11 @@ function skillOffen(t) {
 
 /* Zwei Punkte je Stufe. Der Baum hat 119 Raenge - mit einem Punkt je Stufe
    haette man ihn nach hundertneunzehn Stufen voll, also nie. */
-const SKILL_KOSTEN = 2;
+/* Was ein Rang kostet - und was eine Stufe gibt, steht daneben. Beides stand
+   auf zwei: zwei rein, zwei raus, also genau wie bei eins zu eins, nur mit
+   groesseren Zahlen. Gemeint war doppelt so schnelles Skillen. */
+const SKILL_KOSTEN = 1;
+const PUNKTE_JE_STUFE = 2;
 
 /* Die Stufenkurve: anfangs schnell, spaeter zaeh - so wie es sich gehoert. */
 /* Gemessen war die Kurve zu steil: ein vollstaendig ausgeraeumter Durchgang
@@ -15792,7 +15837,7 @@ function verbucheErfahrung(xp) {
   while (META.xp >= xpNeeded() && schutz++ < 200) {
     META.xp -= xpNeeded();
     META.stufe = (META.stufe | 0) + 1;
-    META.punkte = (META.punkte | 0) + SKILL_KOSTEN;
+    META.punkte = (META.punkte | 0) + PUNKTE_JE_STUFE;
     gestiegen++;
   }
   return gestiegen;
@@ -16243,7 +16288,16 @@ function baumBereich() {
 
 /* Nur den Baum neu zeichnen - dann bleibt der Scrollstand stehen, und man
    verliert beim dritten Rang nicht die Stelle, an der man gerade ist. */
+/* Nach einem gelernten Rang muss die Zahl an drei Stellen stimmen: in der
+   Ueberschrift des Reiters, oben im Schirmkopf und auf der Reiterpille
+   selbst. Bisher wurde nur die erste erneuert - oben stand 36, darunter 30,
+   und erst ein Neuladen brachte beide zusammen. */
 function baumFrisch() {
+  const kopfzeile = overlay.querySelector(".schirmkopf");
+  if (kopfzeile) kopfzeile.outerHTML = lagerKopf();
+  const pillen = overlay.querySelector(".pillen");
+  if (pillen) { pillen.outerHTML = lagerPillen("koennen"); lagerBindePillen(); }
+
   const rahmen = overlay.querySelector(".baumrahmen");
   if (!rahmen) { showSkills(); return; }
   const links = rahmen.scrollLeft, oben = rahmen.scrollTop;
@@ -18369,6 +18423,10 @@ setInterval(() => {
 /* ══════════════════════════════════════════════════════════ Hauptschleife */
 let lastTime = performance.now();
 let naechstesKnistern = 0, naechstesGrollen = 0;
+/* Die Schritte haengen an der Strecke, nicht an der Uhr: wer gegen eine Wand
+   drueckt, macht keine. Genau wie der Schrittzyklus der Figur. */
+let schrittWeg = 0, letzteSchrittStelle = null;
+const SCHRITT_LAENGE = 1.15;      // Kachelmasse zwischen zwei Tritten
 function loop(now) {
   const dt = Math.min(.05, (now - lastTime) / 1000);
   lastTime = now;
@@ -18384,6 +18442,16 @@ function loop(now) {
     zeigeStandNach();
     // Untermalung: die eigene Fackel und, wenn Lava in Sicht ist, ihr Grollen
     if (Sfx.an && mode.kind === "play" && !modalOpen && G.player.alive) {
+      const p0 = G.player;
+      if (letzteSchrittStelle) {
+        schrittWeg += Math.hypot(p0.x - letzteSchrittStelle[0], p0.y - letzteSchrittStelle[1]);
+        if (schrittWeg >= SCHRITT_LAENGE) {
+          schrittWeg = 0;
+          const [art, laut] = Sfx.BODEN[theme().gen] || ["stein", 1];
+          try { Sfx.KLANG.schritt.call(Sfx, art, laut); } catch (e) {}
+        }
+      }
+      letzteSchrittStelle = [p0.x, p0.y];
       if (G.player.oil > 0 && now > naechstesKnistern) {
         Sfx.spiel("knistern");
         naechstesKnistern = now + 1400 + Math.random() * 3200;
