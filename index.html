@@ -1187,6 +1187,36 @@ body {
    Kachel nicht zu verdecken, deutlich genug, um sie im Vorbeigehen zu lesen.
    Farbe, nicht nur Pfeil - aber der Pfeil steht auch da, denn Farbe allein
    traegt keine Aussage. */
+/* Der Zugang zum Ausprobieren steht leise unter der Uebersicht. Er soll nicht
+   ins Auge springen, aber auch nicht versteckt sein - eine getippte Folge
+   allein war zu wenig, denn Tastatureingaben lassen sich hier nicht pruefen. */
+.zugangzeile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--stone-800);
+}
+
+.zugangzeile span { font-size: 11.5px; color: var(--vellum-dim); }
+
+.zugangknopf {
+  padding: 5px 11px;
+  border: 1px solid var(--stone-700);
+  border-radius: 6px;
+  background: var(--stone-900);
+  color: var(--vellum-dim);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.zugangknopf:hover, .zugangknopf:focus-visible {
+  border-color: var(--torch);
+  color: var(--vellum);
+}
+
 /* Das Handbuch: eine Karte je Stueck, in Spalten, die sich der Breite
    anpassen. Eine Luecke sieht anders aus als ein Fund - sonst haette das
    Sammeln kein Ziel. */
@@ -16284,7 +16314,7 @@ function handbuchBereich() {
 }
 
 /* ══════════════════════════════════════════════ Der Zugang zum Ausprobieren
-   Strg+Umschalt+A. Solange er an ist, steht im Lager ein Reiter, der alles
+   Man tippt "zugang". Solange er an ist, steht im Lager ein Reiter, der alles
    freischaltet - sonst muesste man neun Etagen laufen, um etwas anzusehen,
    das auf Etage neun steht. */
 function adminAn() { return !!META.admin; }
@@ -16330,6 +16360,10 @@ function adminAllesFrei() {
   seile.menge = 20;
   rein.push(seile);
   META.lager = (META.lager || []).concat(rein);
+  /* Und ins Handbuch damit. Der Weg ueber die Liste umgeht insLager(), das
+     sonst merkt, was durch die Haende geht - ohne diese Zeile blieben alle
+     Karten leer, obwohl das Lager voll ist. */
+  for (const b of rein) merkeStueck(b.id);
   lagerEinraeumen();
 
   speichereMeta(META);
@@ -16738,6 +16772,8 @@ function showUebersicht() {
   }));
   zwingend();
   lagerBindePillen();
+  const zugangKnopf = $("zugangSchalter");
+  if (zugangKnopf) zugangKnopf.onclick = () => { adminSchalten(); showUebersicht(); };
   kulisseLeinwand = document.getElementById("kulisse");
 }
 
@@ -16788,7 +16824,14 @@ function uebersichtBereich() {
             : "alles verteilt"} · ${META.muenzen} Münzen im Beutel</p>
         </div>
       </div>
-    </div>`;
+    </div>
+    <p class="zugangzeile">
+      <button class="zugangknopf" id="zugangSchalter">${
+        adminAn() ? "Zugang schließen" : "Zugang zum Ausprobieren"}</button>
+      <span>${adminAn()
+        ? "der Reiter „Zugang“ steht oben"
+        : "schaltet alles frei — oder tippe „zugang“"}</span>
+    </p>`;
 }
 
 /* ── Die Kulisse ──────────────────────────────────────────────────────────
@@ -17391,7 +17434,7 @@ function showCamp(reiter) {
   } else if (lagerReiter === "zugang") {
     const stoffe = [...WERKSTOFF_TIEFE, ...WERKSTOFF_TOTENSTADT];
     inhalt = `<p class="feldkopf">Zugang zum Ausprobieren
-        <span class="rechts">Strg+Umschalt+A schaltet ihn wieder aus</span></p>
+        <span class="rechts">Tippe „zugang“, um ihn wieder zu schließen</span></p>
       <p class="quiet" style="padding:2px 0 12px">Ein Knopf, und du kannst alles
         anfassen: Münzen, Talentpunkte, alle Orte, alle vier Händler auf dem
         höchsten Rang, zwanzig Seile für den Einstieg auf jeder Etage — und je
@@ -17491,6 +17534,8 @@ function showCamp(reiter) {
     b.onclick = () => { kaufe(b.dataset.kauf); showCamp(); });
   const adminKnopf = $("adminAlles");
   if (adminKnopf) adminKnopf.onclick = () => adminAllesFrei();
+  const zugangKnopf = $("zugangSchalter");
+  if (zugangKnopf) zugangKnopf.onclick = () => { adminSchalten(); showUebersicht(); };
   overlay.querySelectorAll("[data-haendler]").forEach(b =>
     b.onclick = () => { kaufWahl = b.dataset.haendler; Sfx.spiel("aufheben"); showCamp(); });
   overlay.querySelectorAll("[data-erw]").forEach(b =>
@@ -18470,6 +18515,29 @@ window.addEventListener("keydown", ev => {
   Sfx.init();
   const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
 
+  /* Der Zugang zum Ausprobieren: man tippt "zugang".
+
+     Vorher war es Strg+Umschalt+A - das war ein Fehlgriff, denn Chrome
+     belegt genau diese Folge selbst ("Tabs durchsuchen") und gibt sie nie an
+     die Seite weiter. Eine getippte Folge beansprucht kein Browser, und sie
+     faellt auch nicht aus Versehen an: z-u-g-a-n-g in dieser Reihenfolge
+     tippt beim Spielen niemand. Nach zwei Sekunden Pause faengt sie von
+     vorn an.
+
+     Steht vor allem anderen, damit sie auch bei offenem Fenster greift -
+     dort will man sie ja gerade. */
+  if (key.length === 1) {
+    if (G && G.time !== undefined && Date.now() - zugangZuletzt > 2000) zugangFolge = "";
+    zugangZuletzt = Date.now();
+    zugangFolge = (zugangFolge + key).slice(-6);
+    if (zugangFolge === "zugang") {
+      zugangFolge = "";
+      adminSchalten();
+      ev.preventDefault();
+      return;
+    }
+  }
+
   if (modalOpen) {
     if (overlay._onKey && overlay._onKey(key === "Enter" ? "enter" : key, ev)) {
       ev.preventDefault(); return;
@@ -18731,6 +18799,8 @@ setInterval(() => {
 /* ══════════════════════════════════════════════════════════ Hauptschleife */
 let lastTime = performance.now();
 let naechstesKnistern = 0, naechstesGrollen = 0;
+// Die getippte Folge, die den Zugang oeffnet
+let zugangFolge = "", zugangZuletzt = 0;
 /* Die Schritte haengen an der Strecke, nicht an der Uhr: wer gegen eine Wand
    drueckt, macht keine. Genau wie der Schrittzyklus der Figur. */
 let schrittWeg = 0, letzteSchrittStelle = null;
