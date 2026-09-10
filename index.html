@@ -3075,6 +3075,43 @@ const KLANG_DATEI = {
   /* KLANG_DATEI_ENDE */
 };
 
+/* Was im Ordner klang/ liegt, ohne eingebettet zu sein. build.py traegt es
+   beim Bauen ein - es liest den Ordner ohnehin.
+
+   Ohne diese Liste muss das Spiel blind suchen: fuer jeden der
+   achtundfuenfzig Namen vier Varianten in drei Endungen, knapp
+   siebenhundert Abrufe bei jedem Start, von denen ueber sechshundert ins
+   Leere gehen. Die grossen Dateien kommen dann erst nach ihnen an.
+
+   Ist sie leer, wird wie bisher gesucht - wer an abstieg.html arbeitet und
+   eine Datei hineinlegt, soll sie hoeren, ohne erst zu bauen. */
+const KLANG_ORDNER = [
+  /* KLANG_ORDNER_ANFANG */
+  "atem.mp3",
+  "bett-arena.mp3",
+  "bett-built.mp3",
+  "bett-cave.mp3",
+  "bett-forge.mp3",
+  "bett-gassen.mp3",
+  "bett-katakomben.mp3",
+  "fluestern.mp3",
+  "glocke.mp3",
+  "hammer.mp3",
+  "kette.mp3",
+  "kraehe.mp3",
+  "ratten.mp3",
+  "regen.mp3",
+  "schritt-kies.mp3",
+  "schritt-stein.mp3",
+  "steinschlag.mp3",
+  "tor.mp3",
+  "tropfen.mp3",
+  "tropfstein.mp3",
+  "wummern.mp3",
+  "zischen.mp3",
+  /* KLANG_ORDNER_ENDE */
+];
+
 const Sfx = {
   ctx: null, master: null, rausch: null,
   /* Zwei Busse unter dem Hauptregler: Musik und Geraeusche. So laesst sich
@@ -3149,6 +3186,19 @@ const Sfx = {
       this.ladeEine(schluessel, [eingebettet[schluessel]], 0, grund);
     }
 
+    /* Steht eine Liste da, wird genau geholt, was darin steht. Sonst blind
+       gesucht - das kostet Abrufe, aber es findet auch, was seit dem
+       letzten Bauen dazugekommen ist. */
+    const liste = typeof KLANG_ORDNER !== "undefined" ? KLANG_ORDNER : [];
+    if (liste.length) {
+      for (const datei of liste) {
+        const name = this.grundname(datei.replace(/\.[^.]+$/, ""));
+        if (schonGeladen[name]) continue;
+        this.ladeEine(datei, ["klang/" + datei], 0, name);
+      }
+      return;
+    }
+
     for (const name of this.DATEI_NAMEN) {
       if (schonGeladen[name]) continue;       // eingebettet, nichts zu suchen
       for (const wie of ["", "-2", "-3", "-4"])
@@ -3186,6 +3236,32 @@ const Sfx = {
      verschluckt sie wieder. */
   BETT_ZIEL: .013,
 
+  /* Wie weit ein Ereignis ueber dem Bett stehen soll, in Dezibel.
+
+     Keine geratenen Zahlen: es sind die Werte, auf die ich die gerechneten
+     Klaenge ueber mehrere Runden eingestellt habe, nachdem elf von achtzehn
+     im Rauschen untergegangen waren. Sie tragen die Dynamik, die gemeint
+     ist - ein zufallendes Tor lauter als ein Tropfen, eine Glocke lauter
+     als ein Fluestern.
+
+     Ohne sie liegt jede heruntergeladene Datei bei fuenfunddreissig
+     Dezibel darueber, weil vollausgesteuert ist, was man findet: eine
+     Kette hat dieselbe Spitze wie ein Donnerschlag, denn beide gehen bis
+     an den Rand. */
+  EREIGNIS_ZIEL: {
+    kette: 10, ratten: 18, tor: 21,
+    tropfstein: 23, steinschlag: 12, wummern: 28,
+    blasebalg: 13, hammer: 14, zischen: 20,
+    glocke: 26, fluestern: 14,
+    kraehe: 10, tropfen: 12, atem: 15,
+    // Schritte hoert man oefter als alles andere - sie duerfen nicht stechen
+    "schritt-stein": 13, "schritt-moos": 12, "schritt-eisen": 14,
+    "schritt-pflaster": 13, "schritt-kies": 14,
+  },
+  /* Fuer alles, was in der Tabelle fehlt: Treffer, Fund, Fenster. Sie
+     gehoeren nicht zur Kulisse und sollen deutlich vorn stehen. */
+  EREIGNIS_STANDARD: 24,
+
   /* Was mit einer frisch geladenen Aufnahme geschieht, ehe sie benutzt wird.
 
      Stereo wird zu Mono: ein Bett wird nicht geortet, es liegt ueber der
@@ -3211,7 +3287,7 @@ const Sfx = {
       }
     } catch (e) {}
 
-    if (!istBett) return { p: puffer, pegel: 1 };
+    if (!istBett) return { p: puffer, pegel: this.ereignisPegel(puffer, name) };
 
     /* Der Effektivwert ueber die ersten dreissig Sekunden - lang genug,
        dass ein einzelner lauter Moment ihn nicht verzieht. */
@@ -3226,6 +3302,43 @@ const Sfx = {
       // bringt sonst nur sein eigenes Rauschen mit nach oben.
       return { p: puffer, pegel: Math.min(8, this.BETT_ZIEL / ist) };
     } catch (e) { return { p: puffer, pegel: 1 }; }
+  },
+
+  /* Was ein Ereignis lauter oder leiser machen muss, damit es dort steht,
+     wo es hingehoert.
+
+     Bezug ist die Spitze, und zwar die hoechste - denn die Zieltabelle
+     nennt Spitzenwerte, und was gemessen wird, muss dasselbe sein, was
+     eingestellt wird.
+
+     Zwei Umwege habe ich gebraucht, um dorthin zu kommen. Erst der Median
+     der Fensterspitzen, gegen einen einzelnen Knackser: der ging bei allem
+     schief, was lange ausklingt - eine Glocke ist zwei Zehntelsekunden
+     laut und vier Sekunden leise, ihr Median liegt tief, und sie wurde um
+     das Doppelte hochgerechnet, bis sie zerrte. Dann das
+     fuenfundneunzigste Perzentil, aus demselben Grund und mit demselben
+     Fehler in klein: Glocke und Tropfstein standen fuenf und zehn Dezibel
+     ueber ihrem Ziel.
+
+     Ein Knackser in einer Kulissenaufnahme ist ohnehin hoerbar - dann
+     taugt die Datei nicht, und keine Rechnung rettet sie. */
+  ereignisPegel(p, name) {
+    try {
+      const d = p.getChannelData(0);
+      let ist = 0;
+      for (let i = 0; i < d.length; i++)
+        if (Math.abs(d[i]) > ist) ist = Math.abs(d[i]);
+      if (ist <= 0) return 1;
+
+      const ueber = this.EREIGNIS_ZIEL[name] === undefined
+        ? this.EREIGNIS_STANDARD : this.EREIGNIS_ZIEL[name];
+      const soll = this.BETT_ZIEL * Math.pow(10, ueber / 20);
+      /* Nach oben begrenzt, weil eine sehr leise Aufnahme sonst ihr eigenes
+         Rauschen mit hochzieht; nach unten grosszuegig, denn zu laut ist
+         der haeufigere Fall. Und nie so weit, dass es zerrt. */
+      const faktor = Math.max(.02, Math.min(8, soll / ist));
+      return Math.min(faktor, .9 / ist);
+    } catch (e) { return 1; }
   },
 
   /* Eine lange Aufnahme in ihre Einzelklaenge zerlegen.
@@ -3255,9 +3368,18 @@ const Sfx = {
         if (wert > spitze) spitze = wert;
       }
       if (spitze <= 0) return ganz;
-      /* Die Schwelle liegt tief: ein Ausklang ist viel leiser als der
-         Anschlag, und wer zu hoch schneidet, schneidet ihn ab. */
-      const schwelle = spitze * .06;
+      /* Die Schwelle liegt tief - ein Ausklang ist viel leiser als der
+         Anschlag, und wer zu hoch schneidet, schneidet ihn ab.
+
+         Aber sie darf sich nicht allein nach der Spitze richten: wo ein
+         Grundrauschen ueber sechs Hundertsteln liegt, findet sie nie eine
+         Stille und gibt die ganze Datei als ein Stueck zurueck. Aus
+         siebzehn Sekunden Kies wurde so ein einziger, siebzehn Sekunden
+         langer Schritt. Also auch das Grundrauschen messen - das untere
+         Fuenftel der Fenster - und deutlich darueber schneiden. */
+      const sortiert = laut.slice().sort((a, b) => a - b);
+      const grund = sortiert[Math.floor(sortiert.length * .2)] || 0;
+      const schwelle = Math.max(spitze * .06, grund * 2.5);
       const LUECKE = Math.round(.22 / .02);   // Stille unter 220 ms trennt nicht
       const stuecke = [];
       let von = -1, stillSeit = 0;
@@ -3280,7 +3402,20 @@ const Sfx = {
         const ende = Math.min(p.duration, (b + 12) * .02);
         if (ende - start >= .08) raus.push([start, ende - start]);
       }
-      return raus.length ? raus : ganz;
+
+      /* Was danach immer noch zu lang ist, wird hart geteilt. Ein Stueck,
+         das laenger dauert als der Abstand zum naechsten Ereignis, laeuft
+         ins naechste hinein - und ein Schritt, der eine Sekunde dauert,
+         ist kein Schritt mehr. */
+      const grenze = name.indexOf("schritt-") === 0 ? .7 : 3.5;
+      const geteilt = [];
+      for (const [start, dauer] of raus) {
+        if (dauer <= grenze) { geteilt.push([start, dauer]); continue; }
+        const teile = Math.ceil(dauer / grenze);
+        const je = dauer / teile;
+        for (let k = 0; k < teile; k++) geteilt.push([start + k * je, je]);
+      }
+      return geteilt.length ? geteilt : ganz;
     } catch (e) { return ganz; }
   },
 
@@ -8895,39 +9030,6 @@ function populateFloor(floor) {
     map.stairs = [tx, ty];
   }
 
-  /* Der Guertel zum Hosentraeger: die Treppe muss vom Ankunftsplatz aus zu
-     erreichen sein. Welcher Generator sich kuenftig auch vertut - auf einer
-     Etage ohne Weg nach unten steht niemand mehr. Sie wandert dann auf die
-     am weitesten entfernte Kachel, die wirklich erreichbar ist; weit weg
-     soll sie ja ohnehin liegen. */
-  if (map.stairs) {
-    const sx0 = kachelX(G.player), sy0 = kachelY(G.player);
-    if (!wegVon(sx0, sy0, map.stairs[0], map.stairs[1])) {
-      // Einmal fluten statt je Kachel zu suchen - sonst dauert der Aufbau ewig
-      const erreicht = new Uint8Array(MAP_W * MAP_H);
-      const schlange = [[sx0, sy0]];
-      erreicht[idx(sx0, sy0)] = 1;
-      let bestX = -1, bestY = -1, weit = -1;
-      for (let k = 0; k < schlange.length; k++) {
-        const [cx, cy] = schlange[k];
-        const d = Math.hypot(cx - sx0, cy - sy0);
-        if (d > weit) { weit = d; bestX = cx; bestY = cy; }
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nx = cx + dx, ny = cy + dy;
-          if (!inBounds(nx, ny) || erreicht[idx(nx, ny)]) continue;
-          if (!WALKABLE[map.tiles[idx(nx, ny)]]) continue;
-          erreicht[idx(nx, ny)] = 1;
-          schlange.push([nx, ny]);
-        }
-      }
-      if (bestX >= 0) {
-        map.tiles[idx(map.stairs[0], map.stairs[1])] = FLOOR;
-        map.tiles[idx(bestX, bestY)] = STAIRS;
-        map.stairs = [bestX, bestY];
-      }
-    }
-  }
-
   stelleKisten(map, zones, floor, 0);
   streueBeute(map, zones, floor);
 
@@ -9047,6 +9149,9 @@ function populateFloor(floor) {
   stelleGeheimkammern(map, zones, floor);
   stelleFallen(map, zones, floor);
 
+  /* Zuerst die Treppe: sie kann eine Kiste verdraengen, und rettteKisten
+     raeumt gleich danach auf. Umgekehrt bliebe die verdraengte liegen. */
+  rettteTreppe(map);
   rettteKisten(map);
   rettteSchaechte();
   rettteAuftrag(map, floor, sx, sy);
@@ -9148,6 +9253,66 @@ function rettteSchaechte() {
 
 /* Kisten, die eine spaeter gebaute Wand oder ein Schleier erwischt hat, auf
    das naechste brauchbare Feld ruecken. Ohne das steckt Beute in der Mauer. */
+/* Der Guertel zum Hosentraeger: die Treppe muss vom Ankunftsplatz aus zu
+   erreichen sein. Welcher Generator sich kuenftig auch vertut - auf einer
+   Etage ohne Weg nach unten steht niemand mehr. Sie wandert dann auf die am
+   weitesten entfernte Kachel, die wirklich erreichbar ist; weit weg soll sie
+   ja ohnehin liegen.
+
+   Das stand lange mitten im Aufbau, gleich nachdem die Treppe gesetzt war -
+   und damit zu frueh. Nach ihr kommen noch der Namentliche samt Kammer, die
+   Geheimkammern und die Fallen, und die Kammer mauert die Treppe
+   gelegentlich ein. Gemessen: eine von hundertacht Katakomben-Etagen hatte
+   danach keinen Weg nach unten mehr. Deshalb steht die Rettung jetzt bei
+   denen fuer Kisten und Schaechte, nach allem, was die Karte noch anfasst. */
+function rettteTreppe(map) {
+  if (!map.stairs) return false;          // die letzte Etage hat keine
+  const sx0 = kachelX(G.player), sy0 = kachelY(G.player);
+
+  /* Ohne den Schleier gerechnet, nicht mit. wegVon() laesst ihn passieren -
+     zu Recht, denn man tritt hindurch. Nur versiegelt er sich dabei hinter
+     einem, und wer die Treppe nur ueber ihn erreicht, erreicht sie nur
+     einmal und steht dann in der Kammer des Namentlichen fest.
+
+     Gemessen: eine von sechzig Etagen der Totenstadt hatte danach keinen
+     Weg mehr nach unten. Meine erste Probe uebersah es, weil sie denselben
+     Fehler machte und den Schleier ebenfalls durchliess. */
+  const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const offen = new Uint8Array(MAP_W * MAP_H);
+  {
+    const schlange = [[sx0, sy0]];
+    offen[idx(sx0, sy0)] = 1;
+    for (let k = 0; k < schlange.length; k++) {
+      const [cx, cy] = schlange[k];
+      for (const [dx, dy] of ORTHO) {
+        const nx = cx + dx, ny = cy + dy;
+        if (!inBounds(nx, ny) || offen[idx(nx, ny)]) continue;
+        const feld = map.tiles[idx(nx, ny)];
+        if (!WALKABLE[feld] || feld === VEIL) continue;
+        offen[idx(nx, ny)] = 1;
+        schlange.push([nx, ny]);
+      }
+    }
+  }
+  if (offen[idx(map.stairs[0], map.stairs[1])]) return false;
+
+  // Einmal fluten statt je Kachel zu suchen - sonst dauert der Aufbau ewig
+  /* Die entfernteste Kachel, die ohne Schleier zu erreichen ist - das
+     Flutfuellen dafuer steht schon oben. */
+  let bestX = -1, bestY = -1, weit = -1;
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      if (!offen[idx(x, y)]) continue;
+      const d = Math.hypot(x - sx0, y - sy0);
+      if (d > weit) { weit = d; bestX = x; bestY = y; }
+    }
+  if (bestX < 0) return false;
+  map.tiles[idx(map.stairs[0], map.stairs[1])] = FLOOR;
+  map.tiles[idx(bestX, bestY)] = STAIRS;
+  map.stairs = [bestX, bestY];
+  return true;
+}
+
 function rettteKisten(map) {
   const belegt = (x, y, ausser) =>
     G.chests.some(k => k !== ausser && k.x === x && k.y === y) ||
