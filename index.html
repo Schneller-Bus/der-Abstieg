@@ -3066,6 +3066,15 @@ const C = {
 /* ═══════════════════════════════════════════════════════════════ Klang
    Alles wird zur Laufzeit erzeugt - keine Dateien, keine Ladezeit.
    Der Tonkanal darf erst nach einer Eingabe starten, das verlangen Browser. */
+/* Aufnahmen, als Data-URI eingebettet. build.py liest den Ordner klang/ und
+   traegt sie hier ein, damit index.html eine einzige Datei bleibt. Was hier
+   fehlt, wird beim Laden direkt aus klang/ versucht - dann kann man eine
+   neue Aufnahme ausprobieren, ohne neu zu bauen. */
+const KLANG_DATEI = {
+  /* KLANG_DATEI_ANFANG */
+  /* KLANG_DATEI_ENDE */
+};
+
 const Sfx = {
   ctx: null, master: null, rausch: null,
   /* Zwei Busse unter dem Hauptregler: Musik und Geraeusche. So laesst sich
@@ -3074,6 +3083,261 @@ const Sfx = {
   musikBus: null, geraeuschBus: null,
   lautMusik: .7, lautGeraeusch: 1,
   an: true, laut: .45, letzte: Object.create(null),
+
+  /* ══════════════════════════════════════════ Aufnahmen statt Rechnen
+     Wo eine Datei liegt, wird sie gespielt; wo keine liegt, bleibt es beim
+     gerechneten Klang. Damit laesst sich einer nach dem anderen austauschen,
+     ohne dass zwischendurch etwas fehlt.
+
+     KLANG_DATEI wird beim Bauen von build.py gefuellt: es liest den Ordner
+     klang/ und traegt jede Datei als Data-URI ein. Steht nichts darin -
+     etwa, wenn man abstieg.html direkt oeffnet -, wird stattdessen im
+     Ordner nachgesehen. */
+  puffer: {},                 // geladene Aufnahmen, nach Namen
+  ladenLaeuft: false,
+  ladeFehler: 0,              // wie oft ein Abruf gescheitert ist
+
+  /* Wohin ein einzelner Klang geht. Normalerweise auf den Geraeuschbus;
+     waehrend eines Kulissenereignisses auf den Knoten seiner Welt, damit
+     der Weltpegel auch fuer die Ereignisse gilt und nicht nur fuers Bett.
+     Ohne das haette ein lauteres Bett seine eigenen Ereignisse verschluckt. */
+  klangZiel: null,
+  zielBus() { return this.klangZiel || this.geraeuschBus || this.master; },
+
+  /* Welche Namen eine Aufnahme haben duerfen. Nur nach diesen wird gesucht,
+     damit kein blindes Abklappern des Ordners noetig ist.
+
+       bett-<welt>     laeuft in einer Schleife, je Welt eine
+       schritt-<boden> einmal je Tritt, mit Tonhoehenstreuung
+       regen           laeuft in einer Schleife, solange es regnet
+       alles Uebrige   einmal abgespielt */
+  DATEI_NAMEN: [
+    // Die Kulisse: was in den Etagen faellt
+    "tropfen", "kette", "ratten", "tor", "tropfstein", "steinschlag",
+    "wummern", "blasebalg", "hammer", "zischen", "glocke", "fluestern",
+    "kraehe", "atem",
+    // Die Betten, in der Schleife
+    "bett-built", "bett-cave", "bett-forge", "bett-arena", "bett-gassen",
+    "bett-katakomben", "regen",
+    // Die Schritte, je Untergrund
+    "schritt-stein", "schritt-moos", "schritt-eisen", "schritt-pflaster",
+    "schritt-kies",
+    // Kampf, Fund und Fenster
+    "treffer", "kritisch", "wehgetan", "abgeprallt", "ausgewichen",
+    "gestorben", "aufheben", "nein", "sieg", "treppe", "stoss", "trank",
+    "oel", "rolle", "kauf", "anlegen", "ausruesten", "auftrag", "stufe",
+    "entdeckt", "elite", "boss", "falle", "feuer", "lava", "asche",
+    "blitz", "saeule", "schale", "knistern", "erloschen", "sprung",
+  ],
+
+  /* Laedt, was da ist, und schweigt ueber das, was fehlt: eine fehlende
+     Datei ist kein Fehler, sondern der Normalfall, solange nicht alle
+     aufgenommen sind. */
+  /* Eingebettet ist alles, was build.py gefunden hat - auch Varianten wie
+     kraehe-2. Was nicht eingebettet ist, wird im Ordner gesucht: der
+     Grundname und ein paar Varianten dazu. Mehr als vier Fehlgriffe je
+     Klang lohnen nicht, und wer mehr einlegt, baut ohnehin neu. */
+  ladeDateien() {
+    if (this.ladenLaeuft || !this.ctx) return;
+    this.ladenLaeuft = true;
+    const eingebettet = typeof KLANG_DATEI !== "undefined" ? KLANG_DATEI : {};
+    const schonGeladen = {};
+
+    for (const schluessel of Object.keys(eingebettet)) {
+      const grund = this.grundname(schluessel);
+      schonGeladen[grund] = true;
+      this.ladeEine(schluessel, [eingebettet[schluessel]], 0, grund);
+    }
+
+    for (const name of this.DATEI_NAMEN) {
+      if (schonGeladen[name]) continue;       // eingebettet, nichts zu suchen
+      for (const wie of ["", "-2", "-3", "-4"])
+        this.ladeEine(name, ["klang/" + name + wie + ".mp3",
+                             "klang/" + name + wie + ".ogg",
+                             "klang/" + name + wie + ".wav"], 0, name);
+    }
+  },
+
+  /* kraehe-2 gehoert zu kraehe. Mehrere Aufnahmen desselben Dings sind der
+     einzige Weg gegen Wiederholung bei etwas, das alle zehn Sekunden faellt. */
+  grundname(n) { return n.replace(/-\d+$/, ""); },
+
+  ladeEine(name, pfade, i, grund) {
+    if (i >= pfade.length || !this.ctx) return;
+    if (i === pfade.length - 1) this.ladeFehler++;   // letzter Versuch
+    fetch(pfade[i])
+      .then(a => a.ok ? a.arrayBuffer() : Promise.reject(0))
+      .then(b => this.ctx.decodeAudioData(b))
+      .then(p => {
+        const zu = grund || name;
+        this.ladeFehler = Math.max(0, this.ladeFehler - 1);
+        const eigen = this.aufbereiten(p, zu);
+        (this.puffer[zu] = this.puffer[zu] || []).push({
+          p: eigen.p, stuecke: this.zerlege(eigen.p, zu), pegel: eigen.pegel,
+        });
+      })
+      .catch(() => this.ladeEine(name, pfade, i + 1, grund));
+  },
+
+  /* Der Pegel, auf dem die gerechneten Betten liegen. Solange nicht alles
+     aufgenommen ist, laufen echte Betten und gerechnete Ereignisse
+     nebeneinander - und die Ereignisse sind so eingestellt, dass sie acht
+     bis sechsundzwanzig Dezibel darueber liegen. Wer das Bett lauter macht,
+     verschluckt sie wieder. */
+  BETT_ZIEL: .013,
+
+  /* Was mit einer frisch geladenen Aufnahme geschieht, ehe sie benutzt wird.
+
+     Stereo wird zu Mono: ein Bett wird nicht geortet, es liegt ueber der
+     ganzen Etage. Der zweite Kanal kostet die Haelfte des Speichers und
+     traegt nichts - bei sieben Betten waren das achtundsechzig Megabyte.
+
+     Und Betten werden auf ein Mass gebracht. Aufnahmen von verschiedenen
+     Leuten sind verschieden ausgesteuert; gemessen lagen siebzehneinhalb
+     Dezibel zwischen der leisesten und der lautesten, und wer aus dem
+     Kerker in die Gassen stieg, bekam einen Schlag. Ereignisse bleiben
+     unangetastet: dort ist der Unterschied zwischen einem Tropfen und
+     einem zufallenden Tor gewollt. */
+  aufbereiten(p, name) {
+    const istBett = name.indexOf("bett-") === 0 || name === "regen";
+    let puffer = p;
+    try {
+      if (p.numberOfChannels > 1) {
+        const mono = this.ctx.createBuffer(1, p.length, p.sampleRate);
+        const ziel = mono.getChannelData(0);
+        const links = p.getChannelData(0), rechts = p.getChannelData(1);
+        for (let i = 0; i < p.length; i++) ziel[i] = (links[i] + rechts[i]) * .5;
+        puffer = mono;
+      }
+    } catch (e) {}
+
+    if (!istBett) return { p: puffer, pegel: 1 };
+
+    /* Der Effektivwert ueber die ersten dreissig Sekunden - lang genug,
+       dass ein einzelner lauter Moment ihn nicht verzieht. */
+    try {
+      const d = puffer.getChannelData(0);
+      const bis = Math.min(d.length, puffer.sampleRate * 30);
+      let summe = 0;
+      for (let i = 0; i < bis; i++) summe += d[i] * d[i];
+      const ist = Math.sqrt(summe / Math.max(1, bis));
+      if (ist <= 0) return { p: puffer, pegel: 1 };
+      // Nicht mehr als das Achtfache heben: was so leise aufgenommen ist,
+      // bringt sonst nur sein eigenes Rauschen mit nach oben.
+      return { p: puffer, pegel: Math.min(8, this.BETT_ZIEL / ist) };
+    } catch (e) { return { p: puffer, pegel: 1 }; }
+  },
+
+  /* Eine lange Aufnahme in ihre Einzelklaenge zerlegen.
+
+     Was man findet, ist selten ein einzelner Ruf: eher eine Minute mit
+     sieben Kraehen und viel Stille dazwischen. Statt zu verlangen, dass
+     jemand das von Hand schneidet, liest das Spiel die Lautstaerke ueber
+     die Datei und macht aus allem zwischen zwei Stillen ein Stueck.
+
+     Betten und Regen bleiben ganz - die laufen in der Schleife und sollen
+     gerade nicht zerfallen. */
+  zerlege(p, name) {
+    const ganz = [[0, p.duration]];
+    if (name.indexOf("bett-") === 0 || name === "regen") return ganz;
+    if (p.duration < 2.5) return ganz;        // kurz genug, wie sie ist
+    try {
+      const daten = p.getChannelData(0);
+      const sr = p.sampleRate;
+      const fensterLaenge = Math.max(1, Math.round(sr * .02));   // 20 ms
+      const laut = [];
+      let spitze = 0;
+      for (let i = 0; i + fensterLaenge <= daten.length; i += fensterLaenge) {
+        let summe = 0;
+        for (let k = i; k < i + fensterLaenge; k++) summe += daten[k] * daten[k];
+        const wert = Math.sqrt(summe / fensterLaenge);
+        laut.push(wert);
+        if (wert > spitze) spitze = wert;
+      }
+      if (spitze <= 0) return ganz;
+      /* Die Schwelle liegt tief: ein Ausklang ist viel leiser als der
+         Anschlag, und wer zu hoch schneidet, schneidet ihn ab. */
+      const schwelle = spitze * .06;
+      const LUECKE = Math.round(.22 / .02);   // Stille unter 220 ms trennt nicht
+      const stuecke = [];
+      let von = -1, stillSeit = 0;
+      for (let i = 0; i < laut.length; i++) {
+        if (laut[i] >= schwelle) {
+          if (von < 0) von = i;
+          stillSeit = 0;
+        } else if (von >= 0 && ++stillSeit > LUECKE) {
+          stuecke.push([von, i - stillSeit]);
+          von = -1;
+        }
+      }
+      if (von >= 0) stuecke.push([von, laut.length]);
+
+      /* Etwas Luft davor und dahinter: vorne, damit der Anschlag nicht
+         angeschnitten wirkt, hinten fuer den Ausklang. */
+      const raus = [];
+      for (const [a, b] of stuecke) {
+        const start = Math.max(0, (a - 2) * .02);
+        const ende = Math.min(p.duration, (b + 12) * .02);
+        if (ende - start >= .08) raus.push([start, ende - start]);
+      }
+      return raus.length ? raus : ganz;
+    } catch (e) { return ganz; }
+  },
+
+  /* Spielt eine Aufnahme, wenn es eine gibt. Gibt zurueck, ob sie lief -
+     der Aufrufer rechnet dann nur noch, wenn nicht.
+
+     `streu` verstimmt leicht nach oben oder unten. Ohne das klingen zwanzig
+     Schritte hintereinander wie eine Maschine; mit ihm wie ein Mensch. */
+  ausDatei(name, { pegel = 1, streu = 0, start = 0 } = {}) {
+    const liste = this.puffer[name];
+    if (!liste || !liste.length || !this.ctx) return false;
+    try {
+      // Erst eine der Aufnahmen, dann eines ihrer Stuecke - beides zufaellig
+      const v = liste[Math.floor(Math.random() * liste.length)];
+      const st = v.stuecke[Math.floor(Math.random() * v.stuecke.length)];
+      const q = this.ctx.createBufferSource();
+      q.buffer = v.p;
+      if (streu) q.playbackRate.value = 1 + (Math.random() * 2 - 1) * streu;
+      const g = this.ctx.createGain();
+      g.gain.value = pegel * (v.pegel || 1);
+      q.connect(g); g.connect(this.zielBus());
+      q.start(this.jetzt() + start, st[0], st[1]);
+      return true;
+    } catch (e) { return false; }
+  },
+
+  /* Ein Kulissenereignis: erst die Aufnahme, sonst der gerechnete Klang.
+     Das stand vorher direkt im Wecker - dort war es richtig, aber von aussen
+     nicht zu pruefen, und meine Probe hat prompt den falschen Weg gemessen. */
+  ereignis(was) {
+    /* Waehrend des Ereignisses zeigt das Ziel auf den Knoten der laufenden
+       Welt - damit traegt es deren Pegel, genau wie das Bett darunter. */
+    const vorher = this.klangZiel;
+    this.klangZiel = (this.atmoLauf && this.atmoLauf.bus) || null;
+    try {
+      if (this.ausDatei(was)) return "datei";
+      try { this.KLANG[was].call(this); return "gerechnet"; } catch (e) { return "nichts"; }
+    } finally { this.klangZiel = vorher; }
+  },
+
+  /* Ein Bett aus einer Aufnahme: laeuft in der Schleife und blendet auf.
+     Gibt die Quelle zurueck, damit stoppeAtmo sie wieder anhalten kann. */
+  bettAusDatei(name, ziel, pegel) {
+    const liste = this.puffer[name];
+    if (!liste || !liste.length || !this.ctx) return null;
+    try {
+      const v = liste[Math.floor(Math.random() * liste.length)];
+      const q = this.ctx.createBufferSource();
+      q.buffer = v.p;
+      q.loop = true;
+      const g = this.ctx.createGain();
+      g.gain.value = (pegel === undefined ? 1 : pegel) * (v.pegel || 1);
+      q.connect(g); g.connect(ziel);
+      q.start(this.jetzt());
+      return q;
+    } catch (e) { return null; }
+  },
 
   init() {
     if (this.ctx) return;
@@ -3095,6 +3359,7 @@ const Sfx = {
       this.rausch = this.ctx.createBuffer(1, n, n);
       const d = this.rausch.getChannelData(0);
       for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      this.ladeDateien();          // was aufgenommen ist, kommt jetzt dazu
     } catch (e) { this.ctx = null; }
   },
 
@@ -3149,7 +3414,7 @@ const Sfx = {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(pegel, t + ab);
     g.gain.exponentialRampToValueAtTime(.0008, t + dauer);
-    o.connect(g); g.connect(this.geraeuschBus || this.master);
+    o.connect(g); g.connect(this.zielBus());
     o.start(t); o.stop(t + dauer + .02);
   },
 
@@ -3169,7 +3434,7 @@ const Sfx = {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(pegel, t + .006);
     g.gain.exponentialRampToValueAtTime(.0008, t + dauer);
-    s.connect(f); f.connect(g); g.connect(this.geraeuschBus || this.master);
+    s.connect(f); f.connect(g); g.connect(this.zielBus());
     s.start(t); s.stop(t + dauer + .02);
   },
 
@@ -3236,6 +3501,10 @@ const Sfx = {
       gain.connect(this.geraeuschBus || this.master);
 
       const quellen = [];
+      // Eine Aufnahme ersetzt das gerechnete Rauschen ganz
+      const ausAufnahme = this.bettAusDatei("regen", gain);
+      if (ausAufnahme) quellen.push(ausAufnahme);
+      else
       // Die Flaeche: dumpfes Rauschen, das den Raum fuellt
       for (const [freq, q, pegel, art] of
            [[900, .7, .5, "lowpass"], [2600, .9, .22, "bandpass"]]) {
@@ -3365,7 +3634,8 @@ const Sfx = {
     },
     ratten() {
       const n = 5 + Math.floor(Math.random() * 5);
-      const laut = .03 + Math.random() * .05;        // mal naeher, mal ferner
+      // Gemessen 3,8 dB ueber dem Bett - zu wenig; das Doppelte bringt sie darueber
+      const laut = .06 + Math.random() * .10;        // mal naeher, mal ferner
       for (let i = 0; i < n; i++)
         this.krach(.022, { pegel: laut, filter: 4400 + Math.random() * 2600,
                            güte: 2.4, start: i * (.045 + Math.random() * .05) });
@@ -3381,14 +3651,15 @@ const Sfx = {
     steinschlag() {
       const n = 3 + Math.floor(Math.random() * 3);
       for (let i = 0; i < n; i++)
-        this.krach(.13, { pegel: .11, filter: 420 - i * 70, nach: 120, güte: 1.2,
+        // Ging in der Hoehle um 1,4 dB unter - jetzt gut zehn darueber
+        this.krach(.13, { pegel: .21, filter: 420 - i * 70, nach: 120, güte: 1.2,
                           art: "lowpass", start: i * (.11 + Math.random() * .13) });
     },
     wummern() {
       this.ton(31 + Math.random() * 9, 3.2, { form: "sine", pegel: .22, ab: 1.1 });
     },
     blasebalg() {
-      this.krach(1.25, { pegel: .16, filter: 300, nach: 150, güte: .7, art: "lowpass" });
+      this.krach(1.25, { pegel: .22, filter: 300, nach: 150, güte: .7, art: "lowpass" });
     },
     metall() {
       const f = 1700 + Math.random() * 1800;
@@ -3407,13 +3678,14 @@ const Sfx = {
         this.ton(f * teil, dauer, { form: "sine", pegel, ab: .01 });
     },
     fluestern() {
-      this.krach(1.7, { pegel: .06, filter: 1500, nach: 850, güte: 6 });
+      // Lag 5,4 dB unter dem Bett der Kammer - man hat es nie gehoert
+      this.krach(1.7, { pegel: .2, filter: 1500, nach: 850, güte: 6 });
     },
     kraehe() {
       const n = 1 + Math.floor(Math.random() * 2);
       for (let i = 0; i < n; i++) {
         const f = 780 + Math.random() * 180;
-        this.ton(f, .3, { form: "sawtooth", pegel: .05 * this.atmoDraussen,
+        this.ton(f, .3, { form: "sawtooth", pegel: .125 * this.atmoDraussen,
                           nach: f * .55, start: i * .42 });
       }
     },
@@ -3421,6 +3693,9 @@ const Sfx = {
        und kurz, Moos weich und dumpf, nasses Pflaster hat ein Klatschen
        obendrauf, Kies knirscht nach. */
     schritt(art, laut) {
+      /* Eine Aufnahme je Untergrund, leicht verstimmt - ohne die Streuung
+         klingen zwanzig Schritte hintereinander wie eine Maschine. */
+      if (this.ausDatei("schritt-" + art, { pegel: laut || 1, streu: .09 })) return;
       const BODENKLANG = {
         stein:   { filter: 900,  güte: 1.4, pegel: .085, dauer: .055, art: "bandpass" },
         moos:    { filter: 380,  güte: .9,  pegel: .07,  dauer: .085, art: "lowpass" },
@@ -3442,50 +3717,105 @@ const Sfx = {
     },
 
     atem() {
-      this.krach(.5, { pegel: .08, filter: 480, güte: .8, art: "lowpass" });
-      this.krach(.7, { pegel: .065, filter: 380, güte: .8, art: "lowpass", start: .62 });
+      // In den Katakomben 17 dB unter dem Sub - der eigene Atem war unhoerbar
+      this.krach(.5, { pegel: .16, filter: 480, güte: .8, art: "lowpass" });
+      this.krach(.7, { pegel: .13, filter: 380, güte: .8, art: "lowpass", start: .62 });
     },
   },
 
   /* Was auf welcher Karte laeuft. `jede` ist die Spanne in Sekunden.
 
-     Die Zahlen standen anfangs viel zu niedrig: Betten bei .16 bis .25,
-     Ereignisse bei .01 bis .10, und Abstaende von zwanzig bis neunzig
-     Sekunden. Wer eine Etage in zwei Minuten durchquert, hat davon nichts
-     gehoert. Alles ist jetzt lauter und dichter. */
+     Diese Tabelle ist zweimal blind gestellt worden: einmal beim Einbau,
+     einmal, als gemeldet wurde, sie sei zu leise. Beide Male konnte sie
+     ueberhaupt nicht klingen - ein Fehler in starteAtmo verschluckte jedes
+     Ereignis. Erst danach war zu hoeren, was hier steht, und es war falsch.
+
+     Jetzt gemessen, nicht geschaetzt: der Ton wird in einen Puffer gerendert
+     und in Dezibel verglichen. Zwei Regeln kommen daraus, und eine Probe
+     haelt sie fest.
+
+     Die erste: jedes Ereignis muss deutlich ueber seinem eigenen Bett
+     liegen, sonst hoert man es nicht. Elf von achtzehn taten das nicht -
+     die Kette im Kerker stand 1,2 dB darueber, das Fluestern in der Kammer
+     20,6 dB darunter. Die Betten sind deshalb stark heruntergenommen: sie
+     sollen tragen, nicht ueberdecken.
+
+     Die zweite: zwei Welten duerfen nicht dieselbe Klangfarbe haben. Die
+     Pilzhoehle und die Gassen verteilten ihre Energie fast genau gleich -
+     und die Gassen sind der Regen. Darum regnete es in der Hoehle. Sie hat
+     jetzt ein tiefes, hohles Bett; ein Raum, kein Prasseln.
+
+     Die Dichte liegt bei rund zehn Klaengen je Minute. Vorher waren es
+     sechsundvierzig im Kerker, hundertsechsunddreissig in der Schmelze und
+     zweihundertdreiundvierzig in der Hoehle - dort fielen vier Klaenge je
+     Sekunde, was fuer sich genommen schon nach Regen klingt. Die drei, die
+     als Textur gedacht waren und im Sekundentakt fielen, sind ganz raus:
+     Sporen, Metallklingeln und die Tropfen im Kerker. */
   ATMO: {
     built: {
-      betten: [{ art: "rausch", filter: 110, güte: .7, pegel: .5, typ: "lowpass", atem: .05 }],
-      ereignisse: [["tropfen", .8, 3], ["kette", 10, 22],
-                   ["ratten", 4, 9], ["tor", 26, 55]],
+      // Ein Steinkeller: sehr tief, sehr dumpf, fast ohne Hoehen
+      betten: [{ art: "rausch", filter: 105, güte: .7, pegel: .17, typ: "lowpass", atem: .05 }],
+      ereignisse: [["kette", 8, 16], ["ratten", 10, 20], ["tor", 30, 60]],
     },
     cave: {
-      betten: [{ art: "rausch", filter: 420, güte: 1.1, pegel: .46, atem: .14, tiefe: .8 }],
-      ereignisse: [["tropfstein", .6, 2.2], ["sporen", .12, .5],
-                   ["steinschlag", 8, 20], ["wummern", 16, 34]],
+      // Gemeldet zu leise - eine Hoehle traegt mehr als ein Kerker
+      pegel: 1.9,
+      /* Eine Hoehle ist ein hohler Raum, kein Prasseln. Vorher stand hier
+         ein breites Bandpassrauschen bei 420 Hz - gemessen dieselbe
+         Klangfarbe wie der Regen auf den Gassen. Jetzt ein Tiefpass mit
+         langsamem Atem darauf: es traegt, statt zu rieseln. */
+      /* Ein hohler Ton unter dem Rauschen: die Resonanz eines grossen
+         Raums. Er schwebt langsam, damit man die Groesse hoert und nicht
+         einen Ton. Ohne ihn war die Hoehle nur ein Tiefpass wie der Kerker
+         und die Schmelze - gemessen 0,25 und 0,43 Abstand, also fast
+         dasselbe. */
+      /* Hohl, nicht tief. Der erste Versuch legte einen Ton bei 92 Hz
+         darunter - gemessen ruecklings genau dorthin, wo der Kerker ohnehin
+         am staerksten ist, und die beiden rueckten von 0,43 auf 0,23
+         zusammen. Was eine Hoehle ausmacht, ist nicht Tiefe, sondern
+         Resonanz: ein schmales, klingendes Band um 380 Hz, wo weder Kerker
+         noch Schmelze etwas haben. Man hoert einen Raum, kein Material. */
+      betten: [{ art: "rausch", filter: 230, güte: .8, pegel: .06, typ: "lowpass",
+                 atem: .09, tiefe: .75 },
+               { art: "rausch", filter: 380, güte: 5, pegel: .115, atem: .06, tiefe: .6 }],
+      ereignisse: [["tropfstein", 6, 14], ["steinschlag", 14, 30], ["wummern", 20, 45]],
     },
     forge: {
-      betten: [{ art: "rausch", filter: 180, güte: .6, pegel: .3, typ: "lowpass", atem: .06 }],
-      ereignisse: [["blasebalg", 4, 5.5], ["metall", .25, .9],
-                   ["hammer", 2, 5], ["zischen", 22, 45]],
+      /* Die Esse brummt - ein eigener tiefer Ton neben dem Rauschen. Ohne
+         ihn klang die Schmelze wie der Kerker, nur etwas heller. */
+      /* Feuer weit oben, Ofen weit unten, wenig dazwischen - dort liegen
+         die beiden anderen. Die Schmelze ist die einzige, die zischt. */
+      betten: [{ art: "rausch", filter: 175, güte: .6, pegel: .032, typ: "lowpass", atem: .06 },
+               { art: "rausch", filter: 1450, güte: .9, pegel: .062, atem: .17, tiefe: .55 },
+               { art: "ton", f: 62, pegel: .015, atem: .11 }],
+      ereignisse: [["blasebalg", 7, 13], ["hammer", 12, 26], ["zischen", 30, 60]],
     },
     arena: {
-      betten: [{ art: "ton", f: 55, pegel: .11, atem: .07 },
-               { art: "ton", f: 82.4, pegel: .075, atem: .05 },
-               { art: "ton", f: 110, pegel: .05, atem: .09 }],
-      ereignisse: [["glocke", 22, 48], ["fluestern", 10, 28]],
+      betten: [{ art: "ton", f: 55, pegel: .009, atem: .07 },
+               { art: "ton", f: 82.4, pegel: .006, atem: .05 },
+               { art: "ton", f: 110, pegel: .004, atem: .09 }],
+      ereignisse: [["glocke", 14, 30], ["fluestern", 7, 14]],
     },
     gassen: {
-      // Der Wind wird drinnen leise - das macht tickWetter, nicht die Tabelle
-      betten: [{ art: "rausch", filter: 620, güte: .8, pegel: .34, atem: .09, tiefe: .9 }],
-      ereignisse: [["kraehe", 14, 38], ["tropfen", 1.5, 4]],
+      /* Das Einzige, was von Anfang an stimmte - hier steht neben dem Bett
+         noch der echte Regenkanal, der an den Weckern nie hing. Das Bett
+         bleibt deshalb, wie es war; nur die Tropfen fielen dreiundzwanzigmal
+         je Minute und sind jetzt so selten wie alles andere.
+         Der Wind wird drinnen leise - das macht tickWetter, nicht die Tabelle. */
+      betten: [{ art: "rausch", filter: 620, güte: .8, pegel: .18, atem: .09, tiefe: .9 }],
+      ereignisse: [["kraehe", 10, 22], ["tropfen", 5, 11]],
     },
     katakomben: {
+      // Ebenfalls zu leise gemeldet. Die Stille bleibt der Ort - aber eine
+      // Stille, die man gar nicht hoert, ist keine, sondern nur nichts.
+      pegel: 1.9,
       /* Hier ist wirklich nichts - kein Ton am Rand des Hoerbaren mehr, der
          war ein Piepser und hoerte nie auf. Nur ein Sub, den man eher spuert
-         als hoert, und darueber der eigene Atem. Die Stille ist der Ort. */
-      betten: [{ art: "ton", f: 38, pegel: .16, atem: .04 }],
-      ereignisse: [["atem", 3.2, 4.4], ["steinschlag", 20, 45]],
+         als hoert, und darueber der eigene Atem. Die Stille ist der Ort -
+         aber der Sub war so laut, dass Atem und Steinschlag achtzehn Dezibel
+         darunter lagen und gar nicht vorkamen. */
+      betten: [{ art: "ton", f: 38, pegel: .012, atem: .04 }],
+      ereignisse: [["atem", 8, 16], ["steinschlag", 14, 30]],
     },
   },
 
@@ -3507,11 +3837,21 @@ const Sfx = {
       const t = this.jetzt();
       const gain = this.ctx.createGain();
       gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(1, t + 2.2);   // langsam auf, nicht schlagartig
+      /* Der Weltpegel: nicht jede Welt soll gleich laut sein. Eine Hoehle
+         darf lauter stehen als ein Kerker - er gilt fuer das Bett und fuer
+         die Ereignisse darueber, sonst verschluckt das eine das andere. */
+      const laut = (T.pegel === undefined ? 1 : T.pegel);
+      gain.gain.linearRampToValueAtTime(laut, t + 2.2);  // langsam auf, nicht schlagartig
       gain.connect(this.geraeuschBus || this.master);
 
+      /* Eine Aufnahme ersetzt das ganze Bett dieser Welt, nicht einzelne
+         Schichten davon: ein aufgenommenes Hoehlenrauschen bringt seine
+         eigene Tiefe mit und braucht das gerechnete nicht darunter. */
       const dauernd = [];
-      for (const b of (T.betten || []))
+      const bettName = "bett-" + this.atmoName;
+      const ausAufnahme = this.bettAusDatei(bettName, gain);
+      if (ausAufnahme) dauernd.push(ausAufnahme);
+      else for (const b of (T.betten || []))
         dauernd.push(...(b.art === "ton"
           ? this.bettTon(b, gain)
           : this.bettRauschen({ filter: b.filter, güte: b.güte, art: b.typ || "bandpass",
@@ -3521,20 +3861,27 @@ const Sfx = {
          stellen - so bleibt der Abstand ungleich, ohne dass es einen Takt
          gibt, auf den man sich einstellt. */
       const uhren = [];
-      const lauf = { gain, dauernd, uhren };
-      for (const [was, min, max] of (T.ereignisse || [])) {
+      const lauf = { gain, dauernd, uhren, bus: gain };
+      /* Der Lauf muss stehen, ehe der erste Wecker gestellt wird. Er stand
+         lange dahinter - dann sah der Wecker beim Stellen noch den alten
+         Lauf, hielt sich fuer veraltet und kehrte um. Gemessen: null von
+         achtzehn Weckern ueber alle sechs Welten, also nie ein Tropfen, nie
+         eine Kette, nie ein Hammer. Uebrig blieb je Welt nur ihr
+         Rauschbett - und eines klingt wie das andere. */
+      this.atmoLauf = lauf;
+      T.ereignisse && T.ereignisse.forEach(([was, min, max], i) => {
         const stelle = () => {
           if (this.atmoLauf !== lauf) return;
-          const u = setTimeout(() => {
+          // Nur der eigene naechste Wecker, nicht alle je gestellten:
+          // die Liste wuchs sonst endlos weiter.
+          uhren[i] = setTimeout(() => {
             if (this.atmoLauf !== lauf) return;
-            try { this.KLANG[was].call(this); } catch (e) {}
+            this.ereignis(was);   // Aufnahme, sonst der gerechnete Klang
             stelle();
           }, (min + Math.random() * (max - min)) * 1000);
-          uhren.push(u);
         };
         stelle();
-      }
-      this.atmoLauf = lauf;
+      });
     } catch (e) { this.atmoLauf = null; }
   },
 
@@ -3559,6 +3906,9 @@ const Sfx = {
   atmoPegel(wert) {
     this.atmoDraussen = wert;
     if (!this.atmoLauf || this.atmoName !== "gassen") return;
+    // Der Weltpegel bleibt darin enthalten - sonst spraenge es beim Eintreten
+    const welt = ((this.ATMO[this.atmoName] || {}).pegel);
+    wert = wert * (welt === undefined ? 1 : welt);
     try {
       const t = this.jetzt();
       const g = this.atmoLauf.gain.gain;
@@ -3813,6 +4163,9 @@ const Sfx = {
     const t = this.ctx.currentTime;
     if (this.letzte[name] && t - this.letzte[name] < .035) return;
     this.letzte[name] = t;
+
+    // Eine Aufnahme geht vor. Fehlt sie, wird wie bisher gerechnet.
+    if (this.ausDatei(name)) return;
 
     switch (name) {
       case "treffer":
@@ -4215,6 +4568,36 @@ const ITEMS = {
   leather:     { name: "Lederrüstung",  g: "f", kind: "armor",  tint: "#966E4A", slot: "Rüstung",  def: 1 },
   chain:       { name: "Kettenhemd",    g: "n", kind: "armor",  tint: "#A0A6B4", slot: "Rüstung",  def: 3 },
   plate:       { name: "Plattenpanzer", g: "m", kind: "armor",  tint: "#C4CAD8", slot: "Rüstung",  def: 6 },
+  /* ── Stuecke mit einer Eigenheit ──────────────────────────────────────
+     Bis hierher unterschieden sich zwei Waffen nur in Zahlen: mehr Angriff,
+     weniger Tempo. Diese vier tun etwas, das keine Zahl abbildet - und die
+     vier Ruestungen nehmen sich fuer das, was sie geben, etwas anderes. Man
+     waehlt damit nicht mehr die groessere Zahl, sondern eine Art zu kaempfen. */
+  meuchelklinge: { name: "Meuchelklinge", g: "f", kind: "weapon", tint: "#9C7FE0", slot: "Waffe",
+                 atk: 5, hast: .15, meuchel: 1.0,
+                 note: "das Doppelte an dem, der dich nicht kommen sieht" },
+  aderlass:    { name: "Aderlass",      g: "m", kind: "weapon", tint: "#C4564A", slot: "Waffe",
+                 atk: 7, bluten: 3,
+                 note: "die Wunde blutet nach" },
+  richtschwert:{ name: "Richtschwert",  g: "n", kind: "weapon", tint: "#D8CBA8", slot: "Waffe",
+                 atk: 9, hast: -.10, vollHieb: .30,
+                 note: "härter, solange du unversehrt bist" },
+  morgenstern: { name: "Morgenstern",   g: "m", kind: "weapon", tint: "#A8AEBC", slot: "Waffe",
+                 atk: 10, hast: -.20, wucht: 1,
+                 note: "wirft zurück, was er trifft" },
+  pilgermantel:{ name: "Pilgermantel",  g: "m", kind: "armor",  tint: "#9A8C6E", slot: "Rüstung",
+                 def: 1, tempo: .14, evade: .10, hast: .10, maxhp: -8,
+                 note: "deckt fast nichts und hält niemanden auf" },
+  dornenpanzer:{ name: "Dornenpanzer",  g: "m", kind: "armor",  tint: "#8E7A5E", slot: "Rüstung",
+                 def: 5, dornen: 3, tempo: -.06,
+                 note: "wer zuschlägt, schneidet sich" },
+  totenwacht:  { name: "Totenwacht",    g: "f", kind: "armor",  tint: "#A8B8A0", slot: "Rüstung",
+                 def: 4, wende: 9, maxhp: -10,
+                 note: "deckt umso besser, je weniger dir bleibt" },
+  bleiharnisch:{ name: "Bleiharnisch",  g: "m", kind: "armor",  tint: "#8A8E98", slot: "Rüstung",
+                 def: 9, maxhp: 14, tempo: -.22, evade: -.08,
+                 note: "nichts kommt durch, und du kommst nicht weit" },
+
   // avoid: Affixe, die neben dem eigenen Namen doppelt klingen würden
   vitality:    { name: "Blutstein",     g: "m", kind: "amulet", tint: "#E2608C", slot: "Amulett", maxhp: 25,
                  avoid: ["leben"] },
@@ -4291,6 +4674,14 @@ const KACHEL_EIGEN = {
   chain:          [2, 3, 9.0],
   schuppen:       [2, 3, 11.0],
   plate:          [2, 3, 16.0],
+  meuchelklinge:  [1, 2, 1.1],
+  aderlass:       [1, 3, 2.6],
+  richtschwert:   [2, 4, 6.0],
+  morgenstern:    [2, 3, 7.5],
+  pilgermantel:   [2, 2, 2.2],
+  dornenpanzer:   [2, 3, 10.0],
+  totenwacht:     [2, 3, 9.0],
+  bleiharnisch:   [2, 3, 19.0],
   schattenzahn:   [1, 2, 1.8],
   aschebringer:   [2, 4, 12.0],
   koenigsmoerder: [1, 3, 3.4],
@@ -4847,6 +5238,30 @@ function wendeSeltenAn(def, key) {
      sie, was es hat: die Wucht seiner Faehigkeit und die Wartezeit dazwischen.
      Die Wartezeit sinkt langsamer als die Wucht steigt - sonst waere ein
      episches Modul nicht besser, sondern ein anderes Spiel. */
+  /* Eigenheiten heben mit. Sonst waere ein episches Richtschwert nur ein
+     schwereres: der Angriff stiege, der Zuschlag fuer den unversehrten Hieb
+     bliebe stehen - und genau der ist der Grund, es zu tragen. */
+  /* Gedaempft, und zwar aus demselben Grund wie bei der Wartezeit eines
+     Moduls: diese Felder liegen auf einem Angriff, der schon gestiegen ist,
+     oder erneuern sich mit jedem Hieb. Der volle Faktor wirkt dort zweimal.
+     Gemessen: ein episches Richtschwert schlug sonst zweieinhalbmal so
+     hart wie ein gewoehnliches, und ein Aderlass setzte sieben Blutung je
+     Runde neben siebzehn Angriff. Die Wucht bleibt ungedaempft - sie ist
+     Weg und Betaeubung, kein Schaden, und begrenzt sich an der naechsten
+     Wand von selbst. */
+  const sanft = 1 + (r.mult - 1) * .55;
+  for (const feld of ["vollHieb", "meuchel"])
+    if (d[feld]) d[feld] = +(d[feld] * sanft).toFixed(3);
+  for (const feld of ["bluten", "dornen"])
+    if (d[feld]) d[feld] = Math.max(d[feld] + 1, Math.round(d[feld] * sanft));
+  /* Wucht und Notschutz steigen ueberhaupt nicht mit - wie Reichweite, Tempo
+     und Oel, die das seit jeher nicht tun. Nachgemessen, warum: ein Schlag
+     kommt alle 0,43 Sekunden, ein Wesen laeuft 3,4 Kacheln je Sekunde. Eine
+     epische Wucht haette 2,6 Kacheln geschoben und 1,2 Sekunden betaeubt -
+     der Getroffene waere nie wieder herangekommen und nie wieder zum Schlag.
+     Und ein epischer Notschutz von sechzehn haette am Rand des Todes mehr
+     gedeckt als ein Bollwerk. Beide Groessen messen sich am Takt des
+     Kampfes, nicht an der Stufe des Stuecks. */
   if (d.kraft) {
     d.kraft = +(d.kraft * r.mult).toFixed(2);
     d.cdAb = +(1 - 1 / (1 + (r.mult - 1) * .55)).toFixed(3);
@@ -4997,14 +5412,17 @@ const MONSTER_TABLE = {
 
 const ITEM_TABLE = {
   1: [["potion", 3], ["oil", 26], ["dagger", 8], ["leather", 8], ["modWall", 5]],
-  2: [["wurfmesser", 12], ["chart", 8], ["sword", 10], ["modLanze", 4]],
+  2: [["wurfmesser", 12], ["chart", 8], ["sword", 10], ["modLanze", 4],
+      ["meuchelklinge", 6]],
   3: [["blendpulver", 11], ["netz", 9], ["might", 9], ["chain", 10], ["spiess", 8],
-      ["modSchatten", 4]],
+      ["modSchatten", 4], ["pilgermantel", 7]],
   4: [["wurfoel", 13], ["wurfmesser", 9], ["ward", 9], ["reisemantel", 7],
       ["modDonner", 4], ["modSplitter", 4]],
-  5: [["greatPotion", 2], ["regen", 2], ["axe", 9], ["guard", 5], ["bigoil", 11]],
-  6: [["vitality", 6], ["wrath", 6], ["plate", 7], ["kolben", 7], ["modZoll", 4]],
-  7: [["plate", 9], ["schuppen", 7]],
+  5: [["greatPotion", 2], ["regen", 2], ["axe", 9], ["guard", 5], ["bigoil", 11],
+      ["aderlass", 7]],
+  6: [["vitality", 6], ["wrath", 6], ["plate", 7], ["kolben", 7], ["modZoll", 4],
+      ["richtschwert", 7], ["dornenpanzer", 6]],
+  7: [["plate", 9], ["schuppen", 7], ["morgenstern", 6], ["bleiharnisch", 5]],
   8: [["runeblade", 7], ["hellebarde", 5]],
 };
 
@@ -5043,6 +5461,18 @@ const TOTENSTADT_THEMES = [
     speck: "232,224,196", glow: "200,190,150", mote: "#E8E0C4",
     rock: "#0C0A08", decor: "ash", gen: "katakomben", style: "masonry",
   },
+  {
+    /* Die letzte Etage ist ein gebauter Ort, kein gewuerfelter. `klang`
+       sagt, dass sie trotzdem wie die Katakomben klingen soll - sonst
+       braeuchte sie eine eigene Kulisse fuer eine einzige Etage, und wer
+       eine Aufnahme dafuer eingelegt hat, hoerte sie im letzten Raum nicht. */
+    from: 10, name: "Die Gruft",
+    wallDim: "#1E2218", wallLit: "#525C42", wallTop: "#74805C",
+    floorDim: "#141810", floorLit: "#2C3222",
+    speck: "200,220,160", glow: "168,200,128", mote: "#C8E0A0",
+    rock: "#0A0C07", decor: "grab", gen: "gruft", klang: "katakomben",
+    style: "masonry",
+  },
 ];
 
 // Wer dort steht. Ab Etage 6 kommt schwereres Geschuetz dazu.
@@ -5059,10 +5489,11 @@ const TOTENSTADT_MONSTER = {
 const TOTENSTADT_ITEMS = {
   1: [["potion", 3], ["oil", 22], ["chain", 8], ["sword", 6], ["modWall", 4]],
   3: [["greatPotion", 2], ["bigoil", 9], ["salzbeutel", 10], ["grabmal", 7], ["axe", 6],
-      ["modSchatten", 4]],
+      ["modSchatten", 4], ["aderlass", 6]],
   5: [["knochenhemd", 8], ["grabklinge", 8], ["salzbeutel", 9], ["regen", 3],
-      ["modZehr", 5], ["modStille", 5]],
-  7: [["salzpanzer", 7], ["totenaxt", 7], ["plate", 5], ["modZoll", 4]],
+      ["modZehr", 5], ["modStille", 5], ["totenwacht", 7]],
+  7: [["salzpanzer", 7], ["totenaxt", 7], ["plate", 5], ["modZoll", 4],
+      ["totenwacht", 6], ["morgenstern", 5]],
   9: [["grabklinge", 9], ["salzpanzer", 8], ["totenaxt", 8], ["grabmal", 8]],
 };
 
@@ -5178,11 +5609,13 @@ const RAEUBER_ZAHL = [[1, 0], [2, 1], [5, 2], [9, 3]];
 
 // Woraus ihr Geraet gezogen wird - dieselben Stuecke, die auch du findest.
 const RAEUBER_WAFFEN = [
-  ["dagger", 1], ["sword", 1], ["spiess", 3], ["axe", 5],
-  ["kolben", 6], ["runeblade", 8], ["hellebarde", 9],
+  ["dagger", 1], ["sword", 1], ["meuchelklinge", 2], ["spiess", 3], ["axe", 5],
+  ["aderlass", 5], ["kolben", 6], ["richtschwert", 7], ["runeblade", 8],
+  ["morgenstern", 8], ["hellebarde", 9],
 ];
 const RAEUBER_RUESTUNG = [
-  ["leather", 1], ["reisemantel", 2], ["chain", 3], ["schuppen", 6], ["plate", 7],
+  ["leather", 1], ["pilgermantel", 1], ["reisemantel", 2], ["chain", 3],
+  ["dornenpanzer", 5], ["schuppen", 6], ["plate", 7], ["bleiharnisch", 8],
 ];
 // Was sie im Beutel haben, wenn sie dir begegnen - sie waren ja schon unterwegs.
 /* Was ein Pluenderer bei sich traegt. Wurfgeraet gehoert dazu - sie leben
@@ -5535,10 +5968,19 @@ function wert(eintrag) {
   const d = eintrag.def;
   let w = 8;
   w += (d.atk || 0) * 14 + (d.def || 0) * 16 + (d.maxhp || 0) * .9;
-  w += (d.crit || 0) * 300 + (d.evade || 0) * 300;
+  w += (d.crit || 0) * 300 + Math.abs(d.evade || 0) * 300;
   w += Math.abs(d.hast || 0) * 200 + Math.abs(d.reach || 0) * 260;
+  /* Tempo stand hier nie - ein Bollwerk wurde nie dafuer bezahlt, dass es
+     langsam macht, und ein Pilgermantel nicht dafuer, dass er schnell
+     macht. Der Betrag, wie bei Hast: ein Nachteil macht ein Stueck genauso
+     interessant wie ein Vorteil. */
+  w += Math.abs(d.tempo || 0) * 200;
   w += (d.killHeal || 0) * 30 + Math.abs(d.fovBonus || 0) * 40;
   w += (d.oilSteps || 0) * 25 + (d.lootLuck || 0) * 300;
+  /* Eigenheiten. Dieselben Koeffizienten wie im Vergleich, damit der Tresen
+     und der Pfeil auf der Kachel nicht Verschiedenes sagen. */
+  w += (d.vollHieb || 0) * 160 + (d.meuchel || 0) * 70 + (d.wucht || 0) * 70;
+  w += (d.bluten || 0) * 26 + (d.dornen || 0) * 22 + (d.wende || 0) * 10;
   if (d.use) {
     /* Wurfgeraet stapelt sich, also zaehlt der Preis je Stueck. Die Karte
        ist teurer als alles andere: es gibt nur einen versteckten Schacht je
@@ -6332,6 +6774,7 @@ function generateFloor(floor) {
   if (art === "arena") return generateArena(floor);
   if (art === "gassen") return generateGassen(floor);
   if (art === "katakomben") return generateKatakomben(floor);
+  if (art === "gruft") return generateGruft(floor);
 
   const rooms = [];
   const maxRooms = 16 + Math.floor(floor / 2);
@@ -6845,10 +7288,55 @@ const ARENA_PLAN = [
   "###########################",
 ];
 
-function generateArena(floor) {
+/* ── Die Gruft des Totengraebers ──────────────────────────────────────────
+   Dieselbe Bauart wie die Kammer des Namenlosen, aber ein anderer Ort:
+   statt Saeulen stehen Grabmale in zwei Reihen zu beiden Seiten eines
+   Mittelgangs. Er hebt Graeber aus, und was darin liegt, steht auf - wer
+   zwischen den Reihen kaempft, kaempft zwischen dem, was gleich aufsteht. */
+const GRUFT_PLAN = [
+  "###########################",
+  "#.................#########",
+  "#.O...............#########",
+  "#.................#########",
+  "#.................#########",
+  "#############..############",
+  "#############..############",
+  "#############VV############",
+  "#.........................#",
+  "#.........................#",
+  "#..P..P..P.....P..P..P....#",
+  "#.........................#",
+  "#.O.........B...........O.#",
+  "#.........................#",
+  "#..P..P..P.....P..P..P....#",
+  "#.........................#",
+  "#.........................#",
+  "#.O.....................O.#",
+  "#.........................#",
+  "###########################",
+];
+
+function generateArena(floor) { return generateKammer(ARENA_PLAN); }
+/* Der Kreis der Gruft leuchtet in Grabfarben statt im Rot des Namenlosen.
+   Gleich als Zahlentripel, weil er nur so gebraucht wird - eine Umrechnung
+   von Hex waere eine Funktion fuer genau einen Aufrufer. */
+function generateGruft(floor) {
+  return generateKammer(GRUFT_PLAN, { ring: "124,168,106", zeichen: "176,212,140" });
+}
+
+/* Baut einen gezeichneten Grundriss auf die Karte. Was frueher fest darin
+   stand - die Vorkammer endet in Zeile acht, ihre Mitte liegt bei Spalte
+   siebzehn -, wird jetzt aus dem Plan gelesen: sonst gaelte es nur fuer den
+   einen, fuer den es einmal aufgeschrieben wurde. */
+function generateKammer(plan, kreisFarbe) {
+  const ARENA_PLAN = plan;                 // der Rest liest weiter so
   const map = newMap();
   const bw = ARENA_PLAN[0].length, bh = ARENA_PLAN.length;
   const ox = ((MAP_W - bw) / 2) | 0, oy = ((MAP_H - bh) / 2) | 0;
+
+  // Wo der Schleier liegt, trennt Vorkammer und Halle - im Plan nachgesehen
+  let schleierZeile = ARENA_PLAN.findIndex(z => z.indexOf("V") >= 0);
+  if (schleierZeile < 0) schleierZeile = 0;
 
   const vorkammer = [], halle = [];
   let bossX = 0, bossY = 0;
@@ -6872,17 +7360,28 @@ function generateArena(floor) {
 
       // Alles oberhalb des Schleiers gehört zur Vorkammer
       if (map.tiles[i] !== PILLAR && map.tiles[i] !== VEIL) {
-        (r < 8 ? vorkammer : halle).push([x, y]);
+        (r < schleierZeile ? vorkammer : halle).push([x, y]);
       }
     }
   }
 
   map.sealed = false;
-  map.circle = { cx: bossX, cy: bossY, r: 5 };
+  map.circle = { cx: bossX, cy: bossY, r: 5, farbe: kreisFarbe || null };
   map.arenaSchalen = schalen;
 
+  /* Die Mitte der Vorkammer aus ihren eigenen Feldern, nicht aus einer
+     Spaltennummer: die galt fuer den einen Plan, fuer den sie notiert
+     worden war, und haette in der Gruft in einer Wand gelegen. */
+  let mx = ox, my = oy;
+  if (vorkammer.length) {
+    mx = Math.round(vorkammer.reduce((a, f) => a + f[0], 0) / vorkammer.length);
+    my = Math.round(vorkammer.reduce((a, f) => a + f[1], 0) / vorkammer.length);
+    const drin = vorkammer.some(([x, y]) => x === mx && y === my);
+    if (!drin) { mx = vorkammer[0][0]; my = vorkammer[0][1]; }
+  }
+
   const zones = [
-    { tiles: vorkammer, center: [ox + 17, oy + 2] },
+    { tiles: vorkammer, center: [mx, my] },
     { tiles: halle, center: [bossX, bossY] },
   ];
   return { map, zones, arena: { cx: bossX, cy: bossY } };
@@ -8502,7 +9001,13 @@ function populateFloor(floor) {
   }
   /* Unten laeuft keine Musik mehr - dort steht die Kulisse des Ortes. */
   Sfx.musik_an(false);
-  Sfx.atmo(theme().gen);
+  /* themeFor(floor), nicht theme(): die Funktion bekommt die Etage als
+     Argument, las sie hier aber wieder aus G. Solange der Aufrufer G.floor
+     vorher hochzaehlt, kommt dasselbe heraus - aber wer sie einmal fuer eine
+     andere Etage ruft, bekaeme still die Kulisse der falschen Welt. */
+  // `klang` schlaegt `gen`: die Gruft wird anders gebaut, klingt aber wie
+  // die Katakomben, in denen sie liegt.
+  Sfx.atmo(themeFor(floor).klang || themeFor(floor).gen);
   if (regnetHier()) Sfx.starteRegen(); else Sfx.stoppeRegen();
 
   // Namentliche kommen zuletzt: erst wenn Treppe und Boss stehen, laesst sich
@@ -8863,7 +9368,20 @@ function playerAtk() {
   const trotz = p.trotz && p.hp <= playerMaxHp() / 3 ? p.trotz : 0;
   return p.baseAtk + equipBonus("atk") + statusMag(p, "Stärke") + trotz + standhaft;
 }
-function playerDef() { return G.player.baseDef + equipBonus("def") + statusMag(G.player, "Schutz"); }
+function playerDef() {
+  return G.player.baseDef + equipBonus("def") + statusMag(G.player, "Schutz") + notschutz();
+}
+
+/* Totenwacht: der Schutz steigt, je weniger Leben uebrig ist - bei vollem
+   Leben gar nicht, bei leerem ganz. Sie ist damit die einzige Ruestung, die
+   erst dann gut wird, wenn es schon schlecht steht. */
+function notschutz() {
+  const w = equipBonus("wende");
+  if (!w) return 0;
+  const max = playerMaxHp();
+  if (max <= 0) return w;
+  return Math.round(w * Math.max(0, Math.min(1, 1 - G.player.hp / max)));
+}
 function playerMaxHp() { return G.player.baseMaxHp + equipBonus("maxhp"); }
 
 const atkOf = a => a.isPlayer ? playerAtk() : a.spec.atk + statusMag(a, "Stärke");
@@ -8914,6 +9432,16 @@ function damage(target, amount, source) {
       target.trotzStapel = Math.min(skillRang("trotzig"), (target.trotzStapel || 0) + 1);
       target.trotzBis = G.time + 5;
       floatText(target.x, target.y - .4, `Zorn ×${target.trotzStapel}`, "#E8A94B");
+    }
+    /* Dornenpanzer: was zuschlaegt, schneidet sich. Nur im Nahkampf - in
+       einen Pfeil aus sechs Kacheln Entfernung laeuft kein Dorn. Erst hier
+       unten, damit weder ein abgeprallter noch ein ausgewichener Schlag
+       etwas zurueckgibt: getroffen hat, wer durchkam. */
+    const dorn = amount > 0 ? equipBonus("dornen") : 0;
+    if (dorn && source && !source.isPlayer && source.alive &&
+        Math.hypot(source.x - target.x, source.y - target.y) < 1.9) {
+      floatText(source.x, source.y - .4, "−" + dorn, "#8E7A5E");
+      damage(source, dorn, target);
     }
   }
   // Der Wächter ist gedeckt, solange auch nur eine seiner Säulen steht
@@ -9177,6 +9705,20 @@ function addDecal(x, y, type) {
   G.decals.push({ x, y, type, seed: Math.floor(rng() * 1000) });
 }
 
+/* Etwas ein Stueck wegschieben, ohne dass es in einer Wand landet. In
+   Schritten, nicht in einem Sprung - sonst steht der Getroffene im Stein.
+   Der Donnerschlag hatte das lange als eigene Schleife bei sich; seit der
+   Morgenstern dasselbe braucht, steht es an einer Stelle. */
+function schiebeWeg(a, nx, ny, weite) {
+  let weg = 0;
+  while (weg < weite) {
+    const px = a.x + nx * .16, py = a.y + ny * .16;
+    if (blockiert(px, py, a.radius || .35)) break;
+    a.x = px; a.y = py; weg += .16;
+  }
+  return weg;
+}
+
 function healActor(a, amount) {
   const max = maxHpOf(a);
   const before = a.hp;
@@ -9193,7 +9735,7 @@ function addStatus(a, name, turns, mag) {
 function tickStatuses(a) {
   for (const name of Object.keys(a.statuses)) {
     const s = a.statuses[name];
-    if (name === "Gift") {
+    if (name === "Gift" || name === "Blutung") {
       damage(a, s.mag, null);
       if (!a.alive) return;
     } else if (name === "Regeneration") {
@@ -9360,8 +9902,28 @@ function attack(attacker, target) {
   let [dmg, crit] = resolveDamage(atkOf(attacker), defOf(target),
     attacker.isPlayer ? .1 + (attacker.crit || 0) + equipBonus("crit") : .1);
 
+  /* Richtschwert: der erste Hieb aus voller Kraft. Es belohnt den, der
+     unversehrt in einen Kampf geht, und wird schwaecher, je laenger der
+     Kampf dauert - das Gegenstueck zu allem, was bei wenig Leben aufdreht. */
+  if (attacker.isPlayer && dmg > 0) {
+    const voll = equipBonus("vollHieb");
+    if (voll && attacker.hp >= playerMaxHp() * .9) {
+      dmg = Math.round(dmg * (1 + voll));
+      floatText(attacker.x, attacker.y - .5, "unversehrt", "#D8CBA8");
+    }
+  }
   // Erstschlag: wer dich noch nicht bemerkt hat, bekommt das Dreifache
   let ausHinterhalt = false;
+  /* Meuchelklinge: dasselbe Prinzip wie der Erstschlag, aber am Stueck statt
+     am Talent - und beide zusammen sind der Grund, ueberhaupt zu schleichen. */
+  if (attacker.isPlayer && !target.wach && dmg > 0) {
+    const m = equipBonus("meuchel");
+    if (m) {
+      dmg = Math.round(dmg * (1 + m));
+      ausHinterhalt = true;
+      burst(target.x, target.y, "#9C7FE0", 14);
+    }
+  }
   if (attacker.isPlayer && skillRang("hinterhalt") && !target.wach && dmg > 0) {
     dmg = Math.round(dmg * (1 + skillRang("hinterhalt") * .25));
     ausHinterhalt = true;
@@ -9402,6 +9964,28 @@ function attack(attacker, target) {
     if (attacker.isPlayer || target.isPlayer || seesTile(kachelX(target), kachelY(target)))
       Sfx.spiel(target.isPlayer ? "wehgetan" : (crit ? "kritisch" : "treffer"));
     damage(target, dmg + extra, attacker);
+    /* Morgenstern: jeder Treffer wirft zurueck. Er macht damit aus einem
+       Nahkampf ein Wegdruecken - langsam, aber niemand kommt an dich heran. */
+    const wucht = attacker.isPlayer ? equipBonus("wucht") : 0;
+    if (wucht && target.alive && !target.isPlayer) {
+      const dx = target.x - attacker.x, dy = target.y - attacker.y;
+      const len = Math.hypot(dx, dy) || 1;
+      /* Beide Zahlen haengen am Takt des Kampfes: ein Wesen laeuft 3,4
+         Kacheln je Sekunde, und du schlaegst alle 0,43 Sekunden - es kommt
+         also 1,47 Kacheln weit zwischen zwei Hieben. Wer weiter schoebe,
+         wuerde nie wieder erreicht; wer laenger betaeubte als ein Schlagtakt
+         dauert, fesselte statt zu werfen. */
+      schiebeWeg(target, dx / len, dy / len, .8 * wucht);
+      target.stunned = Math.max(target.stunned || 0, .12 * wucht);
+      target.wach = true;
+      ring(target.x, target.y, .9, "#A8AEBC");
+    }
+    // Aderlass: die Wunde blutet nach, auch wenn du weitergehst
+    const bluten = attacker.isPlayer ? equipBonus("bluten") : 0;
+    if (bluten && target.alive) {
+      addStatus(target, "Blutung", 4, bluten);
+      if (!target.isPlayer) burst(target.x, target.y, "#C4564A", 6);
+    }
     // Verseuchte Gegner geben ihr Gift beim Zuschlagen weiter
     if (aff && aff.key === "seuche" && target.alive) {
       addStatus(target, "Gift", 6, 2);
@@ -9748,6 +10332,8 @@ function useItem(entry, targetXY) {
 
     case "chart": {
       G.map.explored.fill(1);
+      // Der Klang dafuer lag seit jeher daneben, ohne je gerufen zu werden
+      Sfx.spiel("rolle");
       log("Der Grundriss dieser Etage prägt sich dir ein.", "good");
       consume(); return true;
     }
@@ -9964,14 +10550,7 @@ function useAbility(dx, dy) {
       if (dist > ab.weite) continue;
       const nx = dist > .01 ? (z.x - p.x) / dist : 1;
       const ny = dist > .01 ? (z.y - p.y) / dist : 0;
-      // Stueckweise schieben, damit niemand in einer Wand landet
-      let weg = 0;
-      const schub = 2.6;
-      while (weg < schub) {
-        const px = z.x + nx * .16, py = z.y + ny * .16;
-        if (blockiert(px, py, z.radius || .35)) break;
-        z.x = px; z.y = py; weg += .16;
-      }
+      schiebeWeg(z, nx, ny, 2.6);
       z.stunned = Math.max(z.stunned || 0, ab.dauer);
       z.wach = true;
       damage(z, Math.max(2, Math.round(3 + p.level * .5)), p);
@@ -9981,7 +10560,10 @@ function useAbility(dx, dy) {
     ring(p.x, p.y, ab.weite, "#E8D06A");
     burst(p.x, p.y, "#E8D06A", 22);
     anim.shake = 10;
-    Sfx.spiel("stoss");
+    /* Der eigene Klang statt des geteilten: Schildwall, Splitterstoss und
+       Donnerschlag klangen alle drei gleich, und ein Modul, das Donnerkeil
+       heisst, hat einen Blitz verdient. */
+    Sfx.spiel("blitz");
     p.laerm = Math.min(100, (p.laerm || 0) + 14);   // Donner hallt
     log(getroffen
       ? `Der Donnerschlag wirft ${getroffen} zurück — zwei Sekunden Luft.`
@@ -11382,13 +11964,16 @@ function drawFrame(dt) {
     if (sichtbar) {
       const puls = .5 + Math.sin(anim.t * 1.1) * .5;
       ctx.save();
-      ctx.strokeStyle = `rgba(216,80,72,${.20 + puls * .16})`;
+      // Der Namenlose hat einen roten Kreis, die Gruft einen in Grabfarben
+      const rgb = (c.farbe && c.farbe.ring) || "216,80,72";
+      ctx.strokeStyle = `rgba(${rgb},${.20 + puls * .16})`;
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(cxp, cyp, c.r * TILE, 0, 6.283); ctx.stroke();
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cxp, cyp, (c.r - 1.2) * TILE, 0, 6.283); ctx.stroke();
       // Zeichen auf dem Kreis
-      ctx.fillStyle = `rgba(232,120,96,${.24 + puls * .22})`;
+      const hell = (c.farbe && c.farbe.zeichen) || "232,120,96";
+      ctx.fillStyle = `rgba(${hell},${.24 + puls * .22})`;
       for (let k = 0; k < 12; k++) {
         const w = (k / 12) * 6.283 + anim.t * .05;
         const rx = cxp + Math.cos(w) * (c.r - .6) * TILE;
@@ -11760,10 +12345,52 @@ function klangZeile(id, wort, wert, hinweis) {
   </div>`;
 }
 
+/* Was das Spiel über seine Aufnahmen zu sagen hat.
+
+   "Ich höre die Sounds nicht" liess sich von aussen nicht beantworten: es
+   kann am Ton liegen, am Ordner, an den Namen - oder daran, dass die Seite
+   per Doppelklick geoeffnet wurde. Dann steht sie auf file://, und dort
+   verweigert der Browser jedes Nachladen einer lokalen Datei, still und
+   ohne Meldung. Das Spiel faellt auf seine gerechneten Klaenge zurueck und
+   niemand erfaehrt, warum. Jetzt steht es hier. */
+/* Die Argumente sind nur zum Pruefen da: gerade der Text, der erscheint,
+   wenn nichts funktioniert, laesst sich sonst nie ansehen - man muesste das
+   Spiel erst kaputtmachen, um ihn zu Gesicht zu bekommen. */
+function aufnahmenStand(protokoll, wieViele) {
+  const geladen = wieViele === undefined
+    ? Object.keys(Sfx.puffer || {}).length : wieViele;
+  const eingebettet = typeof KLANG_DATEI !== "undefined"
+    ? Object.keys(KLANG_DATEI).length : 0;
+  const moeglich = (Sfx.DATEI_NAMEN || []).length;
+  const ausDatei = (protokoll || location.protocol) === "file:";
+
+  if (geladen)
+    return `<p class="quiet" style="padding:4px 0 10px">
+      <b style="color:var(--verdigris-lit)">${geladen} von ${moeglich}</b>
+      Klängen liegt eine Aufnahme zugrunde${eingebettet
+        ? " (im Spiel eingebettet)" : " (aus dem Ordner <code>klang/</code>)"}.
+      Der Rest wird weiter gerechnet.</p>`;
+
+  if (ausDatei && !eingebettet)
+    return `<p class="quiet" style="padding:4px 0 10px">
+      <b style="color:var(--madder-lit)">Keine Aufnahme kommt an.</b>
+      Du hast die Datei direkt geöffnet — dabei steht die Seite auf
+      <code>file://</code>, und dort lässt der Browser aus Sicherheitsgründen
+      keine Datei nachladen. Starte <code>start.py</code> im Spielordner,
+      dann läuft es über einen kleinen Server und die Aufnahmen kommen an.
+      Bis dahin hörst du die gerechneten Klänge.</p>`;
+
+  return `<p class="quiet" style="padding:4px 0 10px">
+    Keine Aufnahmen — alle ${moeglich} Klänge werden gerechnet. Wer welche
+    einlegen will: <code>python klang_pruefen.py</code> sagt, wohin und
+    unter welchem Namen.</p>`;
+}
+
 function showKlang() {
   openModal(`<h2>Klang</h2>
-    <p class="sub">Alles wird zur Laufzeit erzeugt — keine Dateien. Musik gibt
-      es nur hier oben; unten hörst du, wo du bist.</p>
+    <p class="sub">Was nicht als Aufnahme vorliegt, wird zur Laufzeit erzeugt.
+      Musik gibt es nur hier oben; unten hörst du, wo du bist.</p>
+    ${aufnahmenStand()}
     <button class="choice" id="tonSchalter">
       <span class="key">${tastenName(BELEGUNG.ton)}</span><span>Ton</span>
       <span class="note" id="tonSchalterNote">${Sfx.an ? "an" : "aus"}</span></button>
@@ -14516,7 +15143,8 @@ function refreshUI() {
   $("statusBlock").hidden = statusNames.length === 0;
   $("statuses").innerHTML = statusNames.map(n => {
     const s = p.statuses[n];
-    const colour = n === "Gift" ? "var(--madder-lit)" : "var(--verdigris-lit)";
+    const colour = n === "Gift" || n === "Blutung"
+      ? "var(--madder-lit)" : "var(--verdigris-lit)";
     return `<div class="pip"><span style="color:${colour}">${n} +${s.mag}</span>
       <span class="turns">${s.turns} R</span></div>`;
   }).join("");
@@ -14741,13 +15369,19 @@ const WERTE = [
   ["maxhp",    "Leben",         "zahl"],
   ["crit",     "Kritisch",      "prozent"],
   ["evade",    "Ausweichen",    "prozent"],
-  ["hast",     "Tempo",         "prozent"],
-  ["tempo",    "Tempo",         "prozent"],
+  ["hast",     "Schlagtempo",   "prozent"],
+  ["tempo",    "Lauftempo",     "prozent"],
   ["reach",    "Reichweite",    "komma"],
   ["killHeal", "Leben je Kill", "zahl"],
   ["fovBonus", "Sicht",         "zahl"],
   ["oilSteps", "Öl hält",       "zahl"],
   ["lootLuck", "Fundglück",     "prozent"],
+  ["vollHieb", "Unversehrt",    "prozent"],
+  ["meuchel",  "Verborgen",     "prozent"],
+  ["wucht",    "Wucht",         "zahl"],
+  ["bluten",   "Blutung",       "zahl"],
+  ["dornen",   "Dornen",        "zahl"],
+  ["wende",    "Notschutz",     "zahl"],
 ];
 
 /* Was ein Wert wiegt, wenn man zwei Stuecke gegeneinander haelt. Dieselben
@@ -14759,6 +15393,7 @@ const WERTE = [
 const WERT_GEWICHT = {
   atk: 14, def: 16, maxhp: .9, crit: 300, evade: 300, hast: 200, tempo: 200,
   reach: 260, killHeal: 30, fovBonus: 40, oilSteps: 25, lootLuck: 300,
+  vollHieb: 160, meuchel: 70, wucht: 70, bluten: 26, dornen: 22, wende: 10,
 };
 
 const wertText = (art, v) =>
@@ -14858,10 +15493,13 @@ function slotBild(slot, farbe) {
 const STUECK_BILD = {
   aschebringer:    '<path d="M11.1 4h1.8V22.6h-1.8z" fill="currentColor" opacity=".7"/><path d="M12.9 4.4c5 .6 7.4 3.2 7.4 5.8s-2.4 5.2-7.4 5.8z" fill="currentColor"/><path d="M11.1 4.4C6.1 5 3.7 7.6 3.7 10.2s2.4 5.2 7.4 5.8z" fill="currentColor"/><path d="M12.9 7c2.8.5 4.2 2 4.2 3.2s-1.4 2.7-4.2 3.2z" fill="#000" opacity=".3"/><path d="M11.1 7C8.3 7.5 6.9 9 6.9 10.2s1.4 2.7 4.2 3.2z" fill="#000" opacity=".3"/>',
   axe:             '<path d="M11 4h2v17h-2z" fill="currentColor" opacity=".7"/><path d="M13 4.4c4.4.4 6.6 2.6 6.6 5.2S17.4 14 13 14.4z" fill="currentColor"/><path d="M11 4.4C6.6 4.8 4.4 7 4.4 9.6S6.6 14 11 14.4z" fill="currentColor" opacity=".85"/><path d="M13 6.2c2.8.5 4.2 1.9 4.2 3.4s-1.4 2.9-4.2 3.4z" fill="#000" opacity=".3"/>',
+  aderlass:        '<path d="M2.6 3C10.4 4.5 15.6 9.9 16 16.6h-3.2C12.4 10.6 8.2 5.9 2.6 3z" fill="currentColor"/><path d="M12.3 16.2h4.2v1.5h-4.2z" fill="currentColor"/><path d="M13.2 17.7h2.4v5.1h-2.4z" fill="currentColor" opacity=".62"/><path d="M7 9.2c.8 1.2 1.2 2.1 1.2 2.7 0 .7-.5 1.3-1.2 1.3s-1.2-.6-1.2-1.3c0-.6.4-1.5 1.2-2.7z" fill="currentColor" opacity=".85"/><path d="M4 13.4c.6 1 .9 1.6.9 2 0 .6-.4 1-.9 1s-.9-.4-.9-1c0-.4.3-1 .9-2z" fill="currentColor" opacity=".7"/>',
   bergherz:        '<path d="M12 20.4c-3.6-2.6-5.8-5.2-5.8-8 0-2.2 1.6-3.8 3.6-3.8 1.2 0 2.1.6 2.2 1.6.1-1 1-1.6 2.2-1.6 2 0 3.6 1.6 3.6 3.8 0 2.8-2.2 5.4-5.8 8z" fill="currentColor"/><path d="M4.6 8.2 12 2.4l7.4 5.8-1.6 1.4L12 5.2 6.2 9.6z" fill="currentColor" opacity=".65"/><path d="M9.6 12.6c0-1 .8-1.8 1.8-1.8" stroke="#fff" stroke-width="1.3" opacity=".4" fill="none"/>',
+  bleiharnisch:    '<path d="M12 2.2 4.6 4.8v6.8c0 4.4 3 7.6 7.4 9.4 4.4-1.8 7.4-5 7.4-9.4V4.8z" fill="currentColor"/><path d="M4.6 8.4h14.8M5 12.6h14" stroke="#000" stroke-width="2.1" opacity=".4"/><g fill="#000" opacity=".4"><circle cx="7.6" cy="6.4" r=".95"/><circle cx="12" cy="6.4" r=".95"/><circle cx="16.4" cy="6.4" r=".95"/><circle cx="9.2" cy="10.6" r=".95"/><circle cx="14.8" cy="10.6" r=".95"/></g>',
   bollwerk:        '<path d="M12 1.8 4 4.6v7.2c0 4.8 3.2 8.2 8 10.2 4.8-2 8-5.4 8-10.2V4.6z" fill="currentColor"/><path d="M12 1.8v20.2" stroke="#000" stroke-width="1.6" opacity=".45"/><path d="M4 8.6h16M4 14h16" stroke="#000" stroke-width="1.4" opacity=".45"/><path d="M5.8 5.4 12 3.4v3.6H5.8z" fill="#fff" opacity=".25"/>',
   chain:           '<path d="M12 2.4 5 5v6.6c0 4.2 2.9 7.2 7 8.8 4.1-1.6 7-4.6 7-8.8V5z" fill="currentColor" opacity=".9"/><g fill="#000" opacity=".35"><circle cx="9.4" cy="8" r="1.1"/><circle cx="12" cy="8" r="1.1"/><circle cx="14.6" cy="8" r="1.1"/><circle cx="10.7" cy="10.6" r="1.1"/><circle cx="13.3" cy="10.6" r="1.1"/><circle cx="12" cy="13.2" r="1.1"/></g>',
   dagger:          '<path d="M12 2.4 14.2 9v7.2H9.8V9z" fill="currentColor"/><path d="M8.2 16.2h7.6v1.8H8.2z" fill="currentColor" opacity=".75"/><path d="M11.1 18h1.8V21.6h-1.8z" fill="currentColor" opacity=".75"/><path d="M12 4.6 13 9h-2z" fill="#fff" opacity=".25"/>',
+  dornenpanzer:    '<path d="M12 3.4 5.6 5.8v6.2c0 4 2.7 6.8 6.4 8.2 3.7-1.4 6.4-4.2 6.4-8.2V5.8z" fill="currentColor" opacity=".9"/><g fill="currentColor"><path d="M5.7 6.4 2 4.4l3.7 4z"/><path d="M18.3 6.4 22 4.4l-3.7 4z"/><path d="M5.8 12.2 2.2 12.4l3.6 2.2z"/><path d="M18.2 12.2l3.6.2-3.6 2.2z"/><path d="M12 20.4l-1.4 3 2.8 0z"/></g><path d="M9.2 8.4 12 11.6l2.8-3.2" stroke="#000" stroke-width="1.4" opacity=".35" fill="none"/>',
   ewiglicht:       '<path d="M12 2.6c2.4 3.4 3.8 6 3.8 8.2 0 2.6-1.7 4.4-3.8 4.4s-3.8-1.8-3.8-4.4c0-2.2 1.4-4.8 3.8-8.2z" fill="currentColor"/><path d="M12 7.4c1.2 2 1.9 3.4 1.9 4.6 0 1.3-.9 2.2-1.9 2.2s-1.9-.9-1.9-2.2c0-1.2.7-2.6 1.9-4.6z" fill="#fff" opacity=".25"/><path d="M8.6 16.4h6.8v2.2H8.6z" fill="currentColor" opacity=".6"/><path d="M9.8 18.6h4.4v2.6H9.8z" fill="currentColor" opacity=".45"/>',
   grabklinge:      '<path d="M12 1.6 14.4 6.4 13.4 17h-2.8L9.6 6.4z" fill="currentColor"/><path d="M7.6 17h8.8v2H7.6z" fill="currentColor" opacity=".7"/><path d="M11.1 19h1.8V22.6h-1.8z" fill="currentColor" opacity=".7"/><circle cx="12" cy="20.2" r="1.5" fill="currentColor"/><path d="M12 5.4 13 12h-2z" fill="#000" opacity=".3"/>',
   grabmal:         '<path d="M12 3.6c2.8 0 4.6 1.8 4.6 4.4V19H7.4V8c0-2.6 1.8-4.4 4.6-4.4z" fill="currentColor"/><path d="M9.6 19h4.8v2.4H9.6z" fill="currentColor" opacity=".65"/><path d="M12 7v7M9.6 9.4h4.8" stroke="#000" stroke-width="1.5" opacity=".4"/>',
@@ -14871,6 +15509,7 @@ const STUECK_BILD = {
   koenigsmoerder:  '<path d="M12 1 14.2 6.2v10.4h-4.4V6.2z" fill="currentColor"/><path d="M6.4 16.8h11.2v2.2H6.4z" fill="currentColor" opacity=".75"/><path d="M10.9 19h2.2V23h-2.2z" fill="currentColor" opacity=".75"/><path d="M8.6 3.4 12 1l3.4 2.4-1.2 2.2h-4.4z" fill="currentColor"/><path d="M12 8 13.4 11 12 14l-1.4-3z" fill="#fff" opacity=".25"/>',
   kolben:          '<path d="M11.2 9h1.6V22h-1.6z" fill="currentColor" opacity=".8"/><path d="M12 1.6 15.6 4v5L12 11.4 8.4 9V4z" fill="currentColor"/><path d="M12 4.2 14 5.4v2.4L12 9 10 7.8V5.4z" fill="#000" opacity=".3"/><path d="M15.6 4.6 18 3.4M8.4 4.6 6 3.4M15.6 8.4 18 9.6M8.4 8.4 6 9.6" stroke="currentColor" stroke-width="1.6" fill="none"/>',
   leather:         '<path d="M12 2.4 5 5v6.6c0 4.2 2.9 7.2 7 8.8 4.1-1.6 7-4.6 7-8.8V5z" fill="currentColor" opacity=".9"/><path d="M12 5.4 7.8 7v4.8c0 2.7 1.8 4.7 4.2 5.8z" fill="#000" opacity=".3"/><path d="M9.4 8.6h5.2M9.4 11.4h5.2" stroke="#000" stroke-width="1" opacity=".35" fill="none"/>',
+  meuchelklinge:   '<path d="M10.6 16.2C10.2 9.8 11.6 5.2 15.6 1.8c.9 5.2-.2 9.9-2.4 14.4z" fill="currentColor"/><path d="M8 16.2h8.4v2H8z" fill="currentColor" opacity=".72"/><path d="M10.9 18.2h2.2v3.4h-2.2z" fill="currentColor" opacity=".72"/><circle cx="12" cy="22" r="1.3" fill="currentColor" opacity=".72"/><path d="M12.6 14.6c-.5-4.4.2-7.9 2.2-10.8" stroke="#fff" stroke-width="1.1" opacity=".3" fill="none"/>',
   modDonner:       '<path d="M12 2.6 20.2 7v10L12 21.4 3.8 17V7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><g fill="currentColor"><path d="M13.4 6.4 8.6 13h2.8l-1 5 4.8-7h-2.6z"/></g>',
   modLanze:        '<path d="M12 2.6 20.2 7v10L12 21.4 3.8 17V7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><g fill="currentColor"><path d="M12 6.6c1.8 2.6 2.8 4.4 2.8 6 0 1.9-1.3 3.2-2.8 3.2s-2.8-1.3-2.8-3.2c0-1.6 1-3.4 2.8-6z"/></g>',
   modSchatten:     '<path d="M12 2.6 20.2 7v10L12 21.4 3.8 17V7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><g fill="currentColor"><path d="M9 7.4c-1.6 1.2-2.6 3-2.6 4.8 0 2.8 2.3 4.8 5.2 4.8 1.1 0 2-.2 2.8-.7-2.9-.3-5-2.3-5-4.8 0-1.6.6-3 1.6-4.1z"/></g>',
@@ -14879,10 +15518,13 @@ const STUECK_BILD = {
   modWall:         '<path d="M12 2.6 20.2 7v10L12 21.4 3.8 17V7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><g fill="currentColor"><path d="M12 7.6 15.6 9v3.4c0 2.2-1.5 3.8-3.6 4.6-2.1-.8-3.6-2.4-3.6-4.6V9z"/></g>',
   modZehr:         '<path d="M12 2.6 20.2 7v10L12 21.4 3.8 17V7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><g fill="currentColor"><path d="M7.4 8.4c3 .6 5.2 2.4 6.2 4.6l2.4-1.4-1 4.4-4.2-1.4 2-1.2c-.9-1.8-2.7-3.2-5.4-3.8z"/></g>',
   modZoll:         '<path d="M12 2.6 20.2 7v10L12 21.4 3.8 17V7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><g fill="currentColor"><path d="M12 6.6c2.2 3.2 3.4 5.4 3.4 7.2 0 2-1.5 3.4-3.4 3.4s-3.4-1.4-3.4-3.4c0-1.8 1.2-4 3.4-7.2z"/><path d="M10.4 13.6h3.2v1.2h-3.2z" fill="#000" opacity=".4"/></g>',
+  morgenstern:     '<path d="M11.2 10.6h1.6V21.6h-1.6z" fill="currentColor" opacity=".8"/><path d="M9.4 21.2h5.2v1.8H9.4z" fill="currentColor" opacity=".55"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round" fill="none"><path d="M12 1.2V3.6M6.5 3 8.3 4.9M17.5 3 15.7 4.9M3.6 7.4H6M20.4 7.4H18M6.5 11.8 8.3 9.9M17.5 11.8 15.7 9.9"/></g><circle cx="12" cy="7.4" r="3.7" fill="currentColor"/><circle cx="10.8" cy="6.3" r="1.1" fill="#fff" opacity=".28"/>',
   nachtmantel:     '<path d="M12 2.2 6.6 4.4 3.8 21h4.4l1.4-9.4L12 21l2.4-9.4L15.8 21h4.4L17.4 4.4z" fill="currentColor" opacity=".92"/><path d="M6.6 4.4 12 8l5.4-3.6-1 6L12 13.4 7.6 10.4z" fill="#000" opacity=".3"/><circle cx="12" cy="5.4" r="1.4" fill="#fff" opacity=".25"/>',
   namenlosauge:    '<path d="M12 5.6c4.4 0 8 3.4 8 6.4s-3.6 6.4-8 6.4-8-3.4-8-6.4 3.6-6.4 8-6.4z" fill="currentColor"/><circle cx="12" cy="12" r="3.6" fill="#000" opacity=".3"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="13.1" cy="10.9" r=".8" fill="#fff" opacity=".6"/>',
+  pilgermantel:    '<path d="M12 2.8 7.6 4.8 5.2 21h4l1.1-8.2L12 21l1.7-8.2 1.1 8.2h4L16.4 4.8z" fill="currentColor" opacity=".9"/><path d="M9.7 4.4 12 6.8l2.3-2.4L12 2.8z" fill="#000" opacity=".32"/><path d="M18.8 2.6 6.4 22.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" opacity=".62" fill="none"/>',
   plate:           '<path d="M12 2.2 4.6 4.8v6.8c0 4.4 3 7.6 7.4 9.4 4.4-1.8 7.4-5 7.4-9.4V4.8z" fill="currentColor"/><path d="M12 2.2v18.8" stroke="#000" stroke-width="1.4" opacity=".4"/><path d="M4.6 9.4h14.8" stroke="#000" stroke-width="1.4" opacity=".4"/><path d="M6.6 5.6 12 3.6v4.4H6.6z" fill="#fff" opacity=".25"/>',
   reisemantel:     '<path d="M12 2.2 6.6 4.4 3.8 21h4.4l1.4-9.4L12 21l2.4-9.4L15.8 21h4.4L17.4 4.4z" fill="currentColor" opacity=".92"/><path d="M12 2.2 9.6 4.6 12 7l2.4-2.4z" fill="#000" opacity=".3"/><circle cx="12" cy="4.6" r="1.2" fill="#fff" opacity=".25"/>',
+  richtschwert:    '<path d="M9.3 1.8h5.4v14.4H9.3z" fill="currentColor"/><path d="M5.6 16.2h12.8v2.2H5.6z" fill="currentColor" opacity=".75"/><path d="M11 18.4h2v3.2h-2z" fill="currentColor" opacity=".75"/><circle cx="12" cy="22" r="1.5" fill="currentColor" opacity=".75"/><path d="M11.4 3.4h1.2v11.2h-1.2z" fill="#fff" opacity=".28"/>',
   rostdolch:       '<path d="M12 3 14 9v7h-4V9z" fill="currentColor" opacity=".8"/><path d="M8.5 16h7v1.6h-7z" fill="currentColor"/><path d="M11.2 17.6h1.6V21h-1.6z" fill="currentColor"/><path d="M12 5.5 13 9h-2z" fill="#000" opacity=".3"/>',
   runeblade:       '<path d="M12 1.4 14 6.6v11H10v-11z" fill="currentColor"/><path d="M6.8 17.6h10.4v2.1H6.8z" fill="currentColor" opacity=".75"/><path d="M11 19.7h2V23h-2z" fill="currentColor" opacity=".75"/><path d="M12 7.4 13.2 9.6 12 11.8 10.8 9.6z" fill="#fff" opacity=".25"/><path d="M12 12.4 13.2 14.6 12 16.8 10.8 14.6z" fill="#fff" opacity=".25"/>',
   salzpanzer:      '<path d="M12 2.2 4.6 4.8v6.8c0 4.4 3 7.6 7.4 9.4 4.4-1.8 7.4-5 7.4-9.4V4.8z" fill="currentColor"/><g fill="#fff" opacity=".4"><path d="M9 6.4 10.2 8.8 9 11.2 7.8 8.8z"/><path d="M15 6.4 16.2 8.8 15 11.2 13.8 8.8z"/><path d="M12 10.4 13.4 13.2 12 16 10.6 13.2z"/></g>',
@@ -14890,6 +15532,7 @@ const STUECK_BILD = {
   schuppen:        '<path d="M12 2.4 5 5v6.6c0 4.2 2.9 7.2 7 8.8 4.1-1.6 7-4.6 7-8.8V5z" fill="currentColor" opacity=".92"/><g fill="#000" opacity=".3"><path d="M8 7.4c0-.9.9-1.6 2-1.6s2 .7 2 1.6-.9 1.6-2 1.6-2-.7-2-1.6z"/><path d="M12 7.4c0-.9.9-1.6 2-1.6s2 .7 2 1.6-.9 1.6-2 1.6-2-.7-2-1.6z"/><path d="M9 10.8c0-.9.9-1.6 2-1.6s2 .7 2 1.6-.9 1.6-2 1.6-2-.7-2-1.6z"/><path d="M13 10.8c0-.9.9-1.6 2-1.6s2 .7 2 1.6-.9 1.6-2 1.6-2-.7-2-1.6z"/></g>',
   spiess:          '<path d="M12 1.2 14 7.4h-4z" fill="currentColor"/><path d="M11.2 7.4h1.6V22h-1.6z" fill="currentColor" opacity=".8"/><path d="M9.6 8.4h4.8v1.4H9.6z" fill="currentColor"/><path d="M12 3.2 13 7.4h-2z" fill="#fff" opacity=".25"/>',
   sword:           '<path d="M12 1.6 13.8 7v10.2h-3.6V7z" fill="currentColor"/><path d="M7.4 17.2h9.2v2H7.4z" fill="currentColor" opacity=".75"/><path d="M11.1 19.2h1.8V22.4h-1.8z" fill="currentColor" opacity=".75"/><path d="M11.6 4 12.4 4 12.4 16h-.8z" fill="#fff" opacity=".25"/>',
+  totenwacht:      '<path d="M12 2.4 5 5v6.6c0 4.2 2.9 7.2 7 8.8 4.1-1.6 7-4.6 7-8.8V5z" fill="currentColor" opacity=".9"/><path d="M8.8 6.6h6.4L12 11.2l3.2 4.6H8.8L12 11.2z" fill="#000" opacity=".38"/><path d="M8.2 5.6h7.6v1.3H8.2zM8.2 15.4h7.6v1.3H8.2z" fill="#fff" opacity=".3"/>',
   totenaxt:        '<path d="M11.1 3.4h1.8V22h-1.8z" fill="currentColor" opacity=".7"/><path d="M12.9 3.8c4.8.6 7 3 7 5.6s-2.2 5-7 5.6z" fill="currentColor"/><path d="M11.1 4.6C8 5.2 6.6 6.8 6.6 8.4s1.4 3 4.5 3.6z" fill="currentColor" opacity=".8"/><circle cx="15.6" cy="9.4" r="2" fill="#000" opacity=".3"/><circle cx="15.6" cy="9.4" r=".9" fill="currentColor"/>',
   vitality:        '<path d="M12 6.4h-1.4v3.2H12z" fill="currentColor"/><path d="M12 20.6c-3.4-2.4-5.4-4.8-5.4-7.4 0-2 1.5-3.4 3.3-3.4 1.2 0 2 .6 2.1 1.4.1-.8.9-1.4 2.1-1.4 1.8 0 3.3 1.4 3.3 3.4 0 2.6-2 5-5.4 7.4z" fill="currentColor"/><path d="M10.6 3.4h2.8v3h-2.8z" fill="currentColor" opacity=".6"/><path d="M9.6 13.4c0-1 .8-1.6 1.6-1.6" stroke="#fff" stroke-width="1.2" opacity=".35" fill="none"/>',
   wrath:           '<path d="M13.6 2 7.4 12.6h3.4L9.8 22l6.8-11.4h-3.6z" fill="currentColor"/><path d="M10.6 3.4h2.8v2.4h-2.8z" fill="currentColor" opacity=".5"/><path d="M12.8 4.6 9.8 10.4h1.6z" fill="#fff" opacity=".25"/>',
@@ -15498,13 +16141,23 @@ function bonusText(d) {
   const proz = v => `${v > 0 ? "+" : "−"}${Math.round(Math.abs(v) * 100)} %`;
   if (d.crit) parts.push(`kritisch ${proz(d.crit)}`);
   if (d.evade) parts.push(`Ausweichen ${proz(d.evade)}`);
-  if (d.hast) parts.push(d.hast > 0 ? `${proz(d.hast)} schneller` : `${proz(-d.hast)} langsamer`);
+  /* Schlagen und Laufen sind zweierlei. Solange nur eines davon auf einem
+     Stueck stand, ging "schneller" durch; der Pilgermantel traegt beides. */
+  if (d.hast) parts.push(d.hast > 0 ? `schlägt ${proz(d.hast)} schneller`
+                                    : `schlägt ${proz(-d.hast)} langsamer`);
   if (d.reach) parts.push(`Reichweite ${signed(d.reach).replace(".", ",")}`);
-  if (d.tempo) parts.push(`Tempo ${proz(d.tempo)}`);
+  if (d.tempo) parts.push(d.tempo > 0 ? `läuft ${proz(d.tempo)} schneller`
+                                      : `läuft ${proz(-d.tempo)} langsamer`);
   if (d.killHeal) parts.push(`${d.killHeal} Leben je Kill`);
   if (d.fovBonus) parts.push(`Sicht ${signed(d.fovBonus)}`);
   if (d.oilSteps) parts.push(`Öl hält ${signed(d.oilSteps)}`);
   if (d.lootLuck) parts.push(`Fundglück ${proz(d.lootLuck)}`);
+  if (d.vollHieb) parts.push(`unversehrt ${proz(d.vollHieb)} Schaden`);
+  if (d.meuchel) parts.push(`aus dem Verborgenen ${proz(d.meuchel)} Schaden`);
+  if (d.wucht) parts.push("wirft zurück");
+  if (d.bluten) parts.push(`Blutung ${d.bluten}`);
+  if (d.dornen) parts.push(`Dornen ${d.dornen}`);
+  if (d.wende) parts.push(`Schutz bis ${signed(d.wende)}, je weniger Leben`);
   return parts.join(", ") || "keine Boni";
 }
 
@@ -16379,21 +17032,24 @@ function adminAllesFrei() {
 const SORTIMENTE = {
   schmied: {
     0: ["dagger"],
-    1: ["sword"],
+    1: ["sword", "meuchelklinge"],
     2: ["spiess"],
-    3: ["axe"],
-    4: ["kolben"],
-    5: ["runeblade", "hellebarde"],
+    3: ["axe", "aderlass"],
+    4: ["kolben", "richtschwert"],
+    5: ["runeblade", "hellebarde", "morgenstern"],
     6: ["grabklinge", "totenaxt"],     // was es sonst nur in der Tiefe gibt
   },
   ruestung: {
+    /* Sie fuehrte auf dem hoechsten Rang sieben Stuecke, der Kraemer
+       vierzehn - fuer sie hochzuarbeiten lohnte sich kaum. Jetzt steht auf
+       jedem Rang eine Entscheidung statt nur der naechstgroesseren Zahl. */
     0: ["leather"],
-    1: ["leather"],
+    1: ["leather", "pilgermantel"],
     2: ["chain"],
-    3: ["reisemantel"],
+    3: ["reisemantel", "dornenpanzer"],
     4: ["plate"],
-    5: ["schuppen"],
-    6: ["salzpanzer", "knochenhemd"],
+    5: ["schuppen", "bleiharnisch"],
+    6: ["salzpanzer", "knochenhemd", "totenwacht"],
   },
   kraemer: {
     /* Alles, was man trinkt oder wirft. Die Traenke der Staerke, der Wacht
@@ -18825,7 +19481,8 @@ function loop(now) {
         schrittWeg += Math.hypot(p0.x - letzteSchrittStelle[0], p0.y - letzteSchrittStelle[1]);
         if (schrittWeg >= SCHRITT_LAENGE) {
           schrittWeg = 0;
-          const [art, laut] = Sfx.BODEN[theme().gen] || ["stein", 1];
+          const t = theme();
+          const [art, laut] = Sfx.BODEN[t.klang || t.gen] || ["stein", 1];
           try { Sfx.KLANG.schritt.call(Sfx, art, laut); } catch (e) {}
         }
       }
