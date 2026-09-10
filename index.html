@@ -4802,7 +4802,7 @@ const MOORFESTE_THEMES = [
     floorDim: "#202024", floorLit: "#464A52",
     speck: "214,224,238", glow: "170,190,214", mote: "#D6E4F4",
     rock: "#141416", decor: "none", gen: "wehrgang", style: "masonry",
-    hell: .6,
+    hell: .6, wind: true, vista: true,
   },
   {
     from: 10, name: "Der Turmkopf",
@@ -4810,7 +4810,7 @@ const MOORFESTE_THEMES = [
     floorDim: "#32363A", floorLit: "#6E767E",
     speck: "234,242,252", glow: "200,220,244", mote: "#EAF2FC",
     rock: "#222426", decor: "none", gen: "turmkopf", style: "masonry",
-    hell: 1,
+    hell: 1, wind: true, vista: true,
   },
 ];
 
@@ -4885,6 +4885,14 @@ const MONSTERS = {
      mehr aus - die Totenstadt steht eine Stufe darueber. */
   leichnam: { name: "Leichnam", g: "m",       hp: 85, def: 2, atk: 11, xp: 130, ai: "melee", hieb: 1.25,
              art: "leiche",   body: "#7E8470", dark: "#33372C", size: 1.08, eye: "#C8E0A0" },
+  /* Die einzige eigene Kreatur der Moorfeste (bisher war alles geliehen).
+     Lauert reglos im Wasser der Ersoffenen Saele - erst der Nass-Bonus auf
+     die Bemerkweite laesst dich nah genug heran, dass sie hochschnellt.
+     "lauert" loest beim ersten Erwachen eine eigene Zeile statt Stille aus
+     (siehe actorTurn) - danach ist sie so wach wie jedes andere Wesen. */
+  ertrunkener: { name: "Der Ertrunkene", g: "m", hp: 72, def: 2, atk: 13, xp: 150, ai: "melee", hieb: 1.3,
+             lauert: true,
+             art: "leiche",   body: "#3E6058", dark: "#182B26", size: 1.10, eye: "#8CEBD2" },
   knochen: { name: "Knochenschwarm", g: "m",  hp: 54, def: 1, atk: 9,  xp: 110, ai: "melee", hieb: .70,
              art: "knochen",  body: "#DCD6C0", dark: "#807A66", size: 1.04, eye: "#FFF4D8",
              tempo: 1.22 },
@@ -4912,6 +4920,15 @@ const MONSTERS = {
   boss:    { name: "Der Namenlose", g: "m",   hp: 950, def: 7, atk: 21, xp: 1800, ai: "boss", hieb: 1.25,
              art: "boss",     body: "#A83430", dark: "#3F100F", size: 1.52, eye: "#FF7A50",
              glow: "#E8503C", boss: true },
+
+  /* Der Turmkopf: befiehlt Wind und Blitz - der Kampf selbst nutzt beides
+     (turmkopfWind() haelt die Boeen des Wehrgangs auch hier wach), sie
+     braucht keine eigene Angriffsart dafuer. Schwerer als die anderen
+     beiden Bosse, ohne Schwelle: die Moorfeste ist "Schwer" seit der Karte. */
+  sturmrufer: { name: "Die Sturmrufer", g: "f", hp: 1300, def: 9, atk: 25, xp: 2900,
+             ai: "boss", hieb: 1.15,
+             art: "wraith",   body: "#484C70", dark: "#1C1E34", size: 1.58, eye: "#DCEEFF",
+             glow: "#8FC8FF", float: true, boss: true },
 };
 
 const ITEMS = {
@@ -6051,7 +6068,11 @@ const MOORFESTE_ITEMS = {
       ["bleiharnisch", 5], ["namenlosauge", 2]],
 };
 
-const MOORFESTE_MAX_MONSTER = [[1, 2], [4, 3], [7, 4], [9, 5]];
+/* Etage 7/9 niedriger als das Muster (Schloss: aehnliche Zahlen bei
+   doppelt so grosser Flaeche) vermuten liesse - der Ring ist eng, man
+   steht Wesen dort viel naeher als in einem Saal derselben Groesse.
+   Gemessen: 1 je 18,9 Kacheln vorher gegen 1 je 46,7 im Kerker. */
+const MOORFESTE_MAX_MONSTER = [[1, 2], [4, 3], [7, 3], [9, 4]];
 
 ORT_INHALT.moorfeste = {
   name: "Die Moorfeste",
@@ -6060,9 +6081,7 @@ ORT_INHALT.moorfeste = {
   items: MOORFESTE_ITEMS,
   maxMonster: MOORFESTE_MAX_MONSTER,
   maxItems: MAX_ITEMS,
-  /* Noch der Namenlose als Platzhalter - wer wirklich auf dem Turmkopf
-     sitzt, ist noch nicht entschieden. */
-  boss: "boss",
+  boss: "sturmrufer",
   maxFloor: 10,
   hinauf: true,             // der einzige Ort, den man hinaufsteigt
   beuteFaktor: 1.3,
@@ -6778,6 +6797,7 @@ function newMap() {
     tiles: new Uint8Array(MAP_W * MAP_H),
     room: new Uint8Array(MAP_W * MAP_H),   // 1 = gehört zu einem Raum, 0 = Gang
     nass: new Uint8Array(MAP_W * MAP_H),   // 1 = Wasser/Schlamm - langsamer und lauter
+    offen: new Uint8Array(MAP_W * MAP_H),  // 1 = im Wind - Boeen draengen hier ab
     visible: new Uint8Array(MAP_W * MAP_H),
     explored: new Uint8Array(MAP_W * MAP_H),
     dist: new Int32Array(MAP_W * MAP_H).fill(-1),
@@ -6787,6 +6807,7 @@ function newMap() {
     veilRoom: null, // welche Felder liegen innerhalb der Kammer
     gateBoss: false,// versperrt ein Namentlicher die Treppe?
     sealed: false,  // steht der Spieler schon drinnen?
+    wachkammer: null, // bewohnt aussehende Kammer im Kern der Wehrgaenge, falls gebaut
   };
 }
 
@@ -7296,12 +7317,8 @@ function generateFloor(floor) {
   if (art === "katakomben") return generateKatakomben(floor);
   if (art === "gruft") return generateGruft(floor);
   if (art === "schlamm") return generateSchlamm(floor);
-  /* Die Wehrgaenge und Saele leihen sich noch, was passt: die Wehrgaenge
-     enge Gaenge, die Saele gebaute Raeume. Eigene Generatoren kommen, wenn
-     der Schlammgrund steht und sich bewaehrt hat. */
-  if (art === "wehrgang") return generateKatakomben(floor);
-  // "saele" faellt durch: der Standardbau mit Raeumen und Gaengen steht
-  // unten und braucht keinen eigenen Namen.
+  if (art === "saele") return generateSaele(floor);
+  if (art === "wehrgang") return generateWehrgang(floor);
   if (art === "turmkopf") return generateTurmkopf(floor);
 
   const rooms = [];
@@ -7832,6 +7849,158 @@ function trockneKachel(map, x, y) {
   }
 }
 
+/* ── Die Ersoffenen Säle: wenige, aber sehr große Säle ────────────────────
+   Verbunden durch auffällig lange, gerade Flure - das betont die Weite der
+   einst prächtigen Architektur, jetzt verlassen. "Ersoffen" ist hier
+   wörtlich: die Mitte jedes Saals steht unter Wasser (map.nass), nur ein
+   schmaler trockener Rand an den Wänden bleibt fest - wer nicht durch die
+   Mitte waten will, geht länger, aber trocken am Rand entlang. */
+function generateSaele(floor) {
+  const map = newMap();
+  const rooms = [];
+  const maxRooms = 5 + Math.floor(floor / 4);   // wenige, dafür riesig
+
+  for (let versuch = 0; versuch < maxRooms * 10 && rooms.length < maxRooms; versuch++) {
+    const w = ri(13, 20), h = ri(11, 16);
+    const x = ri(1, MAP_W - w - 2), y = ri(1, MAP_H - h - 2);
+    const room = { x1: x, y1: y, x2: x + w, y2: y + h,
+                   shape: rng() < .35 ? "hall" : "rect" };
+    if (rooms.some(r => overlaps(room, r))) continue;
+    carveRoom(map, room);
+    // Ein Flur je neuem Saal, moeglichst gerade - keine mehrfachen Kniffe
+    // wie beim Standardbau, das waeren keine "langen, geraden Flure" mehr.
+    if (rooms.length) carveTunnel(map, roomCenter(rooms[rooms.length - 1]), roomCenter(room));
+    rooms.push(room);
+  }
+  // Sehr grosse Raeume passen manchmal kaum - wenigstens ein Saal muss
+  // stehen, sonst gibt es keine Etage.
+  if (!rooms.length) {
+    const room = { x1: 10, y1: 8, x2: 50, y2: 32, shape: "rect" };
+    carveRoom(map, room);
+    rooms.push(room);
+  }
+
+  markDoorways(map);
+
+  // Überflutete Mitte: alles, was mindestens zwei Kacheln von der
+  // Raumkante entfernt ist. Der Rand bleibt trocken begehbar.
+  for (const room of rooms) {
+    for (const [x, y] of roomTiles(room)) {
+      if (map.tiles[idx(x, y)] !== FLOOR) continue;
+      const randAbstand = Math.min(x - room.x1, room.x2 - x, y - room.y1, room.y2 - y);
+      if (randAbstand >= 2) map.nass[idx(x, y)] = 1;
+    }
+  }
+
+  return { map, zones: rooms.map(r => ({ tiles: roomTiles(r), center: roomCenter(r) })) };
+}
+
+/* ── Die Wehrgänge: ein Ring um einen massiven Kern ───────────────────────
+   Kein Raum, keine Höhle - ein umlaufender Weg um eine Mauer in der Mitte,
+   mit ein paar Waffenkammern, die nach außen aus dem Ring herausragen. Der
+   Ring selbst liegt im Wind (map.offen): Böen drängen dort ab, wer sich
+   nicht in eine Kammer rettet. Die Kammern überlappen den Ring, statt an
+   ihn anzudocken - wo sie sich berühren, verschmelzen sie von selbst, und
+   nur der Teil jenseits des Rings bleibt windstill. */
+function generateWehrgang(floor) {
+  const map = newMap();
+  const cx = MAP_W / 2, cy = MAP_H / 2;
+  const aussen = ri(15, 18);
+  const innen = aussen - ri(4, 5);
+
+  for (let y = 1; y < MAP_H - 1; y++)
+    for (let x = 1; x < MAP_W - 1; x++) {
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < innen || d > aussen) continue;
+      map.tiles[idx(x, y)] = FLOOR;
+      map.offen[idx(x, y)] = 1;
+    }
+
+  /* Waffenkammern: ein Anker dicht an der Aussenkante des Rings - garantiert
+     Beruehrung, nicht nur Hoffnung -, das Rechteck dann nach aussen versetzt,
+     damit der groessere Teil jenseits von aussen liegt und wirklich
+     windstill wird, statt nur ein paar Randkacheln des Rings selbst. */
+  const nischen = [];
+  const nischenZiel = 5 + Math.floor(floor / 3);
+  for (let versuch = 0; versuch < nischenZiel * 20 && nischen.length < nischenZiel; versuch++) {
+    const winkel = rng() * 6.283;
+    const raus = [Math.cos(winkel), Math.sin(winkel)];
+    const ax = Math.round(cx + raus[0] * (aussen - 1)), ay = Math.round(cy + raus[1] * (aussen - 1));
+    const w = ri(5, 7), h = ri(5, 7);
+    const versatz = Math.max(w, h) * .4;
+    const zx = Math.round(ax + raus[0] * versatz), zy = Math.round(ay + raus[1] * versatz);
+    const room = { x1: zx - (w >> 1), y1: zy - (h >> 1),
+                   x2: zx - (w >> 1) + w, y2: zy - (h >> 1) + h, shape: "rect" };
+    if (room.x1 < 2 || room.y1 < 2 || room.x2 > MAP_W - 3 || room.y2 > MAP_H - 3) continue;
+    if (nischen.some(n => overlaps(room, n))) continue;
+    // Der Anker muss wirklich im Rechteck liegen, sonst haengt die Kammer
+    // in der Luft statt am Ring.
+    if (ax < room.x1 || ax > room.x2 || ay < room.y1 || ay > room.y2) continue;
+    carveRoom(map, room);
+    nischen.push(room);
+  }
+
+  /* Die Wache: der Kern war bisher totes Gestein. Eine ausgehauene Kammer
+     mit einem einzelnen Gang zum Ring - eine Tuer, keine Nische im Wind -
+     und sie soll aussehen, als haette dort jemand gehaust. Sie bleibt
+     ausserhalb der normalen Zonenliste: kein Zufallsmonster soll den Fund
+     verderben, sie bekommt ihr Licht von Hand (siehe populateFloor). */
+  const kernPlatz = innen - 3;
+  if (kernPlatz >= 3) {
+    const kw = ri(5, 7), kh = ri(5, 7);
+    const wache = { x1: Math.round(cx - kw / 2), y1: Math.round(cy - kh / 2),
+                     x2: Math.round(cx - kw / 2) + kw, y2: Math.round(cy - kh / 2) + kh,
+                     shape: "rect" };
+    carveRoom(map, wache);
+    const winkel = rng() * 6.283;
+    const zurRing = [Math.round(cx + Math.cos(winkel) * (innen + 1)),
+                      Math.round(cy + Math.sin(winkel) * (innen + 1))];
+    carveTunnel(map, roomCenter(wache), zurRing);
+    const wacheTiles = roomTiles(wache);
+    map.wachkammer = { tiles: wacheTiles, center: roomCenter(wache),
+                        x: wacheTiles[Math.floor(wacheTiles.length / 2)][0],
+                        y: wacheTiles[Math.floor(wacheTiles.length / 2)][1],
+                        entdeckt: false };
+  }
+
+  markDoorways(map);
+
+  // Zonen: verstreute Ankerpunkte quer über Ring und Kammern, wie in den
+  // gewachsenen Formen (Höhle, Schlammgrund) - ein Ring hat keine "Räume",
+  // die sich von selbst als Zonen anbieten.
+  /* Die Wache bleibt aussen vor - nicht nur als Anker, auch aus dem
+     Nachbarschafts-Suchradius jeder anderen Zone. Sonst landet doch ein
+     Zufallswesen darin: eine Kachel am Rand der Kammer gehoert sonst
+     leicht zur Nachbarschaft eines Ankers auf dem Ring. */
+  const wacheKacheln = new Set(
+    (map.wachkammer ? map.wachkammer.tiles : []).map(([x, y]) => idx(x, y)));
+
+  const zones = [];
+  const offenFelder = [];
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++)
+      if (map.tiles[idx(x, y)] === FLOOR && !wacheKacheln.has(idx(x, y))) offenFelder.push([x, y]);
+
+  /* Weniger Zonen als die anderen Formen: der Ring ist schmal, dieselbe
+     Zonenzahl wie im Kerker staute sich dort viel dichter. */
+  const wunsch = 7 + Math.floor(floor / 3);
+  for (let versuch = 0; versuch < 900 && zones.length < wunsch && offenFelder.length; versuch++) {
+    const [x, y] = offenFelder[Math.floor(rng() * offenFelder.length)];
+    if (zones.some(z => Math.hypot(z.center[0] - x, z.center[1] - y) < 8)) continue;
+    const tiles = [];
+    for (let dy = -3; dy <= 3; dy++)
+      for (let dx = -3; dx <= 3; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (!inBounds(nx, ny) || wacheKacheln.has(idx(nx, ny))) continue;
+        if (map.tiles[idx(nx, ny)] === FLOOR) tiles.push([nx, ny]);
+      }
+    if (tiles.length >= 10) zones.push({ tiles, center: [x, y] });
+  }
+  if (!zones.length) zones.push({ tiles: offenFelder.slice(0, 40), center: offenFelder[0] });
+
+  return { map, zones };
+}
+
 /* Hängt noch alles zusammen? Prüft achtfach verbunden, genau wie die Bewegung. */
 function vollVerbunden(map) {
   let start = -1, gesamt = 0;
@@ -8004,8 +8173,50 @@ const TURMKOPF_PLAN = [
 function generateArena(floor) { return generateKammer(ARENA_PLAN); }
 function generateTurmkopf(floor) {
   // Der Kreis leuchtet in Moorfarben - Wasser und altes Kupfer
-  return generateKammer(TURMKOPF_PLAN,
-                        { ring: "108,158,148", zeichen: "168,208,196" });
+  const ergebnis = generateKammer(TURMKOPF_PLAN,
+                                  { ring: "108,158,148", zeichen: "168,208,196" });
+  turmkopfWind(ergebnis.map);
+  return ergebnis;
+}
+
+/* Der Sturm reicht bis dicht an den Ritualkreis heran - nur der innerste
+   Ring um ihn ist windstill, wie eine Kammer im Wehrgang darunter. Aussen,
+   an den Zinnen, reisst eine Boe einen mit; ein paar Stellen im Mauerring
+   stehen dafuer offen, ohne Bruestung - wer dorthin getrieben wird, hat
+   nichts mehr, das ihn haelt. */
+function turmkopfWind(map) {
+  const { cx, cy } = map.circle;
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      if (map.tiles[idx(x, y)] !== FLOOR || !map.room[idx(x, y)]) continue;
+      if (Math.hypot(x - cx, y - cy) > 6.5) map.offen[idx(x, y)] = 1;
+    }
+
+  // Luecken: eine Wandkachel, die auf einer Seite echten Raumboden hat und
+  // auf der gegenueberliegenden echten Fels - also wirklich die Aussenkante,
+  // kein Pfeiler mitten im Raum.
+  const kandidaten = [];
+  for (let y = 1; y < MAP_H - 1; y++)
+    for (let x = 1; x < MAP_W - 1; x++) {
+      if (map.tiles[idx(x, y)] !== WALL) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ix = x + dx, iy = y + dy, ox = x - dx, oy = y - dy;
+        if (!inBounds(ix, iy) || !inBounds(ox, oy)) continue;
+        if (map.tiles[idx(ix, iy)] !== FLOOR || !map.room[idx(ix, iy)]) continue;
+        if (map.tiles[idx(ox, oy)] !== WALL) continue;
+        kandidaten.push([x, y]);
+        break;
+      }
+    }
+  const luecken = [];
+  for (let versuch = 0; versuch < 400 && luecken.length < 5 && kandidaten.length; versuch++) {
+    const [x, y] = kandidaten[Math.floor(rng() * kandidaten.length)];
+    if (luecken.some(([lx, ly]) => Math.hypot(lx - x, ly - y) < 3)) continue;
+    luecken.push([x, y]);
+    map.tiles[idx(x, y)] = FLOOR;
+    map.room[idx(x, y)] = 1;
+    map.offen[idx(x, y)] = 1;
+  }
 }
 /* Der Kreis der Gruft leuchtet in Grabfarben statt im Rot des Namenlosen.
    Gleich als Zahlentripel, weil er nur so gebraucht wird - eine Umrechnung
@@ -9051,6 +9262,17 @@ function entdeckeSchaechte() {
   }
 }
 
+/* Die Wache im Kern der Wehrgaenge: ein Fund, kein Zufallsraum - genau
+   einmal gesagt, wenn man sie zum ersten Mal sieht. */
+function entdeckeWachkammer() {
+  const w = G.map.wachkammer;
+  if (!w || w.entdeckt) return;
+  if (!w.tiles.some(([x, y]) => seesTile(x, y))) return;
+  w.entdeckt = true;
+  log("Ein Lager, längst kalt — Decken, ein Kessel, ein zerbrochener Bogen. "
+    + "Hier hat jemand gewacht.", "good");
+}
+
 function entdeckeSchatzkammer() {
   const v = G.vault;
   if (!v || v.entdeckt) return;
@@ -9389,6 +9611,9 @@ function populateFloor(floor) {
   G.stilleRast = false;
   G.finsterBrut = 0;            // je Etage hoechstens eine Handvoll Geister
   G.vault = null;
+  G.windAktiv = false;           // eine Boe von der vorigen Etage weht nicht mit
+  G.windAngekuendigt = false;
+  G.windNaechste = undefined;
 
   // Zonenmitten können nachträglich zu Lava geworden sein - Mitte neu wählen.
   for (const zone of zones) {
@@ -9492,6 +9717,29 @@ function populateFloor(floor) {
     }
   }
 
+  /* Der Ertrunkene kommt nicht aus der normalen Tabelle - sonst staende er
+     ueberall, nicht nur dort, wo das Wasser ihn wirklich verstecken kann.
+     themeFor(floor), nicht theme(): siehe die Warnung weiter unten - G.floor
+     ist hier noch nicht sicher gesetzt. */
+  if (ortSchluessel() === "moorfeste" && themeFor(floor).gen === "saele") {
+    const nasseSpots = [];
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        if (!map.nass[idx(x, y)] || !isWalkable(x, y)) continue;
+        if (actorAt(x, y) || (x === sx && y === sy)) continue;
+        nasseSpots.push([x, y]);
+      }
+    for (let i = nasseSpots.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [nasseSpots[i], nasseSpots[j]] = [nasseSpots[j], nasseSpots[i]];
+    }
+    let zahl = ri(2, 4);
+    while (zahl-- > 0 && nasseSpots.length) {
+      const [x, y] = nasseSpots.pop();
+      G.actors.push(makeMonster("ertrunkener", x, y));
+    }
+  }
+
   // Fackelschalen geben den Räumen eigenes Licht statt nur Spielerfackel
   G.braziers = [];
 
@@ -9550,6 +9798,10 @@ function populateFloor(floor) {
   if (map.arenaSchalen) G.braziers = map.arenaSchalen.map(b => ({ x: b.x, y: b.y }));
   // "Verlassen": keine Schale brennt mehr - man hat ja seine Fackel
   if (hatLaune("verlassen")) G.braziers = [];
+  /* Die Wache im Kern der Wehrgaenge leuchtet trotzdem - nach den
+     Laune-Reglern platziert, sonst loescht "Verlassen" auch ihr eigenes
+     Licht, obwohl gerade sie unabhaengig vom Zufall brennen soll. */
+  if (map.wachkammer) G.braziers.push({ x: map.wachkammer.x, y: map.wachkammer.y, kammer: true });
   G.hasLava = map.tiles.includes(LAVA);
   /* Einmal einsammeln statt sechzigmal je Sekunde suchen: die Entfernung
      zur naechsten Lava wird in jedem Bildlauf gebraucht, und eine Suche
@@ -10280,6 +10532,7 @@ function kill(target, source) {
     questProgress("boss");
     G.won = true;
     G.siegRunden = G.turns;
+    G.besiegterBoss = target.spec.name;
     oeffneKammer();
     // Der Lauf endet erst, wenn du dich entscheidest - hinauf oder tiefer.
     setTimeout(() => showVictory(), 900);
@@ -10538,7 +10791,12 @@ function schleierWarnung() {
     if (!G.veilWarned) {
       G.veilWarned = true;
       Sfx.spiel("boss");
-      banner("Der Namenlose wartet", "Jenseits des Schleiers gibt es kein Zurück", "bad");
+      // Wer wirklich dahinter wartet - der Boss oder ein Namentlicher,
+      // nicht immer "Der Namenlose": das galt nur, solange es der einzige
+      // Ort mit einem Schleier war.
+      const wer = G.actors.find(a => !a.isPlayer && a.alive && (a.spec.boss || a.elite));
+      banner(`${wer ? wer.spec.name : "Etwas"} wartet`,
+             "Jenseits des Schleiers gibt es kein Zurück", "bad");
       log("Der Schleier steht vor dir. Wer hindurchtritt, kommt nicht zurück.", "bad");
     }
     setHint("⏎ Enter — durch den Schleier treten · es gibt kein Zurück");
@@ -11425,6 +11683,13 @@ function actorTurn(a) {
                          (stehtNass(p) ? WASSER_LAERM : 1)) {
       a.wach = true;
       a.kite = KITE_BUDGET;
+      // Der Ertrunkene lag reglos im Wasser - das erste Erwachen ist sein
+      // Auftauchen, kein stilles Aufstehen wie bei allem anderen.
+      if (a.spec.lauert && !a.aufgetaucht) {
+        a.aufgetaucht = true;
+        log(`${a.spec.name} schnellt aus dem Wasser hoch!`, "alert");
+        Sfx.spiel("elite");
+      }
     } else return;
   } else if (!sicht && dist > AGGRO_RANGE * 1.6) {
     // Aus den Augen verloren - Ruhe kehrt ein
@@ -11972,6 +12237,47 @@ function tickWetter() {
   Sfx.atmoPegel(draussen ? 1 : .22);
 }
 
+/* == Wind auf den Wehrgaengen =============================================
+   Eine eigene Gefahr, anders als Wasser (verlangsamt) oder Damm
+   (Entscheidung vorher, dann vorbei): eine laufende Boe, die schiebt, wer
+   im Wind steht (map.offen) - Gegensteuern noetig, sonst treibt sie einen
+   Richtung Zinnenrand. In den Waffenkammern (map.offen = 0) ist man
+   geschuetzt. Gilt fuer Held und Gegner gleich. Angekuendigt, nicht
+   ueberraschend: eine Boe ohne Vorwarnung waere nur Willkuer. */
+const WIND_VORWARNUNG = 1.6;   // Sekunden Ankuendigung, bevor sie wirklich schiebt
+const WIND_DAUER = 2.0;
+const WIND_PAUSE_MIN = 4, WIND_PAUSE_MAX = 8;
+const WIND_STAERKE = 2.4;      // Kacheln je Sekunde seitlicher Schub
+
+function tickWind(dt) {
+  if (!G.map || !themeFor(G.floor).wind) return;
+
+  if (G.windNaechste === undefined) G.windNaechste = G.time + WIND_PAUSE_MIN;
+
+  if (!G.windAktiv) {
+    if (!G.windAngekuendigt && G.time >= G.windNaechste - WIND_VORWARNUNG) {
+      G.windAngekuendigt = true;
+      const winkel = rng() * 6.283;
+      G.windRichtung = [Math.cos(winkel), Math.sin(winkel)];
+      banner("Ein Windstoß kommt auf", "Halt dich, sonst treibt er dich ab", "bad");
+      Sfx.spiel("boe");
+    }
+    if (G.time >= G.windNaechste) { G.windAktiv = true; G.windBis = G.time + WIND_DAUER; }
+    return;
+  }
+
+  const [wx, wy] = G.windRichtung;
+  for (const a of G.actors) {
+    if (!a.alive || !G.map.offen[idx(kachelX(a), kachelY(a))]) continue;
+    bewege(a, wx * WIND_STAERKE * dt, wy * WIND_STAERKE * dt);
+  }
+  if (G.time >= G.windBis) {
+    G.windAktiv = false;
+    G.windAngekuendigt = false;
+    G.windNaechste = G.time + WIND_PAUSE_MIN + rng() * (WIND_PAUSE_MAX - WIND_PAUSE_MIN);
+  }
+}
+
 function tickFinsternis() {
   const p = G.player;
   const vorher = p.finsternis || 0;
@@ -12196,6 +12502,7 @@ function tickWorld(dt) {
   entdeckeGeheimnisse();
   entdeckeSchatzkammer();
   entdeckeSchaechte();
+  entdeckeWachkammer();
   spuereZug();
   schachtHinweis();
 
@@ -12204,6 +12511,7 @@ function tickWorld(dt) {
     if (a.isPlayer || !a.alive) continue;
     lenke(a, dt);
   }
+  tickWind(dt);
   entflechte(dt);
   schleierWarnung();
 
@@ -12619,7 +12927,7 @@ function drawFrame(dt) {
 
   ctx.save();
   ctx.translate(sx, sy);
-  drawBedrock(camX, camY);
+  if (theme().vista) drawVista(camX, camY); else drawBedrock(camX, camY);
 
   const px = G.player.x - .5, py = G.player.y - .5;
   const flicker = .93 + Math.sin(anim.t * 7.3) * .035 + Math.sin(anim.t * 17.1) * .025;
@@ -13194,6 +13502,107 @@ function drawRegen(dt, camX, camY) {
 
 /* Der Fels, aus dem alles herausgeschlagen ist. Wird zwischengespeichert und
    nur neu gezeichnet, wenn sich Ausschnitt oder Tiefe ändern. */
+/* == Die Kulisse jenseits der Mauern =====================================
+   Wehrgaenge und Turmkopf haben keinen Fels ringsum, sondern die Luft -
+   "man sieht das ganze Moor" war das Versprechen seit dem Geruest. Bisher
+   stand dort, wo nie eine Kachel gebaut wurde, nur die leere Bedrock-Flaeche
+   (siehe drawBedrock) - auch ausserhalb jeder Mauer schwarzer Fels. Diese
+   Funktion ersetzt sie dort durch eine gemalte Ferne: Himmel, Moor, tote
+   Baeume, und - vom Turmkopf aus, ganz schwach - die beiden anderen Orte
+   am Horizont. Mehrere Ebenen scrollen mit der Kamera, aber jede langsamer
+   als die Welt selbst - das allein macht "weit weg" glaubhaft, ohne echte
+   Kameratiefe zu rechnen. Nichts davon ist begehbar; es liegt hinter allem
+   anderen, wie drawBedrock auch. */
+function drawVista(camX, camY) {
+  const T = theme();
+  const W = VIEW_W * TILE, H = VIEW_H * TILE;
+  const hoch = T.gen === "turmkopf";   // sieht am weitesten und klarsten
+
+  const himmel = ctx.createLinearGradient(0, 0, 0, H);
+  himmel.addColorStop(0, hoch ? "#242A3C" : "#1A1E28");
+  himmel.addColorStop(.5, hoch ? "#454C60" : "#333A46");
+  himmel.addColorStop(1, hoch ? "#7C8878" : "#545E50");
+  ctx.fillStyle = himmel;
+  ctx.fillRect(0, 0, W, H);
+
+  // Sturmwolken - kaum merklich verschoben, sehr weit weg
+  const wv = -(camX * TILE) * .04;
+  ctx.save();
+  ctx.globalAlpha = .5;
+  ctx.fillStyle = "rgba(74,80,96,.55)";
+  for (let i = -1; i < 6; i++) {
+    const bx = ((i * 260 + wv) % (W + 320)) - 160;
+    const by = H * .16 + Math.sin(i * 2.3) * 14;
+    ctx.beginPath();
+    ctx.ellipse(bx, by, 130, 18, 0, 0, 6.283);
+    ctx.ellipse(bx + 70, by + 6, 90, 14, 0, 0, 6.283);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Vom Turmkopf aus, ganz fern: die Totenstadt und das Schloss - ein
+  // Schimmer, kein Bauplan. Von den Wehrgaengen aus verschluckt sie der
+  // Dunst noch, so wie fovFromOil unten weniger Sicht gibt als oben.
+  if (hoch) {
+    const tv = -(camX * TILE) * .07;
+    const horiz = H * .655;
+    ctx.save();
+    ctx.globalAlpha = .62;
+    ctx.fillStyle = "#8A9484";
+    for (let i = 0; i < 4; i++) {
+      const tx = ((i * 90 + tv + 40) % (W + 220)) - 110;
+      const hh = 34 + (i % 2) * 14;
+      ctx.fillRect(tx, horiz - hh, 6, hh);
+      ctx.beginPath();
+      ctx.moveTo(tx - 3, horiz - hh);
+      ctx.lineTo(tx + 3, horiz - hh - 12);
+      ctx.lineTo(tx + 9, horiz - hh);
+      ctx.fill();
+    }
+    const sx = ((W * .72 + tv * .7) % (W + 320)) - 120;
+    ctx.fillRect(sx, horiz - 30, 50, 30);
+    ctx.fillRect(sx - 9, horiz - 46, 11, 46);
+    ctx.fillRect(sx + 44, horiz - 40, 10, 40);
+    ctx.restore();
+  }
+
+  // Das Moor selbst: eine dunkle Flaeche, tote Baeume davor, Nebel driftet.
+  const mv = -(camX * TILE) * .18;
+  const moorY = H * (hoch ? .66 : .60);
+  ctx.fillStyle = hoch ? "#2E3A30" : "#222A24";
+  ctx.fillRect(0, moorY, W, H - moorY);
+
+  ctx.save();
+  ctx.globalAlpha = .55;
+  ctx.strokeStyle = "#161E16";
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = "round";
+  for (let i = -1; i < 10; i++) {
+    const bx = ((i * 110 + mv) % (W + 140)) - 70;
+    const by = moorY + 10 + (i % 3) * 8;
+    ctx.beginPath();
+    ctx.moveTo(bx, by + 26);
+    ctx.lineTo(bx, by);
+    ctx.lineTo(bx - 6, by - 9);
+    ctx.moveTo(bx, by - 3);
+    ctx.lineTo(bx + 7, by - 12);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = .22;
+  ctx.fillStyle = "#B8C4B4";
+  const drift = (anim.t * 5) % 100;
+  for (let i = -1; i < 8; i++) {
+    const nx = ((i * 100 + mv * .6 + drift) % (W + 120)) - 60;
+    ctx.beginPath();
+    ctx.ellipse(nx, moorY + 4, 60, 7, 0, 0, 6.283);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 let bedrock = null, bedrockKey = "";
 function drawBedrock(camX, camY) {
   const T = theme();
@@ -13473,6 +13882,20 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
       ctx.fillStyle = `rgba(206,232,224,${.07 + light * .16 * glanz})`;
       ctx.fillRect(x, y + TILE * .18, TILE, 1.6);
       ctx.fillRect(x, y + TILE * .62, TILE, 1.3);
+    }
+
+    // Im Wind: ein paar ziehende Streifen, blass und kalt - wer eine Boe
+    // kommen sieht, soll auch sehen koennen, wohin er ausweichen kann.
+    if (G.map.offen[idx(mx, my)]) {
+      ctx.strokeStyle = `rgba(214,224,232,${.05 + light * .06})`;
+      ctx.lineWidth = 1.2;
+      for (let k = 0; k < 2; k++) {
+        const drift = (anim.t * 30 + mx * 17 + my * 11 + k * 19) % (TILE * 1.6);
+        ctx.beginPath();
+        ctx.moveTo(x + drift - TILE * .5, y + TILE * (.28 + k * .42));
+        ctx.lineTo(x + drift - TILE * .1, y + TILE * (.28 + k * .42));
+        ctx.stroke();
+      }
     }
   } else {
     ctx.fillStyle = C.memFloor;
@@ -17576,8 +17999,10 @@ function showVictory() {
      Weg zurueck gehen muss. Jetzt erst recht, denn gerade war es laut. */
   mode = { kind: "play" };
   const schacht = (G.schaechte || [])[0];
-  openModal(`<h2>Der Namenlose ist gefallen</h2>
-    <p class="epitaph">Zehn Etagen tief, und die Kammer ist still. Was du
+  // "Tief" galt nur, solange nur nach unten gebaut wurde - die Moorfeste
+  // steigt hinauf, und der Name des Gefallenen war nie nur "Der Namenlose".
+  openModal(`<h2>${escapeHtml(G.besiegterBoss || "Der Namenlose")} ist gefallen</h2>
+    <p class="epitaph">Zehn Etagen ${ort().hinauf ? "hoch" : "tief"}, und die Kammer ist still. Was du
       trägst, gehört dir — sobald du es nach oben trägst.</p>
     <div class="grid2">
       <div class="line"><span>Stufe</span><span>${G.player.level}</span></div>
