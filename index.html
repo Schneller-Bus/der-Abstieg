@@ -3093,16 +3093,19 @@ const KLANG_ORDNER = [
   "bett-cave.mp3",
   "bett-forge.mp3",
   "bett-gassen.mp3",
+  "bett-gruft.mp3",
   "bett-katakomben.mp3",
   "fluestern.mp3",
   "glocke.mp3",
   "hammer.mp3",
   "kette.mp3",
+  "knochen.mp3",
   "kraehe.mp3",
   "ratten.mp3",
   "regen.mp3",
   "schritt-kies.mp3",
   "schritt-stein.mp3",
+  "spaten.mp3",
   "steinschlag.mp3",
   "tor.mp3",
   "tropfen.mp3",
@@ -3153,9 +3156,12 @@ const Sfx = {
     "tropfen", "kette", "ratten", "tor", "tropfstein", "steinschlag",
     "wummern", "blasebalg", "hammer", "zischen", "glocke", "fluestern",
     "kraehe", "atem",
+    "knochen",
+    // Die Gruft des Totengraebers
+    "spaten", "erde", "sarg",
     // Die Betten, in der Schleife
     "bett-built", "bett-cave", "bett-forge", "bett-arena", "bett-gassen",
-    "bett-katakomben", "regen",
+    "bett-katakomben", "bett-gruft", "regen",
     // Die Schritte, je Untergrund
     "schritt-stein", "schritt-moos", "schritt-eisen", "schritt-pflaster",
     "schritt-kies",
@@ -3253,7 +3259,10 @@ const Sfx = {
     tropfstein: 23, steinschlag: 12, wummern: 28,
     blasebalg: 13, hammer: 14, zischen: 20,
     glocke: 26, fluestern: 14,
-    kraehe: 10, tropfen: 12, atem: 15,
+    // Die Kraehe war zu leise gemeldet - sieben Dezibel hoeher
+    kraehe: 17, tropfen: 12, atem: 15,
+    knochen: 16,
+    spaten: 19, erde: 15, sarg: 22,
     // Schritte hoert man oefter als alles andere - sie duerfen nicht stechen
     "schritt-stein": 13, "schritt-moos": 12, "schritt-eisen": 14,
     "schritt-pflaster": 13, "schritt-kies": 14,
@@ -3459,7 +3468,13 @@ const Sfx = {
   /* Ein Bett aus einer Aufnahme: laeuft in der Schleife und blendet auf.
      Gibt die Quelle zurueck, damit stoppeAtmo sie wieder anhalten kann. */
   bettAusDatei(name, ziel, pegel) {
-    const liste = this.puffer[name];
+    let liste = this.puffer[name];
+    /* Springt eine verwandte Welt ein? Die Gruft traegt das Bett der
+       Katakomben, bis sie ein eigenes bekommt - sonst waere sie still. */
+    if ((!liste || !liste.length) && this.atmoName) {
+      const wie = (this.ATMO[this.atmoName] || {}).wieBett;
+      if (wie && name === "bett-" + this.atmoName) liste = this.puffer["bett-" + wie];
+    }
     if (!liste || !liste.length || !this.ctx) return null;
     try {
       const v = liste[Math.floor(Math.random() * liste.length)];
@@ -3698,6 +3713,7 @@ const Sfx = {
   BODEN: {
     built: ["stein", 1], cave: ["moos", .9], forge: ["eisen", 1],
     arena: ["stein", 1.1], gassen: ["pflaster", 1.15], katakomben: ["kies", 1.35],
+    gruft: ["kies", 1.35],      // dieselbe Erde wie in den Katakomben darum
   },
 
   /* Ein Bett: gefiltertes Rauschen mit langsamer Schwankung, oder ein Ton. */
@@ -3851,6 +3867,50 @@ const Sfx = {
         this.krach(.16, { pegel: .035, filter: 3400, nach: 1800, güte: .9, start: .03 });
     },
 
+    /* Knochen, die verrutschen. In einem Grabgang liegen sie uebereinander,
+       und irgendwann gibt einer nach: ein trockenes Klappern, das kurz
+       weiterlaeuft und dann liegen bleibt. */
+    knochen() {
+      const n = 4 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++)
+        this.krach(.05, { pegel: .1 - i * .008,
+                          filter: 1500 + Math.random() * 1400, güte: 3.2,
+                          nach: 700, start: i * (.05 + Math.random() * .1) });
+      this.ton(160 + Math.random() * 60, .22,
+               { form: "triangle", pegel: .045, nach: 90, start: .04 });
+    },
+
+    /* ── Die Gruft ───────────────────────────────────────────────────────
+       Drei Klaenge, die sagen, was er tut. Sie sind gerechnet und werden
+       durch Aufnahmen ersetzt, sobald welche daliegen - bis dahin sind sie
+       das, was man hoert. */
+
+    /* Ein Spaten faehrt ins Erdreich: der harte Stich, dann das Rutschen
+       der Erde von der Schaufel. */
+    spaten() {
+      this.krach(.09, { pegel: .28, filter: 620, nach: 260, güte: 1.4, art: "lowpass" });
+      this.krach(.34, { pegel: .13, filter: 1900, nach: 700, güte: .8, start: .07 });
+      this.ton(74, .18, { form: "sine", pegel: .10, nach: 48 });
+    },
+
+    /* Erde faellt auf einen Sargdeckel - dumpf, mit Holz darunter. */
+    erde() {
+      for (let i = 0; i < 3; i++)
+        this.krach(.13, { pegel: .16 - i * .03, filter: 380 - i * 60, nach: 130,
+                          güte: .9, art: "lowpass", start: i * (.06 + Math.random() * .08) });
+      this.ton(96 + Math.random() * 24, .26, { form: "triangle", pegel: .07, nach: 58 });
+    },
+
+    /* Ein Sargdeckel wird von innen aufgeschoben: Holz auf Holz, langsam,
+       mit einem Knarren, das nicht aufhoert, ehe es zu Ende ist. */
+    sarg() {
+      this.krach(.9, { pegel: .11, filter: 240, nach: 150, güte: 1.1, art: "lowpass" });
+      for (let i = 0; i < 5; i++)
+        this.ton(150 + i * 26 + Math.random() * 30, .2,
+                 { form: "sawtooth", pegel: .035, nach: 90, start: .12 + i * .16 });
+      this.ton(52, 1.1, { form: "sine", pegel: .09, nach: 34, start: .3 });
+    },
+
     atem() {
       // In den Katakomben 17 dB unter dem Sub - der eigene Atem war unhoerbar
       this.krach(.5, { pegel: .16, filter: 480, güte: .8, art: "lowpass" });
@@ -3890,7 +3950,10 @@ const Sfx = {
     built: {
       // Ein Steinkeller: sehr tief, sehr dumpf, fast ohne Hoehen
       betten: [{ art: "rausch", filter: 105, güte: .7, pegel: .17, typ: "lowpass", atem: .05 }],
-      ereignisse: [["kette", 8, 16], ["ratten", 10, 20], ["tor", 30, 60]],
+      /* Gemeldet: hier faellt zu viel. Ein Kerker, in dem alle sechs
+         Sekunden etwas rasselt, ist eine Werkstatt. Rund fuenf Klaenge je
+         Minute statt zehn - die Stille dazwischen ist der Ort. */
+      ereignisse: [["kette", 16, 34], ["ratten", 20, 42], ["tor", 55, 110]],
     },
     cave: {
       // Gemeldet zu leise - eine Hoehle traegt mehr als ein Kerker
@@ -3913,7 +3976,9 @@ const Sfx = {
       betten: [{ art: "rausch", filter: 230, güte: .8, pegel: .06, typ: "lowpass",
                  atem: .09, tiefe: .75 },
                { art: "rausch", filter: 380, güte: 5, pegel: .115, atem: .06, tiefe: .6 }],
-      ereignisse: [["tropfstein", 6, 14], ["steinschlag", 14, 30], ["wummern", 20, 45]],
+      // Dieselbe Rueckmeldung wie beim Kerker: zu viel auf einmal
+      ereignisse: [["tropfstein", 13, 28], ["steinschlag", 30, 62],
+                   ["wummern", 42, 90]],
     },
     forge: {
       /* Die Esse brummt - ein eigener tiefer Ton neben dem Rauschen. Ohne
@@ -3929,7 +3994,10 @@ const Sfx = {
       betten: [{ art: "ton", f: 55, pegel: .009, atem: .07 },
                { art: "ton", f: 82.4, pegel: .006, atem: .05 },
                { art: "ton", f: 110, pegel: .004, atem: .09 }],
-      ereignisse: [["glocke", 14, 30], ["fluestern", 7, 14]],
+      /* Gemeldet: hier ist zu wenig los. Und hier stimmt das auch - man
+         laeuft nicht hindurch, man steht und wartet auf den Namenlosen.
+         Wer wartet, hoert hin, und dann darf mehr kommen als anderswo. */
+      ereignisse: [["glocke", 9, 19], ["fluestern", 4, 9]],
     },
     gassen: {
       /* Das Einzige, was von Anfang an stimmte - hier steht neben dem Bett
@@ -3938,7 +4006,28 @@ const Sfx = {
          je Minute und sind jetzt so selten wie alles andere.
          Der Wind wird drinnen leise - das macht tickWetter, nicht die Tabelle. */
       betten: [{ art: "rausch", filter: 620, güte: .8, pegel: .18, atem: .09, tiefe: .9 }],
-      ereignisse: [["kraehe", 10, 22], ["tropfen", 5, 11]],
+      // Die Gassen stimmen - nur die Kraehe kam zu selten. Jetzt doppelt so oft.
+      ereignisse: [["kraehe", 5, 12], ["tropfen", 5, 11]],
+    },
+    gruft: {
+      /* Der letzte Raum. Er liegt in den Katakomben und traegt deren Bett,
+         solange keine eigene Aufnahme dafuer daliegt - `wieBett` sagt, wer
+         einspringt. Ohne das waere ausgerechnet der Raum still gewesen, auf
+         den alles zulaeuft.
+
+         Was darueber faellt, ist seins: der Spaten, die Erde, der Sarg. */
+      pegel: 1.9,
+      wieBett: "katakomben",
+      /* Erde und Holz, nicht Fels. Der erste Versuch legte einen Sub bei
+         34 Hz darunter - gemessen fast dasselbe wie die Katakomben mit
+         ihren 38 Hz, und die liegen ja gleich nebenan. Eine Gruft ist aber
+         kein Stollen: sie ist eng, ausgekleidet und voller Holz. Das liegt
+         in der Mitte, wo die Katakomben nichts haben. */
+      betten: [{ art: "rausch", filter: 205, güte: 6.5, pegel: .075, atem: .04,
+                 tiefe: .6 },
+               { art: "rausch", filter: 820, güte: 7, pegel: .05, atem: .07,
+                 tiefe: .5 }],
+      ereignisse: [["spaten", 9, 20], ["erde", 14, 30], ["sarg", 26, 55]],
     },
     katakomben: {
       // Ebenfalls zu leise gemeldet. Die Stille bleibt der Ort - aber eine
@@ -3950,7 +4039,13 @@ const Sfx = {
          aber der Sub war so laut, dass Atem und Steinschlag achtzehn Dezibel
          darunter lagen und gar nicht vorkamen. */
       betten: [{ art: "ton", f: 38, pegel: .012, atem: .04 }],
-      ereignisse: [["atem", 8, 16], ["steinschlag", 14, 30]],
+      /* Zu dritt statt zu zweit. Der Atem war das haeufigere von zwei
+         Ereignissen - wer hier lief, hoerte zu zwei Dritteln denselben
+         Klang, und wenn der nicht gefaellt, gefaellt fast alles nicht. Er
+         faellt jetzt halb so oft: er ist der persoenlichste von allen, und
+         was einem so nah ist, darf selten sein. */
+      ereignisse: [["atem", 18, 38], ["steinschlag", 14, 30],
+                   ["knochen", 11, 24]],
     },
   },
 
@@ -5605,8 +5700,7 @@ const TOTENSTADT_THEMES = [
     wallDim: "#1E2218", wallLit: "#525C42", wallTop: "#74805C",
     floorDim: "#141810", floorLit: "#2C3222",
     speck: "200,220,160", glow: "168,200,128", mote: "#C8E0A0",
-    rock: "#0A0C07", decor: "grab", gen: "gruft", klang: "katakomben",
-    style: "masonry",
+    rock: "#0A0C07", decor: "grab", gen: "gruft", style: "masonry",
   },
 ];
 
