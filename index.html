@@ -2803,7 +2803,7 @@ body {
     <h1>Der <span class="drop">Abstieg</span></h1>
     <div class="floor-mark">
       <span class="realm" id="realmName">Kerker</span>
-      <span class="label">Etage</span>
+      <span class="label" id="floorLabel">Etage</span>
       <span class="numeral" id="floorNumeral">I</span>
       <span class="laune" id="launeTag" hidden></span>
     </div>
@@ -3177,7 +3177,7 @@ const Sfx = {
     "bett-katakomben", "bett-gruft", "regen", "lava-nah",
     // Die Schritte, je Untergrund
     "schritt-stein", "schritt-moos", "schritt-eisen", "schritt-pflaster",
-    "schritt-kies",
+    "schritt-kies", "schritt-wasser",
     // Kampf, Fund und Fenster
     "treffer", "kritisch", "wehgetan", "abgeprallt", "ausgewichen",
     "gestorben", "aufheben", "nein", "sieg", "treppe", "stoss", "trank",
@@ -3942,6 +3942,7 @@ const Sfx = {
         eisen:   { filter: 1600, güte: 2.2, pegel: .075, dauer: .05,  art: "bandpass" },
         pflaster:{ filter: 1100, güte: 1.6, pegel: .095, dauer: .06,  art: "bandpass" },
         kies:    { filter: 2600, güte: 1.1, pegel: .1,   dauer: .13,  art: "bandpass" },
+        wasser:  { filter: 460,  güte: .8,  pegel: .08,  dauer: .095, art: "lowpass" },
       };
       const S = BODENKLANG[art] || BODENKLANG.stein;
       const k = laut || 1;
@@ -3954,6 +3955,8 @@ const Sfx = {
         this.krach(.09, { pegel: .05, filter: 3200, nach: 1400, güte: 1.2, start: .012 });
       if (art === "kies")                // und das Nachknirschen im Geroell
         this.krach(.16, { pegel: .035, filter: 3400, nach: 1800, güte: .9, start: .03 });
+      if (art === "wasser")              // das Platschen, wenn der Fuss eintaucht
+        this.krach(.14, { pegel: .065, filter: 2200, nach: 2200, güte: 1.0, start: .01 });
     },
 
     /* ── Die Moorfeste ───────────────────────────────────────────────────
@@ -4821,6 +4824,7 @@ const ORT_INHALT = {
     name: "Das Schloss",
     themes: THEMES,
     maxFloor: 10,
+    boss: "boss",   // der Namenlose - stand bisher nirgends explizit, weil es der einzige Ort war
   },
 };
 
@@ -4833,6 +4837,12 @@ function ortSchluessel() {
 }
 const ort = () => ORT_INHALT[ortSchluessel()];
 const maxFloor = () => ort().maxFloor;
+
+/* Die Moorfeste steigt man hinauf, nicht hinab - "Etage" und "hinab" waeren
+   dort falsch. Ein Ort traegt das in seinem Feld `hinauf`, hier wird daraus
+   das passende Wort. */
+const ETAGE_WORT = () => (ort().hinauf ? "Stockwerk" : "Etage");
+const ETAGE_WORT_PL = () => (ort().hinauf ? "Stockwerke" : "Etagen");
 
 function themeFor(floor) {
   const reihe = ort().themesSort ||
@@ -6767,6 +6777,7 @@ function newMap() {
   return {
     tiles: new Uint8Array(MAP_W * MAP_H),
     room: new Uint8Array(MAP_W * MAP_H),   // 1 = gehört zu einem Raum, 0 = Gang
+    nass: new Uint8Array(MAP_W * MAP_H),   // 1 = Wasser/Schlamm - langsamer und lauter
     visible: new Uint8Array(MAP_W * MAP_H),
     explored: new Uint8Array(MAP_W * MAP_H),
     dist: new Int32Array(MAP_W * MAP_H).fill(-1),
@@ -6824,6 +6835,16 @@ const kachelX = a => Math.floor(a.x);
 const kachelY = a => Math.floor(a.y);
 const kachel = a => [Math.floor(a.x), Math.floor(a.y)];
 const mitte = t => t + 0.5;   // Kachelnummer -> Mittelpunkt
+
+/* Wasser und Schlamm halten fest: wer hindurchwatet, ist langsamer und
+   traegt weiter. Gilt fuer Held und Gegner gleich - eine Eigenschaft des
+   Ortes, keine reine Erschwernis fuer den Spieler. Markiert wird das Feld
+   vom Generator (map.nass), nicht von der Kachelart - derselbe FLOOR bleibt
+   FLOOR, nur nass oder trocken. */
+const WASSER_TEMPO = .75;   // ~25 % langsamer
+const WASSER_LAERM = 1.5;   // ~50 % weiter zu bemerken - wie "wachsam", nur ortsgebunden
+const stehtNass = a => !!(G && G.map && G.map.nass &&
+  inBounds(kachelX(a), kachelY(a)) && G.map.nass[idx(kachelX(a), kachelY(a))]);
 
 /* Kollision: der Kreis um eine Position darf keine feste Kachel berühren.
    Geprüft werden die vier Ecken des umschließenden Quadrats - für ein
@@ -7274,10 +7295,10 @@ function generateFloor(floor) {
   if (art === "gassen") return generateGassen(floor);
   if (art === "katakomben") return generateKatakomben(floor);
   if (art === "gruft") return generateGruft(floor);
-  /* Die Moorfeste leiht sich vorerst, was passt: der Schlamm waechst wie
-     eine Hoehle, die Saele sind gebaute Raeume, die Wehrgaenge enge Gaenge.
-     Eigene Generatoren kommen, wenn das Geruest steht. */
-  if (art === "schlamm") return generateCave(floor);
+  if (art === "schlamm") return generateSchlamm(floor);
+  /* Die Wehrgaenge und Saele leihen sich noch, was passt: die Wehrgaenge
+     enge Gaenge, die Saele gebaute Raeume. Eigene Generatoren kommen, wenn
+     der Schlammgrund steht und sich bewaehrt hat. */
   if (art === "wehrgang") return generateKatakomben(floor);
   // "saele" faellt durch: der Standardbau mit Raeumen und Gaengen steht
   // unten und braucht keinen eigenen Namen.
@@ -7681,6 +7702,134 @@ function generateCave(floor) {
 
   // In Höhlen gibt es keine gebauten Räume - alles ist gewachsener Fels.
   return { map, zones };
+}
+
+/* ── Der Schlammgrund: ein Sumpf, kein Fels ───────────────────────────────
+   Dieselbe Technik wie die Pilzhöhle (Zellularautomat, größte Höhle
+   behalten) - aber offener gefüllt, damit weite Flächen entstehen statt
+   enger, verzweigter Gänge. Der Unterschied liegt nicht in der Form,
+   sondern im Boden: fast alles darin ist Schlamm (map.nass) und macht
+   langsamer und lauter. Nur ein paar schmale, gewundene Dämme bleiben
+   trocken - wer ihnen folgt, läuft länger, aber sicher. */
+function generateSchlamm(floor) {
+  const map = newMap();
+  const W = MAP_W, H = MAP_H;
+  let grid = new Uint8Array(W * H);
+
+  // Niedrigere Anfangsfüllung als die Pilzhöhle (.46) - offenere Flächen.
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      grid[idx(x, y)] = (x < 2 || y < 2 || x > W - 3 || y > H - 3 || rng() < .40) ? 1 : 0;
+
+  for (let pass = 0; pass < 4; pass++) {
+    const next = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        if (x < 1 || y < 1 || x > W - 2 || y > H - 2) { next[idx(x, y)] = 1; continue; }
+        let n = 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++)
+            if (dx || dy) n += grid[idx(x + dx, y + dy)];
+        next[idx(x, y)] = n > 4 ? 1 : (n < 4 ? 0 : grid[idx(x, y)]);
+      }
+    grid = next;
+  }
+
+  // Größten Hohlraum finden - garantiert, dass alles Offene zusammenhängt,
+  // genau wie in der Pilzhöhle.
+  const label = new Int32Array(W * H).fill(-1);
+  let bestId = -1, bestSize = 0, id = 0;
+  for (let y = 1; y < H - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      if (grid[idx(x, y)] || label[idx(x, y)] !== -1) continue;
+      const q = [[x, y]];
+      label[idx(x, y)] = id;
+      let size = 0;
+      while (q.length) {
+        const [cx, cy] = q.pop();
+        size++;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx < 1 || ny < 1 || nx > W - 2 || ny > H - 2) continue;
+          if (grid[idx(nx, ny)] || label[idx(nx, ny)] !== -1) continue;
+          label[idx(nx, ny)] = id;
+          q.push([nx, ny]);
+        }
+      }
+      if (size > bestSize) { bestSize = size; bestId = id; }
+      id++;
+    }
+
+  const offen = [];
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const keep = label[idx(x, y)] === bestId;
+      map.tiles[idx(x, y)] = keep ? FLOOR : WALL;
+      if (keep) { map.nass[idx(x, y)] = 1; offen.push([x, y]); }   // erst mal alles Schlamm
+    }
+
+  // Zonen: weit auseinanderliegende Ankerpunkte, wie in der Pilzhöhle.
+  const zones = [];
+  const wunsch = 10 + Math.floor(floor / 2);
+  for (let versuch = 0; versuch < 900 && zones.length < wunsch; versuch++) {
+    const [x, y] = offen[Math.floor(rng() * offen.length)];
+    if (zones.some(z => Math.hypot(z.center[0] - x, z.center[1] - y) < 9)) continue;
+    const tiles = [];
+    for (let dy = -3; dy <= 3; dy++)
+      for (let dx = -3; dx <= 3; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (inBounds(nx, ny) && map.tiles[idx(nx, ny)] === FLOOR) tiles.push([nx, ny]);
+      }
+    if (tiles.length >= 12) zones.push({ tiles, center: [x, y] });
+  }
+  if (!zones.length) zones.push({ tiles: offen.slice(0, 40), center: offen[0] });
+
+  /* Dämme: die Fläche steht schon (der Fels wurde bereits gegraben), hier
+     wird nur map.nass zurückgenommen - kein Tunnelbau, ein Trockenlegen. */
+  for (let i = 1; i < zones.length; i++)
+    trockneDamm(map, zones[i - 1].center, zones[i].center);
+  // Ein paar Querverbindungen, sonst ist jeder Damm ein einziger Faden und
+  // jeder Umweg führt zwangsläufig doch durch den Schlamm.
+  for (let i = 0; i < Math.min(3, zones.length >> 2); i++) {
+    const a = pick(zones), b = pick(zones);
+    if (a !== b) trockneDamm(map, a.center, b.center);
+  }
+
+  return { map, zones };
+}
+
+/* Ein schmaler, unregelmäßiger Trockenpfad zwischen zwei Punkten: meist
+   Richtung Ziel, aber oft genug quer, damit aus der Linie eine gewachsene
+   Spur wird statt eines Lineals. Ein harter Zug zum Ziel nach 420 Schritten
+   stellt sicher, dass jeder Damm wirklich ankommt. */
+function trockneDamm(map, a, b) {
+  const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  let [x, y] = a;
+  const [zx, zy] = b;
+  let schutz = 0;
+  trockneKachel(map, x, y);
+  while ((x !== zx || y !== zy) && schutz++ < 500) {
+    const kandidaten = ORTHO.filter(([dx, dy]) =>
+      x + dx > 1 && y + dy > 1 && x + dx < MAP_W - 2 && y + dy < MAP_H - 2);
+    if (!kandidaten.length) break;
+    kandidaten.sort((p, q) =>
+      Math.hypot(x + p[0] - zx, y + p[1] - zy) - Math.hypot(x + q[0] - zx, y + q[1] - zy));
+    const [dx, dy] = (rng() < .68 || schutz > 420) ? kandidaten[0] : pick(kandidaten);
+    x += dx; y += dy;
+    trockneKachel(map, x, y);
+  }
+}
+
+function trockneKachel(map, x, y) {
+  if (!inBounds(x, y) || map.tiles[idx(x, y)] !== FLOOR) return;
+  map.nass[idx(x, y)] = 0;
+  // Zwei Kacheln breit, sonst verfehlt man den Damm beim Ausweichen eines
+  // Gegners um einen Schritt und steht doch wieder im Schlamm.
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const nx = x + dx, ny = y + dy;
+    if (inBounds(nx, ny) && map.tiles[idx(nx, ny)] === FLOOR && rng() < .5)
+      map.nass[idx(nx, ny)] = 0;
+  }
 }
 
 /* Hängt noch alles zusammen? Prüft achtfach verbunden, genau wie die Bewegung. */
@@ -10667,19 +10816,21 @@ function takeStairs() {
     return false;
   }
   if (!s || kachelX(G.player) !== s[0] || kachelY(G.player) !== s[1]) {
-    log("Hier führt keine Treppe hinab.", "system");
+    log(ort().hinauf ? "Hier führt keine Treppe höher." : "Hier führt keine Treppe hinab.", "system");
     return false;
   }
   G.floor++;
   G.deepest = Math.max(G.deepest, G.floor);
   populateFloor(G.floor);
   Sfx.spiel("treppe");
-  log(`Du steigst hinab auf Etage ${G.floor}.`, "alert");
+  log(ort().hinauf
+    ? `Du steigst höher, auf Stockwerk ${G.floor}.`
+    : `Du steigst hinab auf Etage ${G.floor}.`, "alert");
   if (themeFor(G.floor) !== themeFor(G.floor - 1)) {
     log(`Das Gestein wechselt. ${theme().name}.`, "alert");
-    banner(theme().name, `Etage ${ROMAN[G.floor] || G.floor}`);
+    banner(theme().name, `${ETAGE_WORT()} ${ROMAN[G.floor] || G.floor}`);
   } else {
-    banner(`Etage ${ROMAN[G.floor] || G.floor}`, theme().name);
+    banner(`${ETAGE_WORT()} ${ROMAN[G.floor] || G.floor}`, theme().name);
   }
   if (G.quest && !G.quest.done)
     G.questLog.push({ floor: G.quest.floor, title: G.quest.title, done: false });
@@ -11270,7 +11421,8 @@ function actorTurn(a) {
        anschleichen will. */
     const nass = imRegen(p) ? .7 : 1;
     if (sicht && dist <= AGGRO_RANGE * nass * flamme().bemerkt *
-                         (hatLaune("wachsam") ? 2 : 1)) {
+                         (hatLaune("wachsam") ? 2 : 1) *
+                         (stehtNass(p) ? WASSER_LAERM : 1)) {
       a.wach = true;
       a.kite = KITE_BUDGET;
     } else return;
@@ -12144,6 +12296,7 @@ function lenke(a, dt) {
   if (a.maff === "flink") tempo *= 1.34;
   if (a.maff === "rasend") tempo *= 1.14;
   if (a.elite) tempo *= 1.06;
+  if (stehtNass(a)) tempo *= WASSER_TEMPO;
   bewege(a, (zx / l) * tempo * dt, (zy / l) * tempo * dt);
 }
 
@@ -12308,7 +12461,8 @@ function schritt(dt) {
   if (!mausWelt) p.facing = [dx, dy];
 
   const weite = SPEED_PLAYER * dt * (p.speedMult || 1) * lastTempo(p) *
-                klageTempo(p) * Math.max(.55, 1 + equipBonus("tempo"));
+                klageTempo(p) * (stehtNass(p) ? WASSER_TEMPO : 1) *
+                Math.max(.55, 1 + equipBonus("tempo"));
   const vorher = [Math.floor(p.x), Math.floor(p.y)];
   bewege(p, dx * weite, dy * weite);
 
@@ -13309,6 +13463,17 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
       ctx.fillRect(x + (n * (TILE - s - 6) | 0) + 3, y + (hash2(my, mx) * (TILE - s - 6) | 0) + 3, s, s);
     }
     drawDecor(T, x, y, mx, my, light);
+
+    // Wasser/Schlamm: muss man sehen, nicht nur wissen - langsamer und lauter
+    // ist sonst eine unsichtbare Regel.
+    if (G.map.nass[idx(mx, my)]) {
+      const glanz = .5 + Math.sin(anim.t * 1.3 + mx * .7 + my * .5) * .5;
+      ctx.fillStyle = `rgba(18,46,54,${.46 + light * .26})`;
+      ctx.fillRect(x, y, TILE, TILE);
+      ctx.fillStyle = `rgba(206,232,224,${.07 + light * .16 * glanz})`;
+      ctx.fillRect(x, y + TILE * .18, TILE, 1.6);
+      ctx.fillRect(x, y + TILE * .62, TILE, 1.3);
+    }
   } else {
     ctx.fillStyle = C.memFloor;
     ctx.fillRect(x, y, TILE, TILE);
@@ -15592,6 +15757,7 @@ function refreshUI() {
   const p = G.player;
   $("floorNumeral").textContent = ROMAN[G.floor] || G.floor;
   $("realmName").textContent = theme().name;
+  $("floorLabel").textContent = ETAGE_WORT();
   const l = G.laune && LAUNE_VON[G.laune];
   $("launeTag").hidden = !l;
   if (l) {
@@ -17570,6 +17736,10 @@ function adminAllesFrei() {
   META.punkte = Math.max(META.punkte | 0, 200);
   META.stufe = Math.max(META.stufe | 0, 30);
   META.siege = Math.max(META.siege | 0, 1);          // oeffnet die Totenstadt
+  /* Die Moorfeste haengt nicht an META.siege, sondern daran, dass die
+     Totenstadt als bezwungen gilt (ortOffen() prueft bezwungen(), nicht
+     die Siegzahl) - ohne diese Zeile blieb sie trotz "alle Orte" zu. */
+  merkeBezwungen("totenstadt");
   META.gesehen = Object.keys(ORT_INHALT);
   META.erweiterungen = Object.keys(ERWEITERUNGEN);
   // Alle vier Haendler auf den hoechsten Rang
@@ -19658,11 +19828,17 @@ function startNewGame() {
   }
 
   G.logEntries = [];
-  log("Die Tür fällt hinter dir zu. Zehn Etagen trennen dich vom Namenlosen.", "alert");
+  const bossSpec = MONSTERS[ort().boss];
+  /* "von" verlangt den Dativ - bei wechselnden Namen (Der Namenlose, Der
+     Totengraeber, ...) liesse sich das nicht zuverlaessig beugen. Der
+     Nominativ nach "steht" umgeht das Problem, statt es falsch zu machen. */
+  log(`Die Tür fällt hinter dir zu. Zehn ${ETAGE_WORT_PL()}, dann steht ${
+    bossSpec ? bossSpec.name : "er"} vor dir.`, "alert");
   const fa0 = ABILITIES[faehigkeitVon(p)];
+  const einstiegssatz = ort().hinauf ? "Du steigst höher." : "Du steigst hinab.";
   log(fa0
-    ? `Du steigst hinab. ${fa0.name} liegt auf F.`
-    : "Du steigst hinab. Ohne Modul hast du keine Fähigkeit — such eines.", "alert");
+    ? `${einstiegssatz} ${fa0.name} liegt auf F.`
+    : `${einstiegssatz} Ohne Modul hast du keine Fähigkeit — such eines.`, "alert");
   log("Drücke ? für die Steuerung.", "system");
   startQuest(1);
   refreshUI();
@@ -20091,7 +20267,11 @@ function loop(now) {
         if (schrittWeg >= SCHRITT_LAENGE) {
           schrittWeg = 0;
           const t = theme();
-          const [art, laut] = Sfx.BODEN[t.klang || t.gen] || ["stein", 1];
+          // Im Wasser/Schlamm ein eigener Klang, unabhaengig davon, was die
+          // Welt sonst unter den Fuessen hat - man soll es hoeren, nicht nur wissen.
+          const [art, laut] = stehtNass(p0)
+            ? ["wasser", 1.2]
+            : (Sfx.BODEN[t.klang || t.gen] || ["stein", 1]);
           try { Sfx.KLANG.schritt.call(Sfx, art, laut); } catch (e) {}
         }
       }
