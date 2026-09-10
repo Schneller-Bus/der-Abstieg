@@ -2912,9 +2912,16 @@ let fovR = FOV_RADIUS;
    Ort daran nimmt, gibt er in Grablichtern zurueck - man bewegt sich von
    Licht zu Licht, statt seinen Schein mitzuschleppen. */
 function fovFromOil(oil) {
-  if (oil <= 0) return 2.2;
+  /* Tageslicht. In der Moorfeste kehrt sich das Licht mit der Hoehe um:
+     unten im Schlamm ist es finster wie ueberall, oben auf dem Turmkopf
+     ist Tag und die Fackel wird nicht mehr gebraucht. Dazwischen mischt
+     sich beides. */
+  const tag = (theme() && theme().hell) || 0;
+  if (tag >= 1) return FOV_RADIUS;
+  if (oil <= 0) return Math.max(2.2, FOV_RADIUS * tag);
   const grund = 4.8 + (FOV_RADIUS - 4.8) * Math.min(1, oil / 60);
-  return Math.max(2.2, grund * flamme().sicht * (ort().sicht || 1));
+  const ausFackel = Math.max(2.2, grund * flamme().sicht * (ort().sicht || 1));
+  return Math.max(ausFackel, FOV_RADIUS * tag);
 }
 const MAX_FLOOR = 10;
 /* Ein Leben je zwanzig Runden. Bei acht war die Etage von selbst verheilt,
@@ -3025,6 +3032,8 @@ function flamme() {
 /* Wie viel Öl dieser Takt kostet. Die Talente wirken ueber oilSteps weiter:
    ein hoeherer Wert bedeutet eine sparsamere Flamme. */
 function verbrauchProTakt() {
+  // Wo Tag ist, zehrt die Fackel nicht: man traegt sie nur noch mit sich
+  if (((theme() && theme().hell) || 0) >= 1) return 0;
   const p = G.player;
   const stufen = Math.max(1, (p.oilSteps || OIL_PER_STEPS) + equipBonus("oilSteps"));
   return OIL_JE_TAKT * (OIL_PER_STEPS / stufen) * flamme().verbrauch *
@@ -3101,6 +3110,7 @@ const KLANG_ORDNER = [
   "kette.mp3",
   "knochen.mp3",
   "kraehe.mp3",
+  "lava-nah.mp3",
   "ratten.mp3",
   "regen.mp3",
   "schritt-kies.mp3",
@@ -3157,11 +3167,14 @@ const Sfx = {
     "wummern", "blasebalg", "hammer", "zischen", "glocke", "fluestern",
     "kraehe", "atem",
     "knochen",
+    // Die Moorfeste
+    "blubb", "unke", "holz", "boe",
+    "bett-schlamm", "bett-saele", "bett-wehrgang", "bett-turmkopf",
     // Die Gruft des Totengraebers
     "spaten", "erde", "sarg",
     // Die Betten, in der Schleife
     "bett-built", "bett-cave", "bett-forge", "bett-arena", "bett-gassen",
-    "bett-katakomben", "bett-gruft", "regen",
+    "bett-katakomben", "bett-gruft", "regen", "lava-nah",
     // Die Schritte, je Untergrund
     "schritt-stein", "schritt-moos", "schritt-eisen", "schritt-pflaster",
     "schritt-kies",
@@ -3259,10 +3272,11 @@ const Sfx = {
     tropfstein: 23, steinschlag: 12, wummern: 28,
     blasebalg: 13, hammer: 14, zischen: 20,
     glocke: 26, fluestern: 14,
-    // Die Kraehe war zu leise gemeldet - sieben Dezibel hoeher
-    kraehe: 17, tropfen: 12, atem: 15,
+    // Zweimal zu leise gemeldet - von zehn ueber siebzehn auf zweiundzwanzig
+    kraehe: 22, tropfen: 12, atem: 15,
     knochen: 16,
     spaten: 19, erde: 15, sarg: 22,
+    blubb: 13, unke: 18, holz: 15, boe: 20,
     // Schritte hoert man oefter als alles andere - sie duerfen nicht stechen
     "schritt-stein": 13, "schritt-moos": 12, "schritt-eisen": 14,
     "schritt-pflaster": 13, "schritt-kies": 14,
@@ -3283,8 +3297,16 @@ const Sfx = {
      Kerker in die Gassen stieg, bekam einen Schlag. Ereignisse bleiben
      unangetastet: dort ist der Unterschied zwischen einem Tropfen und
      einem zufallenden Tor gewollt. */
+  /* Was in der Schleife laeuft, statt einmal zu fallen. Das stand an zwei
+     Stellen fest verdrahtet, und als der Lavakanal dazukam, wusste nur die
+     eine davon: lava-nah wurde in siebenundzwanzig Schnipsel zerlegt,
+     obwohl es als Ganzes im Kreis laufen soll. Jetzt sagt es eine Stelle. */
+  istBett(name) {
+    return name.indexOf("bett-") === 0 || name === "regen" || name === "lava-nah";
+  },
+
   aufbereiten(p, name) {
-    const istBett = name.indexOf("bett-") === 0 || name === "regen";
+    const istBett = this.istBett(name);
     let puffer = p;
     try {
       if (p.numberOfChannels > 1) {
@@ -3361,7 +3383,7 @@ const Sfx = {
      gerade nicht zerfallen. */
   zerlege(p, name) {
     const ganz = [[0, p.duration]];
-    if (name.indexOf("bett-") === 0 || name === "regen") return ganz;
+    if (this.istBett(name)) return ganz;
     if (p.duration < 2.5) return ganz;        // kurz genug, wie sie ist
     try {
       const daten = p.getChannelData(0);
@@ -3518,7 +3540,10 @@ const Sfx = {
     try { localStorage.setItem("der-abstieg-ton", an ? "1" : "0"); } catch (e) {}
     if (this.master) this.master.gain.value = an ? this.laut : 0;
     if (an && this.musikWunsch && !this.musik) this.musik_an(true);
-    if (!an) { this.stoppeKulisse(); this.stoppeAtmo(); this.stoppeRegen(); }
+    if (!an) {
+      this.stoppeKulisse(); this.stoppeAtmo();
+      this.stoppeRegen(); this.stoppeLava();
+    }
     else if (an && G && mode && mode.kind === "play") {
       this.atmo(theme().gen);
       if (regnetHier()) this.starteRegen();
@@ -3687,6 +3712,67 @@ const Sfx = {
     } catch (e) {}
   },
 
+  /* Die Lava ist kein Geraeusch, sondern ein Zustand - wie der Regen.
+     Sie blubbert leise vor sich hin, und wie laut, sagt die Entfernung.
+     Bisher grollte sie nur, wenn eine Kachel im Blick war; das sagt nichts
+     darueber, wie nah man ihr kommt. Wer im Dunkeln tastet, soll wissen,
+     wohin er nicht treten darf, ehe die Fackel es zeigt. */
+  lava: null,
+
+  starteLava() {
+    this.init();
+    if (!this.ctx || this.lava) return;
+    try {
+      const t = this.jetzt();
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0, t);
+      gain.connect(this.geraeuschBus || this.master);
+
+      // Eine Aufnahme ersetzt das gerechnete Blubbern ganz
+      const quellen = [];
+      const ausAufnahme = this.bettAusDatei("lava-nah", gain);
+      if (ausAufnahme) quellen.push(ausAufnahme);
+      else {
+        /* Tiefes, langsames Brodeln: ein dumpfer Grund, darueber ein
+           schmales Band, das langsam auf und ab geht - das sind die
+           Blasen, die aufsteigen und zerplatzen. */
+        quellen.push(...this.bettRauschen(
+          { filter: 90, güte: .6, art: "lowpass", pegel: .5, atem: .07, tiefe: .5 },
+          gain));
+        quellen.push(...this.bettRauschen(
+          { filter: 340, güte: 2.6, pegel: .32, atem: .23, tiefe: .8 }, gain));
+      }
+      this.lava = { gain, quellen };
+    } catch (e) { this.lava = null; }
+  },
+
+  /* Wie nah man ist, in null bis eins. Der Weg dorthin ist traege, damit
+     es beim Umherlaufen nicht flackert. */
+  lavaPegel(wert) {
+    if (!this.lava) return;
+    try {
+      const t = this.jetzt();
+      const g = this.lava.gain.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(Math.max(.0001, g.value), t);
+      g.linearRampToValueAtTime(Math.max(.0001, wert), t + .7);
+    } catch (e) {}
+  },
+
+  stoppeLava() {
+    if (!this.lava) return;
+    const l = this.lava;
+    this.lava = null;
+    try {
+      const t = this.jetzt();
+      l.gain.gain.cancelScheduledValues(t);
+      l.gain.gain.setValueAtTime(l.gain.gain.value, t);
+      l.gain.gain.linearRampToValueAtTime(0, t + .8);
+      for (const q of l.quellen) { try { q.stop(t + .9); } catch (e) {} }
+      setTimeout(() => { try { l.gain.disconnect(); } catch (e) {} }, 1300);
+    } catch (e) {}
+  },
+
   stoppeRegen() {
     if (!this.regen) return;
     const r = this.regen;
@@ -3714,6 +3800,9 @@ const Sfx = {
     built: ["stein", 1], cave: ["moos", .9], forge: ["eisen", 1],
     arena: ["stein", 1.1], gassen: ["pflaster", 1.15], katakomben: ["kies", 1.35],
     gruft: ["kies", 1.35],      // dieselbe Erde wie in den Katakomben darum
+    // In der Moorfeste wird der Boden mit der Hoehe fester und lauter
+    schlamm: ["moos", 1.25], saele: ["pflaster", 1.1],
+    wehrgang: ["stein", 1.15], turmkopf: ["stein", 1.25],
   },
 
   /* Ein Bett: gefiltertes Rauschen mit langsamer Schwankung, oder ein Ton. */
@@ -3867,6 +3956,48 @@ const Sfx = {
         this.krach(.16, { pegel: .035, filter: 3400, nach: 1800, güte: .9, start: .03 });
     },
 
+    /* ── Die Moorfeste ───────────────────────────────────────────────────
+       Vier Klaenge, die der Hoehe folgen: unten nass und lebendig, oben nur
+       noch Wind. */
+
+    /* Eine Blase steigt im Schlamm auf und zerplatzt. Der Ton geht dabei
+       nach oben - so klingt eine Blase, die kleiner wird, waehrend sie
+       steigt. */
+    blubb() {
+      const f = 90 + Math.random() * 70;
+      this.ton(f, .22, { form: "sine", pegel: .12, nach: f * 2.4 });
+      this.krach(.05, { pegel: .05, filter: 620, güte: 2.2, start: .19 });
+    },
+
+    /* Eine Unke ruft aus dem Moor: zwei kurze, dumpfe Toene, der zweite
+       tiefer. Sie klingt hohl, weil sie ueber Wasser kommt. */
+    unke() {
+      const f = 300 + Math.random() * 80;
+      this.ton(f, .16, { form: "triangle", pegel: .13, nach: f * .8 });
+      this.ton(f * .82, .2, { form: "triangle", pegel: .1, nach: f * .7,
+                              start: .21 });
+    },
+
+    /* Holz im Wasser: ein Balken, der arbeitet, eine Diele, die nachgibt.
+       Langsam, tief, und es hoert nicht auf, ehe es zu Ende ist. */
+    holz() {
+      const f = 120 + Math.random() * 50;
+      for (let i = 0; i < 4; i++)
+        this.ton(f + i * 18 + Math.random() * 20, .26,
+                 { form: "sawtooth", pegel: .05 - i * .008, nach: f * .6,
+                   start: i * (.13 + Math.random() * .1) });
+      this.krach(.5, { pegel: .05, filter: 200, nach: 110, güte: 1.1,
+                       art: "lowpass" });
+    },
+
+    /* Eine Boe faellt ein. Sie kommt an und geht wieder, und zwischen
+       beidem steht sie einen Augenblick still. */
+    boe() {
+      this.krach(2.2, { pegel: .13, filter: 700, nach: 380, güte: .7 });
+      this.krach(1.4, { pegel: .07, filter: 1800, nach: 900, güte: .9,
+                        start: .5 });
+    },
+
     /* Knochen, die verrutschen. In einem Grabgang liegen sie uebereinander,
        und irgendwann gibt einer nach: ein trockenes Klappern, das kurz
        weiterlaeuft und dann liegen bleibt. */
@@ -3988,7 +4119,10 @@ const Sfx = {
       betten: [{ art: "rausch", filter: 175, güte: .6, pegel: .032, typ: "lowpass", atem: .06 },
                { art: "rausch", filter: 1450, güte: .9, pegel: .062, atem: .17, tiefe: .55 },
                { art: "ton", f: 62, pegel: .015, atem: .11 }],
-      ereignisse: [["blasebalg", 7, 13], ["hammer", 12, 26], ["zischen", 30, 60]],
+      /* Ein ganz kleines bisschen weniger, wie gemeldet: von zehneinhalb
+         auf achteinhalb Klaenge je Minute. Nicht so weit herunter wie
+         Kerker und Hoehle - eine Esse arbeitet, sie steht nicht still. */
+      ereignisse: [["blasebalg", 9, 16], ["hammer", 15, 32], ["zischen", 36, 72]],
     },
     arena: {
       betten: [{ art: "ton", f: 55, pegel: .009, atem: .07 },
@@ -4009,6 +4143,50 @@ const Sfx = {
       // Die Gassen stimmen - nur die Kraehe kam zu selten. Jetzt doppelt so oft.
       ereignisse: [["kraehe", 5, 12], ["tropfen", 5, 11]],
     },
+    /* ── Die Moorfeste ───────────────────────────────────────────────────
+       Die Betten steigen mit der Hoehe: unten dumpf und nah, oben weit und
+       offen. Wer hinaufsteigt, hoert den Raum groesser werden. */
+    schlamm: {
+      // Nass, warm, nah - ein tiefes Gurgeln, in dem alles ersaeuft
+      pegel: 1.5,
+      betten: [{ art: "rausch", filter: 130, güte: .8, pegel: .12, typ: "lowpass",
+                 atem: .06, tiefe: .8 },
+               { art: "rausch", filter: 420, güte: 5.5, pegel: .045, atem: .09,
+                 tiefe: .7 }],
+      ereignisse: [["blubb", 5, 12], ["unke", 14, 32], ["tropfen", 9, 20]],
+    },
+    saele: {
+      // Wasser steht knoecheltief, und das Haus arbeitet darin
+      pegel: 1.4,
+      betten: [{ art: "rausch", filter: 260, güte: 2.2, pegel: .075, atem: .04,
+                 tiefe: .6 },
+               { art: "ton", f: 68, pegel: .012, atem: .03 }],
+      ereignisse: [["holz", 10, 22], ["tropfstein", 8, 18], ["kette", 30, 62]],
+    },
+    wehrgang: {
+      /* Hier faellt der Wind ein. Er kommt durch die Schiessscharten und
+         nimmt mit jeder Etage zu - und mit ihm die Kraehen, die um den
+         Turm stehen. */
+      pegel: 1.5,
+      /* Etwas leiser als zuerst gesetzt: der Steinschlag lag sonst nur sechs
+         Dezibel darueber und waere im Wind untergegangen. Ein Bett soll
+         tragen, nicht zudecken. */
+      betten: [{ art: "rausch", filter: 900, güte: .9, pegel: .062, atem: .11,
+                 tiefe: .9 },
+               { art: "rausch", filter: 180, güte: .7, pegel: .028, typ: "lowpass",
+                 atem: .05 }],
+      ereignisse: [["boe", 11, 24], ["kraehe", 14, 30], ["steinschlag", 34, 70]],
+    },
+    turmkopf: {
+      /* Oben ist nur noch Wind. Das ist der Ort: man steht offen, sieht das
+         ganze Moor, und nichts davon deckt einen. */
+      pegel: 1.7,
+      betten: [{ art: "rausch", filter: 1250, güte: .7, pegel: .11, atem: .14,
+                 tiefe: .95 },
+               { art: "rausch", filter: 320, güte: .8, pegel: .05, atem: .08,
+                 tiefe: .8 }],
+      ereignisse: [["boe", 6, 14], ["kraehe", 16, 36]],
+    },
     gruft: {
       /* Der letzte Raum. Er liegt in den Katakomben und traegt deren Bett,
          solange keine eigene Aufnahme dafuer daliegt - `wieBett` sagt, wer
@@ -4027,7 +4205,11 @@ const Sfx = {
                  tiefe: .6 },
                { art: "rausch", filter: 820, güte: 7, pegel: .05, atem: .07,
                  tiefe: .5 }],
-      ereignisse: [["spaten", 9, 20], ["erde", 14, 30], ["sarg", 26, 55]],
+      /* Der eigene Atem gehoert hierher: man steht dem Totengraeber
+         gegenueber. In den Katakomben laeuft er laengst - dort ist er nur
+         seltener geworden, seit sie zu dritt sind. */
+      ereignisse: [["spaten", 9, 20], ["erde", 14, 30], ["sarg", 26, 55],
+                   ["atem", 12, 26]],
     },
     katakomben: {
       // Ebenfalls zu leise gemeldet. Die Stille bleibt der Ort - aber eine
@@ -4583,6 +4765,49 @@ const THEMES = [
     floorDim: "#1C1416", floorLit: "#3A2A2E",
     speck: "230,160,170", glow: "216,80,72", mote: "#E09098",
     rock: "#120A0C", decor: "ash", gen: "arena", style: "masonry",
+  },
+];
+
+/* ── Die Moorfeste ────────────────────────────────────────────────────────
+   Der einzige Ort, den man hinaufsteigt. Unten der Schlamm, in dem der Turm
+   steckt, oben der Kopf, von dem aus man das ganze Moor sieht - und mit der
+   Hoehe kehrt sich das Licht um: im Schloss wird es nach unten finsterer,
+   hier nach oben heller. Ganz oben ist Tag, und das Oel steht still.
+
+   `hell` sagt, wie viel Tageslicht ein Bereich hat: null heisst finster wie
+   ueberall, eins heisst, die Fackel wird nicht mehr gebraucht. */
+const MOORFESTE_THEMES = [
+  {
+    from: 1, name: "Der Schlammgrund",
+    wallDim: "#241E16", wallLit: "#5E5138", wallTop: "#7E6E4C",
+    floorDim: "#1A1710", floorLit: "#3A3222",
+    speck: "196,180,132", glow: "154,138,86", mote: "#C8B884",
+    rock: "#100D08", decor: "shroom", gen: "schlamm", style: "cave",
+    hell: 0,
+  },
+  {
+    from: 4, name: "Die ersoffenen Säle",
+    wallDim: "#1E2426", wallLit: "#4C6064", wallTop: "#6C8286",
+    floorDim: "#141A1C", floorLit: "#2A3638",
+    speck: "168,200,206", glow: "118,164,172", mote: "#A8CCD2",
+    rock: "#0C1012", decor: "none", gen: "saele", style: "masonry",
+    hell: .25,
+  },
+  {
+    from: 7, name: "Die Wehrgänge",
+    wallDim: "#2A2A2E", wallLit: "#767C86", wallTop: "#9AA2AE",
+    floorDim: "#202024", floorLit: "#464A52",
+    speck: "214,224,238", glow: "170,190,214", mote: "#D6E4F4",
+    rock: "#141416", decor: "none", gen: "wehrgang", style: "masonry",
+    hell: .6,
+  },
+  {
+    from: 10, name: "Der Turmkopf",
+    wallDim: "#3A3C40", wallLit: "#9AA4B0", wallTop: "#C2CCD8",
+    floorDim: "#32363A", floorLit: "#6E767E",
+    speck: "234,242,252", glow: "200,220,244", mote: "#EAF2FC",
+    rock: "#222426", decor: "none", gen: "turmkopf", style: "masonry",
+    hell: 1,
   },
 ];
 
@@ -5792,6 +6017,47 @@ ORT_INHALT.totenstadt = {
   regen: "gassen",          // auf den Strassen regnet es, in den Katakomben nicht
 };
 
+/* Was die Moorfeste an Wesen und Beute fuehrt. Beides ist vorerst
+   geliehen: Wesen aus beiden bekannten Orten, Beute aus dem Schloss. Der
+   Ort steht damit und laesst sich durchlaufen; was ihm eigen gehoert,
+   kommt als Naechstes. */
+const MOORFESTE_MONSTER = {
+  1: [["rat", 50], ["spawn", 30]],
+  3: [["goblin", 40], ["aasratte", 30], ["archer", 20]],
+  5: [["orc", 35], ["leichnam", 30], ["cultist", 20]],
+  7: [["wraith", 30], ["klageweib", 30], ["golem", 25]],
+  9: [["grabwache", 35], ["troll", 30], ["gebein", 30]],
+};
+
+const MOORFESTE_ITEMS = {
+  1: [["potion", 3], ["oil", 24], ["leather", 8], ["dagger", 7], ["modWall", 4]],
+  3: [["wurfmesser", 10], ["chain", 9], ["spiess", 8], ["might", 8],
+      ["modSchatten", 4], ["pilgermantel", 6]],
+  5: [["greatPotion", 2], ["bigoil", 10], ["axe", 8], ["guard", 5],
+      ["aderlass", 6], ["modDonner", 4]],
+  7: [["plate", 8], ["kolben", 7], ["richtschwert", 6], ["dornenpanzer", 6],
+      ["modZoll", 4]],
+  9: [["runeblade", 7], ["hellebarde", 5], ["morgenstern", 6],
+      ["bleiharnisch", 5], ["namenlosauge", 2]],
+};
+
+const MOORFESTE_MAX_MONSTER = [[1, 2], [4, 3], [7, 4], [9, 5]];
+
+ORT_INHALT.moorfeste = {
+  name: "Die Moorfeste",
+  themes: MOORFESTE_THEMES,
+  monster: MOORFESTE_MONSTER,
+  items: MOORFESTE_ITEMS,
+  maxMonster: MOORFESTE_MAX_MONSTER,
+  maxItems: MAX_ITEMS,
+  /* Noch der Namenlose als Platzhalter - wer wirklich auf dem Turmkopf
+     sitzt, ist noch nicht entschieden. */
+  boss: "boss",
+  maxFloor: 10,
+  hinauf: true,             // der einzige Ort, den man hinaufsteigt
+  beuteFaktor: 1.3,
+};
+
 /* == Konkurrenz ==========================================================
    Bis hierher war das Verlies eine stille Vorratskammer: Wesen bewachten die
    Beute, die Beute bewegte sich nicht, und ausser dir wollte niemand etwas
@@ -6395,7 +6661,10 @@ function verbucheLauf(gerettet) {
     gestiegen === 1 ? "Punkt" : "Punkte"} zu vergeben.`, "alert");
   META.laeufe++;
   META.beste = Math.max(META.beste, G.deepest);
-  if (G.won) META.siege++;
+  if (G.won) {
+    META.siege++;
+    merkeBezwungen(G.ort);        // welcher Ort, nicht nur wieviele
+  }
   let stuecke = 0, verkauft = 0, erloes = 0;
   if (gerettet) {
     // Angelegtes bleibt am Koerper und faellt nicht in die Beute
@@ -6793,6 +7062,7 @@ const WERKSTOFF_TOTENSTADT = [
    steht. */
 ORT_INHALT.schloss.werkstoff = WERKSTOFF_TIEFE;
 ORT_INHALT.totenstadt.werkstoff = WERKSTOFF_TOTENSTADT;
+ORT_INHALT.moorfeste.werkstoff = WERKSTOFF_TIEFE;   // vorerst der des Schlosses
 
 function wuerfelWerkstoff(floor, chance) {
   if (rng() > (chance == null ? 1 : chance)) return null;
@@ -7004,6 +7274,14 @@ function generateFloor(floor) {
   if (art === "gassen") return generateGassen(floor);
   if (art === "katakomben") return generateKatakomben(floor);
   if (art === "gruft") return generateGruft(floor);
+  /* Die Moorfeste leiht sich vorerst, was passt: der Schlamm waechst wie
+     eine Hoehle, die Saele sind gebaute Raeume, die Wehrgaenge enge Gaenge.
+     Eigene Generatoren kommen, wenn das Geruest steht. */
+  if (art === "schlamm") return generateCave(floor);
+  if (art === "wehrgang") return generateKatakomben(floor);
+  // "saele" faellt durch: der Standardbau mit Raeumen und Gaengen steht
+  // unten und braucht keinen eigenen Namen.
+  if (art === "turmkopf") return generateTurmkopf(floor);
 
   const rooms = [];
   const maxRooms = 16 + Math.floor(floor / 2);
@@ -7545,7 +7823,41 @@ const GRUFT_PLAN = [
   "###########################",
 ];
 
+/* ── Der Turmkopf ─────────────────────────────────────────────────────────
+   Rund, offen, mit Zinnen am Rand. Man kommt durch das Treppenhaus herauf -
+   der Schleier liegt oben statt unten, denn hier steigt man ja hinauf.
+
+   Keine Fackelschalen: hier ist Tag, und Oel braucht niemand mehr. */
+const TURMKOPF_PLAN = [
+  "###########################",
+  "############...############",
+  "############...############",
+  "############...############",
+  "############...############",
+  "############...############",
+  "############VVV############",
+  "##########.......##########",
+  "########...........########",
+  "######P.............P######",
+  "#####.................#####",
+  "#####.................#####",
+  "####...................####",
+  "####.P.......B.......P.####",
+  "####...................####",
+  "#####.................#####",
+  "#####.................#####",
+  "######P.............P######",
+  "########...........########",
+  "##########.......##########",
+  "###########################",
+];
+
 function generateArena(floor) { return generateKammer(ARENA_PLAN); }
+function generateTurmkopf(floor) {
+  // Der Kreis leuchtet in Moorfarben - Wasser und altes Kupfer
+  return generateKammer(TURMKOPF_PLAN,
+                        { ring: "108,158,148", zeichen: "168,208,196" });
+}
 /* Der Kreis der Gruft leuchtet in Grabfarben statt im Rot des Namenlosen.
    Gleich als Zahlentripel, weil er nur so gebraucht wird - eine Umrechnung
    von Hex waere eine Funktion fuer genau einen Aufrufer. */
@@ -9090,6 +9402,14 @@ function populateFloor(floor) {
   // "Verlassen": keine Schale brennt mehr - man hat ja seine Fackel
   if (hatLaune("verlassen")) G.braziers = [];
   G.hasLava = map.tiles.includes(LAVA);
+  /* Einmal einsammeln statt sechzigmal je Sekunde suchen: die Entfernung
+     zur naechsten Lava wird in jedem Bildlauf gebraucht, und eine Suche
+     ueber die ganze Karte waere dafuer zu teuer. */
+  G.lavaFelder = [];
+  if (G.hasLava)
+    for (let i = 0; i < map.tiles.length; i++)
+      if (map.tiles[i] === LAVA)
+        G.lavaFelder.push([i % MAP_W, (i / MAP_W) | 0]);
 
   // Zwischenboss in einem mittleren Raum, weit weg vom Eingang
   const eliteZone = zones.length > 3
@@ -17912,12 +18232,27 @@ const ORTE = [
 
   /* Was noch kommt. Sichtbar gesperrt und nicht anklickbar - die Karte darf
      etwas versprechen, aber sie soll es nicht als vorhanden verkleiden. */
+  /* Was noch kommt. */
   { key: "erzgruben", name: "Die Erzgruben", x: 13, y: 36, bald: true,
     zeichen: "grube", note: "Stollen, Loren, und etwas, das dort gräbt" },
   { key: "eisspalt", name: "Der Eisspalt", x: 47, y: 17, bald: true,
     zeichen: "spalt", note: "Wo der Grat aufreißt" },
-  { key: "moorfeste", name: "Die Moorfeste", x: 60, y: 78, bald: true,
-    zeichen: "turm", note: "Ein Turm, halb im Schlamm" },
+  {
+    key: "moorfeste",
+    name: "Die Moorfeste",
+    x: 60, y: 78,
+    stufe: "Schwer",
+    note: "Zehn Stockwerke · hinauf statt hinab",
+    zeichen: "turm",
+    braucht: "totengraeber",
+    zu: "Erst wenn der Totengräber gefallen ist",
+    tiefen: [
+      ["Der Schlammgrund", "1–3", "#7E6E4C"],
+      ["Die ersoffenen Säle", "4–6", "#6C8286"],
+      ["Die Wehrgänge", "7–9", "#9AA2AE"],
+      ["Der Turmkopf", "10", "#C2CCD8"],
+    ],
+  },
 ];
 
 let ortWahl = "schloss";
@@ -17927,7 +18262,22 @@ let ortWahl = "schloss";
 function ortOffen(o) {
   if (!o.braucht) return true;
   if (o.braucht === "namenlos") return (META.siege | 0) > 0;
+  /* Die Moorfeste verlangt mehr als irgendeinen Sieg: den Totengraeber.
+     META.siege zaehlt nur, wieviele Bosse gefallen sind, nicht welche -
+     dafuer merkt sich der Spielstand jetzt die Orte, die bezwungen sind. */
+  if (o.braucht === "totengraeber") return bezwungen("totenstadt");
   return true;
+}
+
+/* Welche Orte bezwungen sind. Aeltere Spielstaende kennen die Liste nicht;
+   fuer sie zaehlt weiter, was sie haben. */
+function bezwungen(ortKey) {
+  return ((META.bezwungen || []).indexOf(ortKey) >= 0);
+}
+
+function merkeBezwungen(ortKey) {
+  if (!ortKey || bezwungen(ortKey)) return;
+  META.bezwungen = (META.bezwungen || []).concat(ortKey);
 }
 
 function showKarte() {
@@ -19750,8 +20100,20 @@ function loop(now) {
         Sfx.spiel("knistern");
         naechstesKnistern = now + 1400 + Math.random() * 3200;
       }
+      /* Wie nah die naechste Lava ist. Zehn Kacheln weit hoert man nichts,
+         auf drei steht es voll - dazwischen waechst es gleichmaessig. */
+      if (G.hasLava && (G.lavaFelder || []).length) {
+        if (!Sfx.lava) Sfx.starteLava();
+        let naechste = 1e9;
+        for (const [lx, ly] of G.lavaFelder) {
+          const d = Math.hypot(lx + .5 - p0.x, ly + .5 - p0.y);
+          if (d < naechste) naechste = d;
+        }
+        const nah = Math.max(0, Math.min(1, (10 - naechste) / 7));
+        Sfx.lavaPegel(nah * .5);
+      } else if (Sfx.lava) Sfx.stoppeLava();
+
       if (G.hasLava && now > naechstesGrollen) {
-        const nah = G.map.tiles.some ? false : false;
         let sicht = false;
         for (let dy = -5; dy <= 5 && !sicht; dy++)
           for (let dx = -5; dx <= 5 && !sicht; dx++) {
