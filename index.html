@@ -4893,6 +4893,39 @@ const MONSTERS = {
   ertrunkener: { name: "Der Ertrunkene", g: "m", hp: 72, def: 2, atk: 13, xp: 150, ai: "melee", hieb: 1.3,
              lauert: true,
              art: "leiche",   body: "#3E6058", dark: "#182B26", size: 1.10, eye: "#8CEBD2" },
+  /* ── Die Wesen der Moorfeste ─────────────────────────────────────────
+     Bis hierher lieh sich die Moorfeste ihre Wesen von Schloss und
+     Totenstadt - Ratten, Goblins, Orks, Trolle. Jetzt hat sie eigene, und
+     jedes hat einen Trick (siehe moorKraft). Gewuenscht war "etwas staerker"
+     als die, die sie ersetzen: Leben und Schlag liegen gut ein Siebtel ueber
+     den Wesen derselben Stufe, die Tricks kommen obendrauf. */
+  // Der Schlammgrund
+  egel:     { name: "Egelschwarm", g: "m",     hp: 34, def: 0, atk: 6,  xp: 44,  ai: "melee", hieb: .8,
+             tempo: 1.15, saugt: true, moor: true,
+             art: "egel",     body: "#5E4C3A", dark: "#241A12", size: .96, eye: "#E8B08A" },
+  irrlicht: { name: "Irrlicht", g: "n",        hp: 30, def: 1, atk: 6,  xp: 56,  ai: "melee", hieb: 1.0,
+             lockt: true, leuchtet: true, float: true, moor: true,
+             art: "irrlicht", body: "#E8D27A", dark: "#5A4A18", size: .92, eye: "#FFF6D0",
+             glow: "#F2D878" },
+  kriecher: { name: "Schlammkriecher", g: "m", hp: 60, def: 2, atk: 10, xp: 84,  ai: "melee", hieb: 1.2,
+             lauert: true, lauerWeite: 2.4, verborgen: true, packt: true, moor: true,
+             auftauchText: "Etwas packt dich aus dem Schlamm!",
+             art: "kriecher", body: "#5A4C36", dark: "#1E1810", size: 1.12, eye: "#D8C070" },
+  // Die Ersoffenen Saele (der Ertrunkene steht weiter oben)
+  hofdame:  { name: "Klagende Hofdame", g: "f", hp: 74, def: 3, atk: 9,  xp: 150, ai: "ranged", hieb: 1.1,
+             ratk: 12, range: 6.5, keep: 4.5, nachladen: 1.4, singt: true, float: true, moor: true,
+             art: "hofdame",  body: "#6E8C88", dark: "#22322F", size: 1.14, eye: "#DFF4EE",
+             glow: "#8CC8BC" },
+  muschelritter: { name: "Muschelritter", g: "m", hp: 112, def: 5, atk: 12, xp: 160, ai: "melee", hieb: 1.6,
+             tempo: .86, schildstoss: true, moor: true,
+             art: "muschel",  body: "#7A8478", dark: "#2E3430", size: 1.24, eye: "#B8E8D8" },
+  // Die Wehrgaenge
+  kraehe:   { name: "Sturmkrähe", g: "f",      hp: 124, def: 3, atk: 17, xp: 240, ai: "melee", hieb: 1.0,
+             tempo: 1.25, sturzflug: true, float: true, moor: true,
+             art: "kraehe",   body: "#4E5464", dark: "#16181F", size: 1.02, eye: "#FFD890" },
+  pechwerfer: { name: "Pechwerfer", g: "m",    hp: 178, def: 6, atk: 14, xp: 290, ai: "ranged", hieb: 1.3,
+             ratk: 15, range: 6, keep: 4, nachladen: 2.0, pech: true, moor: true,
+             art: "pechwerfer", body: "#6A6258", dark: "#221E1A", size: 1.18, eye: "#FFB060" },
   knochen: { name: "Knochenschwarm", g: "m",  hp: 54, def: 1, atk: 9,  xp: 110, ai: "melee", hieb: .70,
              art: "knochen",  body: "#DCD6C0", dark: "#807A66", size: 1.04, eye: "#FFF4D8",
              tempo: 1.22 },
@@ -6048,12 +6081,17 @@ ORT_INHALT.totenstadt = {
    geliehen: Wesen aus beiden bekannten Orten, Beute aus dem Schloss. Der
    Ort steht damit und laesst sich durchlaufen; was ihm eigen gehoert,
    kommt als Naechstes. */
+/* Nur noch eigene Wesen, und jeder Bereich hat seine. chancesFor legt die
+   Stufen uebereinander - wer oben nicht mehr auftauchen soll, bekommt dort
+   ausdruecklich das Gewicht null, sonst stuende der Egel auch auf dem Turm.
+   Der Ertrunkene kommt nicht aus dieser Tabelle (siehe populateFloor). */
 const MOORFESTE_MONSTER = {
-  1: [["rat", 50], ["spawn", 30]],
-  3: [["goblin", 40], ["aasratte", 30], ["archer", 20]],
-  5: [["orc", 35], ["leichnam", 30], ["cultist", 20]],
-  7: [["wraith", 30], ["klageweib", 30], ["golem", 25]],
-  9: [["grabwache", 35], ["troll", 30], ["gebein", 30]],
+  1: [["egel", 55], ["irrlicht", 30]],
+  3: [["kriecher", 40], ["egel", 30], ["irrlicht", 25]],
+  4: [["egel", 0], ["irrlicht", 0], ["kriecher", 0],
+      ["hofdame", 40], ["muschelritter", 35]],
+  7: [["hofdame", 0], ["muschelritter", 0],
+      ["kraehe", 45], ["pechwerfer", 35]],
 };
 
 const MOORFESTE_ITEMS = {
@@ -6960,6 +6998,7 @@ function entflechte(dt) {
   for (let i = 0; i < lebende.length; i++) {
     for (let j = i + 1; j < lebende.length; j++) {
       const a = lebende[i], b = lebende[j];
+      if (a.saugtAn || b.saugtAn) continue;   // ein Egel haengt am Helden
       const dx = b.x - a.x, dy = b.y - a.y;
       const soll = (a.radius || R_MONSTER) + (b.radius || R_MONSTER);
       const d2 = dx * dx + dy * dy;
@@ -7388,225 +7427,169 @@ function generateFloor(floor) {
   return { map, zones: rooms.map(r => ({ tiles: roomTiles(r), center: roomCenter(r) })) };
 }
 
-/* ── Die Gassen: ein Strassenraster mit Mausoleen ─────────────────────────
-   Nicht Raeume mit Gaengen dazwischen, sondern Strassen mit Bloecken
-   dazwischen. Der Unterschied ist der ganze Punkt: hier sieht man eine Gasse
-   entlang bis ans andere Ende, und alles, was etwas wert ist, liegt hinter
-   einer Tuer. */
+/* ── Die Gassen: ein Strassenraster, dicht bebaut ─────────────────────────
+   Nicht Raeume mit Gaengen dazwischen, sondern Strassen mit Haeusern daran.
+   Hier sieht man eine Gasse entlang bis ans andere Ende, und alles, was
+   etwas wert ist, liegt hinter einer Tuer.
+
+   Zweiter Anlauf. Vorher lagen zwischen den Strassen fast nur leere
+   Felsbloecke mit ein, zwei Mausoleen, dazu je Etage eine Grabhalle (84 bis
+   148 Kacheln) und im Mittel knapp drei offene Plaetze (bis 154) - das waren
+   die "riesigen Raeume", und die Gassen wirkten leer. Jetzt stehen die
+   Bloecke voller kleiner Grabhaeuser, Wand an Wand, jedes mit genau einer
+   Tuer zur Gasse, innen 9 bis 24 Kacheln. Keine Halle, kein Platz.
+
+   Die Grabhalle war einst noetig, damit die Leichenwaescherin eine Kammer
+   fand - gemessen stand sie zuletzt aber ohnehin in einer von 16 bis 31
+   Kacheln, und ein Grabhaus mit einer Tuer ist genau so eine. */
 function generateGassen(floor) {
   const map = newMap();
-  const zones = [];
 
   // Drei bis vier senkrechte und zwei bis drei waagerechte Zuege
   const spalten = ri(3, 4), reihen = ri(2, 3);
-  const gassenX = [], gassenY = [];
+  const zuegeX = [], zuegeY = [];
   for (let i = 1; i <= spalten; i++)
-    gassenX.push(Math.round((MAP_W - 4) * i / (spalten + 1)) + 2);
+    zuegeX.push({ pos: Math.round((MAP_W - 4) * i / (spalten + 1)) + 2, breit: rng() < .35 ? 3 : 2 });
   for (let i = 1; i <= reihen; i++)
-    gassenY.push(Math.round((MAP_H - 4) * i / (reihen + 1)) + 2);
+    zuegeY.push({ pos: Math.round((MAP_H - 4) * i / (reihen + 1)) + 2, breit: rng() < .35 ? 3 : 2 });
 
   const strasse = (x, y) => {
     if (x < 1 || y < 1 || x >= MAP_W - 1 || y >= MAP_H - 1) return;
     map.tiles[idx(x, y)] = FLOOR;
   };
-
-  // Die Zuege selbst, zwei bis drei Kacheln breit
-  for (const gx of gassenX) {
-    const breit = rng() < .35 ? 3 : 2;
+  for (const z of zuegeX)
     for (let y = 2; y < MAP_H - 2; y++)
-      for (let b = 0; b < breit; b++) strasse(gx + b, y);
-  }
-  for (const gy of gassenY) {
-    const breit = rng() < .35 ? 3 : 2;
+      for (let b = 0; b < z.breit; b++) strasse(z.pos + b, y);
+  for (const z of zuegeY)
     for (let x = 2; x < MAP_W - 2; x++)
-      for (let b = 0; b < breit; b++) strasse(x, gy + b);
-  }
+      for (let b = 0; b < z.breit; b++) strasse(x, z.pos + b);
 
-  /* Die Bloecke zwischen den Zuegen. In jeden kommen ein bis drei Mausoleen -
-     kleine Kammern mit genau einer Schwelle zur Strasse. */
-  const raender = (achse, gassen, ende) => {
-    const kanten = [2];
-    for (const g of gassen) kanten.push(g);
-    kanten.push(ende - 2);
-    return kanten;
+  /* Die Bloecke: was zwischen zwei Zuegen stehen bleibt, gemessen an der
+     wirklichen Breite der Strasse. Vorher wurde pauschal drei Kacheln hinter
+     dem Zug angesetzt - an einer zwei Kacheln breiten Gasse blieb dadurch
+     ein Streifen Fels vor dem Block stehen, und kein Haus dort bekam je eine
+     Tuer. */
+  const baender = (zuege, ende) => {
+    const out = [];
+    let von = 2;
+    for (const z of zuege) { out.push([von, z.pos - 1]); von = z.pos + z.breit; }
+    out.push([von, ende - 3]);
+    return out;
   };
-  const xk = raender("x", gassenX, MAP_W), yk = raender("y", gassenY, MAP_H);
+  const bx = baender(zuegeX, MAP_W), by = baender(zuegeY, MAP_H);
+  const gasse = (x, y) => inBounds(x, y) && map.tiles[idx(x, y)] === FLOOR && !map.room[idx(x, y)];
 
-  /* Der groesste Block wird zur Grabhalle: ein Raum statt einer Reihe kleiner
-     Grabmaeler. Ohne ihn hatte kein Namentlicher eine Kammer, die gross genug
-     war - gemessen stand die Waescherin nur in sechzehn von zwanzig Laeufen
-     auf ihrer Etage. Und eine Nekropole hat ohnehin ein Hauptgebaeude. */
-  let halleI = 0, halleJ = 0, halleFlaeche = 0;
-  for (let i = 0; i < xk.length - 1; i++)
-    for (let j = 0; j < yk.length - 1; j++) {
-      const bw = (xk[i + 1] - 1) - (xk[i] + (i ? 3 : 0));
-      const bh = (yk[j + 1] - 1) - (yk[j] + (j ? 3 : 0));
-      if (bw * bh > halleFlaeche) { halleFlaeche = bw * bh; halleI = i; halleJ = j; }
+  // Eine Strecke in Hausbreiten von 4 bis 7 (Aussenmass, Waende geteilt)
+  const teileStrecke = (von, bis) => {
+    if (bis - von < 4) return [];
+    const punkte = [von];
+    let p = von;
+    while (bis - p > 7) {
+      p += ri(4, Math.min(7, bis - p - 4));
+      punkte.push(p);
     }
+    punkte.push(bis);
+    return punkte;
+  };
 
-  for (let i = 0; i < xk.length - 1; i++)
-    for (let j = 0; j < yk.length - 1; j++) {
-      const bx1 = xk[i] + (i ? 3 : 0), bx2 = xk[i + 1] - 1;
-      const by1 = yk[j] + (j ? 3 : 0), by2 = yk[j + 1] - 1;
-      const bw = bx2 - bx1, bh = by2 - by1;
-      if (bw < 5 || bh < 5) continue;
+  const haeuser = [];
+  // Aussenmass x1..x2 / y1..y2, die Waende liegen auf dem Rand. Die Tuer
+  // kommt in die Wand zur Gasse - und nur dorthin, wo wirklich Gasse davor liegt.
+  const baueHaus = (x1, y1, x2, y2, seite) => {
+    if (x2 - x1 < 4 || y2 - y1 < 4) return;
+    const tiles = [];
+    for (let y = y1 + 1; y < y2; y++)
+      for (let x = x1 + 1; x < x2; x++) tiles.push([x, y]);
+    const tueren = [];
+    if (seite === "oben" || seite === "unten") {
+      const wy = seite === "oben" ? y1 : y2, ay = seite === "oben" ? y1 - 1 : y2 + 1;
+      for (let x = x1 + 1; x < x2; x++) if (gasse(x, ay)) tueren.push([x, wy]);
+    } else {
+      const wx = seite === "links" ? x1 : x2, ax = seite === "links" ? x1 - 1 : x2 + 1;
+      for (let y = y1 + 1; y < y2; y++) if (gasse(ax, y)) tueren.push([wx, y]);
+    }
+    if (!tueren.length) return;
+    for (const [x, y] of tiles) { map.tiles[idx(x, y)] = FLOOR; map.room[idx(x, y)] = 1; }
+    const [tx, ty] = tueren[Math.floor(rng() * tueren.length)];
+    map.tiles[idx(tx, ty)] = DOOR;
+    haeuser.push({ tiles, center: [(x1 + x2) >> 1, (y1 + y2) >> 1],
+                   raum: { x1, y1, x2, y2, shape: "rect" } });
+  };
 
-      /* Die Grabhalle: der ganze Block wird ein Raum, mit genau einer Tuer
-         zur Gasse. Gross genug fuer eine Bosskammer. */
-      if (i === halleI && j === halleJ && bw >= 7 && bh >= 6) {
-        const tiles = [];
-        for (let y = by1 + 1; y < by2; y++)
-          for (let x = bx1 + 1; x < bx2; x++) {
-            map.tiles[idx(x, y)] = FLOOR;
-            map.room[idx(x, y)] = 1;
-            tiles.push([x, y]);
-          }
-        // Ein paar Saeulen, damit die Halle nicht leer wirkt
-        for (let y = by1 + 3; y < by2 - 1; y += 4)
-          for (let x = bx1 + 3; x < bx2 - 1; x += 4)
-            if (map.tiles[idx(x, y)] === FLOOR) map.tiles[idx(x, y)] = PILLAR;
+  /* Jeder Block: eine Reihe Haeuser an jeder Seite, die an eine Gasse
+     grenzt. Oben und unten laufen ueber die ganze Breite, links und rechts
+     fuellen, was dazwischen bleibt. Was in der Mitte grosser Bloecke uebrig
+     ist, bleibt Mauerwerk - Hinterhoefe, in die keine Tuer fuehrt. */
+  for (const [xa, xe] of bx)
+    for (const [ya, ye] of by) {
+      if (xe - xa < 4 || ye - ya < 4) continue;
+      const mx = (xa + xe) >> 1, my = (ya + ye) >> 1;
+      const oben = gasse(mx, ya - 1), unten = gasse(mx, ye + 1);
+      const links = gasse(xa - 1, my), rechts = gasse(xe + 1, my);
+      const tO = ri(4, 5), tU = ri(4, 5), tL = ri(4, 5), tR = ri(4, 5);
 
-        const kanten = [];
-        for (let x = bx1 + 1; x < bx2; x++) {
-          kanten.push([x, by1, 0, -1]);
-          kanten.push([x, by2, 0, 1]);
-        }
-        for (let y = by1 + 1; y < by2; y++) {
-          kanten.push([bx1, y, -1, 0]);
-          kanten.push([bx2, y, 1, 0]);
-        }
-        const offen = kanten.filter(([x, y, dx, dy]) => {
-          const ax = x + dx, ay = y + dy;
-          return inBounds(ax, ay) && map.tiles[idx(ax, ay)] === FLOOR;
-        });
-        if (offen.length) {
-          const [tx, ty] = offen[Math.floor(rng() * offen.length)];
-          map.tiles[idx(tx, ty)] = DOOR;
-          zones.push({ tiles: tiles.filter(([x, y]) => map.tiles[idx(x, y)] === FLOOR),
-                       center: [Math.round((bx1 + bx2) / 2), Math.round((by1 + by2) / 2)],
-                       raum: { x1: bx1, y1: by1, x2: bx2, y2: by2, shape: "rect" },
-                       halle: true });
-          continue;
-        }
-        // Keine Tuer moeglich - wieder zuschuetten und normal bebauen
-        for (const [x, y] of tiles) {
-          map.tiles[idx(x, y)] = WALL;
-          map.room[idx(x, y)] = 0;
-        }
+      let y1 = ya, y2 = ye;
+      if (oben && (!unten || ye - ya >= tO + tU)) {
+        const p = teileStrecke(xa, xe);
+        for (let k = 0; k + 1 < p.length; k++) baueHaus(p[k], ya, p[k + 1], ya + tO, "oben");
+        y1 = ya + tO;
       }
-
-      /* Ein Block in fuenf ist ein Platz statt einer Reihe Grabmaeler. Er
-         braucht Durchgaenge: ausgehoehlt wird bx1+1 bis bx2-1, die Blockmauer
-         auf bx1 und bx2 bleibt stehen. Ohne Tor war der Hof rundum
-         zugemauert - und wenn die Treppe darin landete, stand man auf der
-         Etage fest. Gemessen betraf das 16 von 90 Etagen. */
-      if (rng() < .20) {
-        const tiles = [];
-        for (let y = by1 + 1; y < by2; y++)
-          for (let x = bx1 + 1; x < bx2; x++) { strasse(x, y); tiles.push([x, y]); }
-        if (tiles.length <= 8) continue;
-
-        // Alle Kantenkacheln, hinter denen wirklich eine Gasse liegt
-        const kanten = [];
-        for (let x = bx1 + 1; x < bx2; x++) {
-          kanten.push([x, by1, 0, -1]);
-          kanten.push([x, by2, 0, 1]);
-        }
-        for (let y = by1 + 1; y < by2; y++) {
-          kanten.push([bx1, y, -1, 0]);
-          kanten.push([bx2, y, 1, 0]);
-        }
-        const tore = kanten.filter(([x, y, dx, dy]) => {
-          const ax = x + dx, ay = y + dy;
-          return inBounds(ax, ay) && map.tiles[idx(ax, ay)] === FLOOR;
-        });
-        if (!tore.length) {
-          // Rundum Fels: wieder zuschuetten, so wie die Mausoleen es tun
-          for (const [x, y] of tiles) map.tiles[idx(x, y)] = WALL;
-          continue;
-        }
-        /* Ein Hof ist keine Kammer - er darf ruhig offen liegen. Alles auf,
-           was an eine Gasse grenzt, damit er sich wie ein Platz anfuehlt und
-           nicht wie ein Zimmer mit einer Tuer. */
-        for (const [x, y] of tore) {
-          map.tiles[idx(x, y)] = FLOOR;
-          tiles.push([x, y]);
-        }
-        zones.push({ tiles, center: [Math.round((bx1 + bx2) / 2),
-                                     Math.round((by1 + by2) / 2)], platz: true });
-        continue;
+      if (unten && ye - y1 >= tU) {
+        const p = teileStrecke(xa, xe);
+        for (let k = 0; k + 1 < p.length; k++) baueHaus(p[k], ye - tU, p[k + 1], ye, "unten");
+        y2 = ye - tU;
       }
-
-      /* Buendig an eine Blockkante, und die grenzt an eine Gasse. Vorher
-         standen die Kammern irgendwo im Block - wer mitten im Fels sitzt, hat
-         keine Kante fuer eine Schwelle, und gemessen wurden dadurch achtzehn
-         von zwanzig Mausoleen wieder verworfen. */
-      const wieViele = 1 + (bw > 12 ? 1 : 0) + (bh > 11 ? 1 : 0);
-      const seiten = ["links", "rechts", "oben", "unten"];
-      for (let k = 0; k < wieViele; k++) {
-        const mw = ri(4, Math.min(7, bw - 1)), mh = ri(4, Math.min(6, bh - 1));
-        const seite = seiten[Math.floor(rng() * 4)];
-        let mx, my;
-        if (seite === "links")       { mx = bx1;      my = ri(by1, by2 - mh); }
-        else if (seite === "rechts") { mx = bx2 - mw; my = ri(by1, by2 - mh); }
-        else if (seite === "oben")   { mx = ri(bx1, bx2 - mw); my = by1; }
-        else                         { mx = ri(bx1, bx2 - mw); my = by2 - mh; }
-        if (mx < 1 || my < 1 || mx + mw >= MAP_W - 1 || my + mh >= MAP_H - 1) continue;
-
-        const kammer = { x1: mx, y1: my, x2: mx + mw, y2: my + mh, shape: "rect" };
-        if (zones.some(z => z.raum && overlaps(kammer, z.raum))) continue;
-
-        // Innenraum aushoehlen, Mauer stehen lassen
-        const tiles = [];
-        for (let y = my + 1; y < my + mh; y++)
-          for (let x = mx + 1; x < mx + mw; x++) {
-            map.tiles[idx(x, y)] = FLOOR;
-            map.room[idx(x, y)] = 1;
-            tiles.push([x, y]);
-          }
-        if (tiles.length < 4) continue;
-
-        /* Genau eine Schwelle, und zwar in der Wand, die zur Gasse zeigt. */
-        const kanten = [];
-        if (seite !== "rechts")
-          for (let y = my + 1; y < my + mh; y++) kanten.push([mx, y, -1, 0]);
-        if (seite !== "links")
-          for (let y = my + 1; y < my + mh; y++) kanten.push([mx + mw, y, 1, 0]);
-        if (seite !== "unten")
-          for (let x = mx + 1; x < mx + mw; x++) kanten.push([x, my, 0, -1]);
-        if (seite !== "oben")
-          for (let x = mx + 1; x < mx + mw; x++) kanten.push([x, my + mh, 0, 1]);
-
-        const offen = kanten.filter(([x, y, dx, dy]) => {
-          const ax = x + dx, ay = y + dy;
-          return inBounds(ax, ay) && map.tiles[idx(ax, ay)] === FLOOR;
-        });
-        if (!offen.length) {
-          // Doch eingemauert: wieder zuschuetten, sonst liegt Beute unerreichbar
-          for (const [x, y] of tiles) {
-            map.tiles[idx(x, y)] = WALL;
-            map.room[idx(x, y)] = 0;
-          }
-          continue;
-        }
-        const [tx, ty] = offen[Math.floor(rng() * offen.length)];
-        map.tiles[idx(tx, ty)] = DOOR;
-
-        zones.push({ tiles, center: [mx + (mw >> 1), my + (mh >> 1)],
-                     raum: kammer });
+      if (y2 - y1 < 4) continue;
+      const beide = links && rechts && xe - xa >= tL + tR;
+      if (links) {
+        const p = teileStrecke(y1, y2);
+        for (let k = 0; k + 1 < p.length; k++) baueHaus(xa, p[k], xa + tL, p[k + 1], "links");
+      }
+      if (rechts && (beide || !links)) {
+        const p = teileStrecke(y1, y2);
+        for (let k = 0; k + 1 < p.length; k++) baueHaus(xe - tR, p[k], xe, p[k + 1], "rechts");
       }
     }
 
-  // Ohne einen einzigen Innenraum waere die Etage leer - dann ein Platz
-  if (!zones.length) {
+  // Ohne ein einziges Haus waere die Etage leer - dann eben die Gasse selbst
+  if (!haeuser.length) {
     const tiles = [];
     for (let y = 4; y < MAP_H - 4; y++)
       for (let x = 4; x < MAP_W - 4; x++)
         if (map.tiles[idx(x, y)] === FLOOR) tiles.push([x, y]);
-    zones.push({ tiles: tiles.slice(0, 60), center: tiles[0] || [4, 4] });
+    return { map, zones: [{ tiles: tiles.slice(0, 60), center: tiles[0] || [4, 4] }] };
   }
 
-  return { map, zones };
+  /* Reihenfolge der Zonen: man kommt oben links an, die Treppe steht im
+     entferntesten Haus, der Rest ist gemischt - sonst faende der Namentliche
+     (der das erste passende Haus nimmt) seine Kammer immer gleich neben dem
+     Einstieg. */
+  const start = haeuser.slice().sort((a, b) =>
+    (a.center[0] + a.center[1]) - (b.center[0] + b.center[1]))[0];
+  const [sx, sy] = start.center;
+  const rest = haeuser.filter(h => h !== start);
+  rest.sort((a, b) => Math.hypot(b.center[0] - sx, b.center[1] - sy) -
+                      Math.hypot(a.center[0] - sx, a.center[1] - sy));
+  const ziel = rest.shift();
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+
+  /* Nicht jedes Grabhaus ist bewacht oder beleuchtet. Bei einem Dutzend
+     Raeumen stand in jedem jemand, und in knapp jedem zweiten brannte eine
+     Schale - bei fuenfzig Haeusern waeren das viermal so viele Gegner und
+     Oel im Ueberfluss. Bewacht und beleuchtet sind so viele wie vorher
+     Raeume da waren; Beute kann in jedem liegen. */
+  const BEWACHT = 12;
+  rest.forEach((h, i) => {
+    if (i < BEWACHT) return;
+    h.ohneWache = true;
+    h.ohneSchale = true;
+  });
+  if (ziel) { ziel.ohneWache = false; ziel.ohneSchale = false; }
+
+  return { map, zones: [start, ...rest, ...(ziel ? [ziel] : [])] };
 }
 
 /* ── Die Katakomben: ein Geflecht aus Gaengen und Nischen ─────────────────
@@ -9545,6 +9528,46 @@ function erreichbarOhneSchleier(map, sx, sy, ziel) {
   return false;
 }
 
+/* Ein Bossraum ist kein Lagerraum. Die Kammer eines Namentlichen wird aus
+   einem gewoehnlichen Raum der Etage gewaehlt - und der war zu diesem
+   Zeitpunkt schon eingerichtet: Gegner, Truhen, herumliegende Beute. Die
+   Gegner gehen. Die Beute zieht in einen anderen Raum derselben Etage um,
+   damit die Etage nicht aermer wird - nur die Kammer ist leer. Hat sich die
+   Kammer in eine Schatzkammer geschlagen (nur beim Aushauen moeglich, die
+   Auswahl laesst sie aus), ist die Schatzkammer keine mehr. */
+function raeumeBossraum(map, zones) {
+  const drin = map.veilRoom;
+  if (!drin) return;
+  const imRaum = (x, y) => drin[idx(x, y)] === 1;
+
+  G.actors = G.actors.filter(a => a.isPlayer || a.elite || (a.spec && a.spec.boss) ||
+                                  !imRaum(kachelX(a), kachelY(a)));
+
+  const draussen = [];
+  for (const zone of zones.slice(1))
+    for (const [x, y] of zone.tiles) {
+      const t = map.tiles[idx(x, y)];
+      if (!imRaum(x, y) && WALKABLE[t] && t !== STAIRS && t !== DOOR) draussen.push([x, y]);
+    }
+  const belegt = (x, y) =>
+    actorAt(x, y) ||
+    G.chests.some(c => c.x === x && c.y === y) ||
+    G.ground.some(i => i.x === x && i.y === y) ||
+    G.braziers.some(b => b.x === x && b.y === y);
+  const umziehen = ding => {
+    for (let versuch = 0; versuch < 60 && draussen.length; versuch++) {
+      const [x, y] = draussen[Math.floor(rng() * draussen.length)];
+      if (belegt(x, y)) continue;
+      ding.x = x; ding.y = y;
+      return true;
+    }
+    return false;
+  };
+  G.chests = G.chests.filter(k => !imRaum(k.x, k.y) || umziehen(k));
+  G.ground = G.ground.filter(i => !imRaum(i.x, i.y) || umziehen(i));
+  if (G.vault && G.vault.tiles.some(i => drin[i] === 1)) G.vault = null;
+}
+
 /* Setzt einen Namentlichen in eine versiegelbare Kammer und legt die Treppe
    hinter ihn. Wer weiter hinab will, muss durch ihn hindurch - und steht nach
    dem Kampf direkt am Abstieg statt quer ueber der Etage. */
@@ -9887,6 +9910,7 @@ function stelleGeheimkammern(map, zones, floor) {
       // Davor begehbarer Boden, dahinter massiver Fels
       const vx = x - dx, vy = y - dy;
       if (!inBounds(vx, vy) || map.tiles[idx(vx, vy)] !== FLOOR) continue;
+      if (map.veilRoom && map.veilRoom[idx(vx, vy)]) continue;   // nicht aus einem Bossraum heraus
 
       const kammer = [];
       let fest = true;
@@ -10149,13 +10173,20 @@ function populateFloor(floor) {
      der Etage, und markiert war der Raum ueberhaupt nicht. Jetzt gibt es
      hoechstens eine, sie bekommt ihre Kisten an Ort und Stelle, und sie sagt
      sich an, sobald man sie sieht. */
-  const kandidatenZonen = zones.slice(1).filter(z => z !== last);
+  /* Ein Bossraum ist kein Lagerraum: auf der letzten Etage stehen weder
+     Gegner noch Truhen, weder Beute noch Schatz- oder Geheimkammer - nur
+     der Boss. Oben auf dem Turm lagen Truhen und Waffen um die Sturmrufer
+     herum, und hinter einem Riss im Mauerwerk wartete ein Schatz; das soll
+     es in keinem Bossraum geben. Fuer die Kammern der Namentlichen siehe
+     raeumeBossraum. */
+  const bossEtage = floor === maxFloor();
+  const kandidatenZonen = bossEtage ? [] : zones.slice(1).filter(z => z !== last);
   const schatzZone = kandidatenZonen.length && rng() < .30
     ? kandidatenZonen[Math.floor(rng() * kandidatenZonen.length)]
     : null;
   G.vault = null;
 
-  for (const zone of zones.slice(1)) {
+  for (const zone of bossEtage ? [] : zones.slice(1)) {
     const vault = zone === schatzZone;
     const spots = zone.tiles.filter(([x, y]) =>
       isWalkable(x, y) && !actorAt(x, y) && !(x === sx && y === sy));
@@ -10164,7 +10195,10 @@ function populateFloor(floor) {
       const j = Math.floor(rng() * (i + 1));
       [spots[i], spots[j]] = [spots[j], spots[i]];
     }
-    let n = ri(0, fromTable(ort().maxMonster, floor)) + (vault ? 3 : 0);
+    // Ein Generator mit vielen kleinen Raeumen bewacht nur einen Teil davon
+    // (die Gassen) - sonst stuende in jedem Grabhaus jemand.
+    let n = zone.ohneWache && !vault ? 0
+          : ri(0, fromTable(ort().maxMonster, floor)) + (vault ? 3 : 0);
     while (n-- > 0 && spots.length && monsterChances.length) {
       const [x, y] = spots.pop();
       // In Schatzkammern lauert häufiger etwas Besonderes
@@ -10250,7 +10284,7 @@ function populateFloor(floor) {
   }
 
   for (const zone of zones) {
-    if (rng() > .45) continue;
+    if (zone.ohneSchale || rng() > .45) continue;
     const candidates = zone.tiles.filter(([x, y]) => {
       if (!isWalkable(x, y) || actorAt(x, y)) return false;
       if (map.tiles[idx(x, y)] === DOOR) return false;
@@ -10329,8 +10363,10 @@ function populateFloor(floor) {
     map.stairs = [tx, ty];
   }
 
-  stelleKisten(map, zones, floor, 0);
-  streueBeute(map, zones, floor);
+  if (!bossEtage) {
+    stelleKisten(map, zones, floor, 0);
+    streueBeute(map, zones, floor);
+  }
 
   /* Besondere Raeume sollen auch besonders beschenken - bisher fielen die
      Waffenkammern und der Herrensaal der Wehrgaenge bei der normalen
@@ -10451,10 +10487,14 @@ function populateFloor(floor) {
      jeder Etage ab, auf der ein Namentlicher steht. */
   const eliteEtage = (ort().elites || {})[floor] ? floor : null;
   if (eliteEtage) {
-    const gegner = stelleNamentlichen(map, zones, floor, eliteEtage, sx, sy);
+    // Nie in der Schatzkammer - ihre Truhen und Wachen stuenden sonst mit
+    // ihm hinter dem Schleier.
+    const gegner = stelleNamentlichen(map, zones.filter(z => z !== schatzZone),
+                                      floor, eliteEtage, sx, sy);
     if (gegner) {
       G.actors.push(gegner);
       map.gateBoss = true;          // die Treppe bleibt zu, bis er faellt
+      raeumeBossraum(map, zones);
       if (gegner.power === "waechter") stelleWaechterSaeulen(gegner, map);
     } else {
       /* Keine Kammer taugte - das kommt selten vor, aber es kommt vor, seit
@@ -10478,7 +10518,7 @@ function populateFloor(floor) {
   // gelegentlich eine Kiste ein. Die kommt hier wieder ans Licht.
   /* Erst jetzt, ganz am Schluss: die Bosskammer wird in den Fels geschlagen
      und wuerde eine frueher angelegte Geheimkammer wieder aufgraben. */
-  stelleGeheimkammern(map, zones, floor);
+  if (!bossEtage) stelleGeheimkammern(map, zones, floor);
   stelleFallen(map, zones, floor);
 
   /* Zuerst die Treppe: sie kann eine Kiste verdraengen, und rettteKisten
@@ -10493,7 +10533,7 @@ function populateFloor(floor) {
      kennen muss, auf die sie zulaeuft - und damit kein spaet gebauter
      Bossraum sie einmauert. Sie startet weit weg vom Ankunftsschacht: die
      erste Begegnung soll nicht die erste Kachel sein. */
-  const wieVieleRaeuber = fromTable(RAEUBER_ZAHL, floor);
+  const wieVieleRaeuber = bossEtage ? 0 : fromTable(RAEUBER_ZAHL, floor);
   const raeuberChancen = chancesFor(RAEUBER_TIEFE, floor);
   if (wieVieleRaeuber > 0 && raeuberChancen.length) {
     const weit = zones.slice(1).filter(z =>
@@ -10508,6 +10548,7 @@ function populateFloor(floor) {
       if (offen <= 0) break;
       const frei = zone.tiles.filter(([x, y]) =>
         isWalkable(x, y) && !actorAt(x, y) &&
+        !(map.veilRoom && map.veilRoom[idx(x, y)]) &&
         !G.chests.some(k => k.x === x && k.y === y) &&
         !G.braziers.some(b => b.x === x && b.y === y));
       if (!frei.length) continue;
@@ -10660,6 +10701,7 @@ function rettteKisten(map) {
       for (let x = 1; x < MAP_W - 1; x++) {
         const kachel = map.tiles[idx(x, y)];
         if (!WALKABLE[kachel] || kachel === STAIRS) continue;
+        if (map.veilRoom && map.veilRoom[idx(x, y)]) continue;
         if (belegt(x, y, kiste)) continue;
         const d = Math.hypot(x - kiste.x, y - kiste.y);
         if (d < bd) { bd = d; best = [x, y]; }
@@ -10709,6 +10751,8 @@ function updateFov() {
   fovR = fovFromOil(p.oil) + (p.oil > 0 ? (p.fovBonus || 0) + equipBonus("fovBonus") : 0);
   // Die Finsternis drueckt den Schein zusammen, je mehr sich davon gesammelt hat
   if (p.finsternis > 0) fovR = Math.max(1.4, fovR * (1 - (p.finsternis / 100) * .34));
+  // Das Klagelied der Hofdame laesst die Fackel flackern: der Schein wird eng
+  if (statusMag(p, "Flackern")) fovR = Math.max(1.8, fovR * .62);
   const px = kachelX(p), py = kachelY(p);
   G.map.visible[idx(px, py)] = 1;
   for (const [xx, xy, yx, yy] of OCTANTS)
@@ -11170,14 +11214,43 @@ function rettteAuftrag(map, floor, sx, sy) {
    "Verlassen" die Schalen genommen hat und zufaellig kein Fund darauf liegt -
    wer mit halbem Krug ankommt, hat dort keine Moeglichkeit mehr. */
 function rettteOel(map, floor, sx, sy) {
+  // Wo Tag ist, zehrt die Fackel nicht (siehe verbrauchProTakt) - die
+  // Flasche lag dort nur nutzlos neben der Sturmrufer im Bossraum.
+  if ((themeFor(floor).hell || 0) >= 1) return;
   const hatOel = G.ground.some(i => i.def && i.def.use === "oil") ||
     G.chests.some(k => (k.loot || []).some(e => ITEMS[e.id] && ITEMS[e.id].use === "oil")) ||
     (G.braziers || []).some(b => !b.used);
   if (hatOel) return;
-  const platz = freiesFeldWeitVon(map, sx, sy, 4);
+  // Auf der Boss-Etage in die Vorkammer - ein Bossraum bleibt leer
+  const platz = floor === maxFloor() ? vorkammerFeld(map, sx, sy)
+                                     : freiesFeldWeitVon(map, sx, sy, 4);
   if (!platz) return;
   const flasche = buildItem(floor >= 5 ? "bigoil" : "oil", null, null);
   G.ground.push(Object.assign(flasche, { x: platz[0], y: platz[1] }));
+}
+
+/* Das entfernteste freie Feld, das man vom Ankunftsfeld aus erreicht, ohne
+   durch den Schleier zu gehen - auf der Boss-Etage ist das die Vorkammer. */
+function vorkammerFeld(map, sx, sy) {
+  const erreicht = new Uint8Array(MAP_W * MAP_H);
+  const q = [[sx, sy]];
+  erreicht[idx(sx, sy)] = 1;
+  let best = null, weit = 0;
+  for (let k = 0; k < q.length; k++) {
+    const [cx, cy] = q[k];
+    const d = Math.hypot(cx - sx, cy - sy), t = map.tiles[idx(cx, cy)];
+    if (d > weit && t !== STAIRS && t !== DOOR && !actorAt(cx, cy) &&
+        !G.ground.some(i => i.x === cx && i.y === cy) &&
+        !G.chests.some(c => c.x === cx && c.y === cy) &&
+        !G.braziers.some(b => b.x === cx && b.y === cy)) { weit = d; best = [cx, cy]; }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (!inBounds(nx, ny) || erreicht[idx(nx, ny)] || !WALKABLE[map.tiles[idx(nx, ny)]]) continue;
+      erreicht[idx(nx, ny)] = 1;
+      q.push([nx, ny]);
+    }
+  }
+  return best;
 }
 
 /* Fackelschalen sind Licht und Nachschub zugleich - jede gibt einmal etwas ab. */
@@ -11644,7 +11717,8 @@ function trefferbar(a, x0, y0) {
 
 /* Was als untot gilt - Salz wirkt nur darauf. */
 const UNTOT = ["wraith", "leichnam", "knochen", "archer", "klageweib",
-               "grabwache", "gebein", "totengraeber"];
+               "grabwache", "gebein", "totengraeber",
+               "ertrunkener", "hofdame", "muschelritter", "pechwerfer"];
 
 /* Wohin ein Wurf geht: dorthin, wo der Zeiger steht, aber nicht weiter als
    die Wurfweite und nicht durch eine Wand. */
@@ -12188,6 +12262,7 @@ function actorTurn(a) {
      dich wirklich bemerkt. In offenen Höhlen war das vorher ein Rudel. */
   const sicht = seesTile(kachelX(a), kachelY(a)) &&
                 lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
+  if (!a.wach && a.spec.moor) moorVorzeichen(a, dist);
   if (!a.wach) {
     // Grabesstille: solange sie steht, hoert dich niemand
     if ((p.stilleBis || 0) > G.time) return false;
@@ -12197,15 +12272,18 @@ function actorTurn(a) {
     const nass = imRegen(p) ? .7 : 1;
     if (sicht && dist <= AGGRO_RANGE * nass * flamme().bemerkt *
                          (hatLaune("wachsam") ? 2 : 1) *
-                         (stehtNass(p) ? WASSER_LAERM : 1)) {
+                         (stehtNass(p) ? WASSER_LAERM : 1) &&
+        (!a.spec.lauerWeite || dist <= a.spec.lauerWeite)) {
       a.wach = true;
       a.kite = KITE_BUDGET;
       // Der Ertrunkene lag reglos im Wasser - das erste Erwachen ist sein
       // Auftauchen, kein stilles Aufstehen wie bei allem anderen.
       if (a.spec.lauert && !a.aufgetaucht) {
         a.aufgetaucht = true;
-        log(`${a.spec.name} schnellt aus dem Wasser hoch!`, "alert");
+        log(a.spec.auftauchText || `${a.spec.name} schnellt aus dem Wasser hoch!`, "alert");
         Sfx.spiel("elite");
+        // Der Schlammkriecher packt gleich beim Auftauchen zu
+        if (a.spec.packt) { zieheHeran(a, 1.1); a.kraftCd = 6; }
       }
     } else return;
   } else if (!sicht && dist > AGGRO_RANGE * 1.6) {
@@ -12218,6 +12296,7 @@ function actorTurn(a) {
   if (a.ai === "ranged" && dist > (a.spec.keep || 4) + 2) a.kite = KITE_BUDGET;
 
   if (a.elite && elitePower(a, dist)) return;
+  if (a.spec.moor && moorKraft(a, dist)) return;
 
   if (a.ai === "boss") {
     a.cooldown = Math.max(0, a.cooldown - takt);
@@ -12285,6 +12364,270 @@ function actorTurn(a) {
    Varianten desselben Zuschlagens. */
 
 /* Der Umschlagpunkt: einmal je Kampf, mit Ansage. */
+/* == Die Wesen der Moorfeste =============================================
+   Was die eigenen Wesen der Moorfeste koennen - so wie elitePower() fuer die
+   Namentlichen. Gibt true zurueck, wenn das Wesen damit seinen Zug getan
+   hat; false laesst den gewoehnlichen Angriff folgen.
+
+   Gewuenscht waren neue Angriffsarten und Lauern statt geliehener Leiber:
+   der Egel saugt sich fest, das Irrlicht lockt und frisst Oel, der
+   Schlammkriecher packt aus dem Verborgenen, die Hofdame singt den
+   Fackelschein eng, der Muschelritter wirft zurueck, die Sturmkraehe stoesst
+   herab, der Pechwerfer setzt den Boden in Brand. */
+function moorKraft(a, dist) {
+  const p = G.player;
+  const spec = a.spec;
+  a.kraftCd = Math.max(0, (a.kraftCd || 0) - monsterInterval(a));
+  const freieSicht = () => lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p));
+
+  /* Das Irrlicht kaempft nicht, es lockt: es haelt Abstand (siehe lenke),
+     und wer es doch einholt, dem frisst es beim Verpuffen das Oel aus der
+     Fackel. Wer es vorher erschlaegt, behaelt sein Oel. */
+  if (spec.lockt) {
+    if (dist <= 1.25) verpuffe(a);
+    return true;
+  }
+
+  /* Der Egel beisst nicht, er saugt sich fest. Danach ist das Saugen sein
+     Angriff (egelSaugen im Verwaltungstakt) - bis man ihn erschlaegt. */
+  if (spec.saugt) {
+    if (a.saugtAn) return true;
+    if (dist > MONSTER_REACH || a.nachhieb > 0) return false;
+    a.nachhieb = hiebTakt(a);
+    if (playerDodges(a, p)) return true;
+    a.saugtAn = true;
+    a.haftDx = a.x - p.x; a.haftDy = a.y - p.y;
+    Sfx.spiel("gift");
+    log(`${spec.name} saugt sich an dir fest — erschlag ihn, sonst wirst du immer langsamer.`, "bad");
+    return true;
+  }
+
+  // Der Schlammkriecher packt aus ein paar Schritten zu und zieht heran
+  if (spec.packt) {
+    if (a.kraftCd || dist < 1.7 || dist > 4.2 || !freieSicht()) return false;
+    a.kraftCd = 6;
+    zieheHeran(a, 1.2);
+    return true;
+  }
+
+  /* Die Hofdame singt, solange du in Hoerweite bist - dafuer braucht es
+     keine freie Sicht, ein Lied geht um die Ecke. Singen hindert sie nicht
+     am Schiessen, deshalb false. */
+  if (spec.singt) {
+    if (dist <= 8.5) {
+      const schon = statusMag(p, "Flackern");
+      a.singtBis = G.time + 1.2;
+      addStatus(p, "Flackern", 2, 1);
+      if (!schon) {
+        log("Ein Klagelied — deine Fackel flackert, der Schein wird eng.", "bad");
+        updateFov();
+      }
+    }
+    return false;
+  }
+
+  // Der Muschelritter rammt den Schild vor - wer zu nah steht, fliegt
+  if (spec.schildstoss) {
+    if (a.kraftCd || dist > MONSTER_REACH * 1.15) return false;
+    a.kraftCd = 5;
+    const l = dist || 1;
+    const nx = (p.x - a.x) / l, ny = (p.y - a.y) / l;
+    a.lunge = { dx: nx, dy: ny, life: 1 };
+    anim.shake = 9;
+    Sfx.spiel("stoss");
+    if (playerDodges(a, p)) return true;
+    const [dmg] = resolveDamage(Math.round(atkOf(a) * .8), playerDef());
+    if (dmg > 0) damage(p, dmg, a);
+    if (!p.alive) return true;
+    const weg = schiebeWeg(p, nx, ny, 1.9);
+    log(`${spec.name} rammt dir den Schild entgegen${weg > .5 ? " und wirft dich zurück" : ""}${
+      stehtNass(p) ? " — ins Wasser" : ""}.`, "bad");
+    return true;
+  }
+
+  /* Die Sturmkraehe stoesst aus der Hoehe herab: Fluegel an, in gerader
+     Linie auf dich zu, harter Treffer - und gleich wieder weg (abflugBis,
+     siehe lenke). Wer beim Anflug zur Seite geht, laesst sie ins Leere
+     stossen. */
+  if (spec.sturzflug) {
+    if (a.kraftCd || dist < 2.4 || dist > 7.5 || !freieSicht()) return false;
+    a.kraftCd = 4.5;
+    const rx = (p.x - a.x) / dist, ry = (p.y - a.y) / dist;
+    const von = [a.x, a.y];
+    for (let weg = 0; weg < 8 && Math.hypot(p.x - a.x, p.y - a.y) > MONSTER_REACH * .9; weg += .14) {
+      const nx = a.x + rx * .14, ny = a.y + ry * .14;
+      if (blockiert(nx, ny, a.radius || R_MONSTER) || schleierSperrt(nx, ny)) break;
+      a.x = nx; a.y = ny;
+    }
+    a.sturzBis = G.time + .45;
+    a.abflugBis = G.time + 1.1;
+    a.lunge = { dx: rx, dy: ry, life: 1 };
+    bolt(von[0], von[1], a.x, a.y, "#C8D0E0");
+    Sfx.spiel("boe");
+    moorGeraeusch("kraehe");
+    if (Math.hypot(p.x - a.x, p.y - a.y) > MONSTER_REACH * 1.25) {
+      log(`${spec.name} stößt herab — doch du stehst nicht mehr dort.`, "system");
+    } else if (!playerDodges(a, p)) {
+      const [dmg] = resolveDamage(Math.round(atkOf(a) * 1.35), playerDef());
+      if (dmg > 0) {
+        damage(p, dmg, a);
+        log(`${spec.name} stößt im Sturzflug auf dich herab — ${dmg}.`, "bad");
+      }
+    }
+    return true;
+  }
+
+  /* Der Pechwerfer schleudert einen brennenden Topf dorthin, wo du gerade
+     stehst. Der Topf fliegt eine Weile - wer sofort weitergeht, entkommt,
+     wer stehen bleibt, steht im Feuer. */
+  if (spec.pech) {
+    if (a.kraftCd || dist < 2.5 || dist > 7 || !freieSicht()) return false;
+    a.kraftCd = 6.5;
+    const zx = kachelX(p), zy = kachelY(p), werfer = a, karte = G.map;
+    a.lunge = { dx: p.x - a.x, dy: p.y - a.y, life: 1 };
+    Sfx.spiel("anlegen");
+    bolt(a.x, a.y, mitte(zx), mitte(zy), "#E8783A");
+    log(`${spec.name} schleudert einen brennenden Pechtopf nach dir.`, "bad");
+    setTimeout(() => {
+      if (!G || G.map !== karte || mode.kind !== "play" || !werfer.alive) return;
+      legePech(zx, zy, werfer);
+    }, 700);
+    return true;
+  }
+  return false;
+}
+
+/* Bevor sie wach werden, kuendigen sich manche an: die Hofdame hoert man,
+   ehe man sie sieht, und wo ein Schlammkriecher liegt, steigen Blasen auf.
+   Je Wesen nur einmal - das Protokoll soll warnen, nicht rauschen. */
+function moorVorzeichen(a, dist) {
+  if (a.vorzeichen) return;
+  if (a.spec.singt && dist < 12) {
+    a.vorzeichen = true;
+    log("Irgendwo klagt eine Frauenstimme — leise, und sie hört nicht auf.", "alert");
+    moorGeraeusch("fluestern");
+  } else if (a.spec.verborgen && dist < 4.5 && seesTile(kachelX(a), kachelY(a))) {
+    a.vorzeichen = true;
+    log("Im Schlamm vor dir steigen Blasen auf.", "system");
+    moorGeraeusch("blubb");
+  }
+}
+
+/* Ein Kulissengeraeusch auf Zuruf - ueber Sfx.ereignis, also die Aufnahme,
+   wenn es eine gibt, sonst das gerechnete, und im Pegel der laufenden Welt.
+   Fehlt beides, bleibt es still: ein fehlender Klang darf keinen Zug
+   abbrechen. */
+function moorGeraeusch(name) {
+  try {
+    if (!Sfx.an) return;
+    Sfx.init();
+    if (Sfx.ctx) Sfx.ereignis(name);
+  } catch (e) { /* lieber stumm als kaputt */ }
+}
+
+// Den Helden ein Stueck zum Wesen hin ziehen - schrittweise, nie in die Wand
+function zieheHeran(a, weite) {
+  const p = G.player;
+  const l = Math.hypot(a.x - p.x, a.y - p.y) || 1;
+  const bis = Math.max(0, Math.min(weite, l - MONSTER_REACH * .9));
+  const weg = bis > 0 ? schiebeWeg(p, (a.x - p.x) / l, (a.y - p.y) / l, bis) : 0;
+  anim.shake = 7;
+  Sfx.spiel("wummern");
+  log(`${a.spec.name} packt dich und zieht dich heran.`, "bad");
+  return weg;
+}
+
+// Das Irrlicht verpufft an deiner Fackel und nimmt Oel mit
+function verpuffe(a) {
+  const p = G.player;
+  const vorher = p.oil;
+  burnOil(Math.round(12 + G.floor * 1.5));
+  a.alive = false;
+  a.hp = 0;
+  burst(a.x, a.y, "#FFE8A0", 26);
+  ring(a.x, a.y, 1.6, "#F2D878");
+  anim.shake = 5;
+  Sfx.spiel("asche");
+  log(vorher > p.oil
+    ? `${a.spec.name} verpufft an deiner Fackel — es frisst dir ${vorher - p.oil} Öl.`
+    : `${a.spec.name} verpufft — deine Fackel hat ihm nichts mehr zu geben.`, "bad");
+  updateFov();
+}
+
+// Ein festgesaugter Egel sitzt am Helden, wohin der auch geht
+function haftAn(a) {
+  const p = G.player;
+  const l = Math.hypot(a.haftDx || 0, a.haftDy || 0) || 1;
+  const nx = p.x + (a.haftDx || 0) / l * .45, ny = p.y + (a.haftDy || 0) / l * .45;
+  if (!blockiert(nx, ny, a.radius || R_MONSTER)) { a.x = nx; a.y = ny; }
+  else { a.x = p.x; a.y = p.y; }
+}
+
+/* Im Verwaltungstakt: jeder festgesaugte Egel zehrt zwei Punkte Leben, und
+   zusammen machen sie langsam - drei auf einmal fast halb so schnell (siehe
+   klageTempo). */
+function egelSaugen() {
+  const p = G.player;
+  const egel = G.actors.filter(a => a.alive && a.saugtAn);
+  if (!egel.length) return;
+  addStatus(p, "Langsam", 2, Math.min(3, egel.length));
+  damage(p, egel.length * 2, egel[0]);
+}
+
+/* Der Pechtopf schlaegt auf: fuenf Kacheln brennen eine Weile. Es sind
+   dieselben Brandflecken wie die der Brandflasche (G.traps mit brenntBis),
+   nur ohne "eigen" - sie brennen jeden, auch den Werfer selbst. */
+function legePech(tx, ty, werfer) {
+  // Ein Viertel des Schlags je Takt: auf Etage 8 rund zehn statt sechzehn -
+  // man soll herausgehen muessen, nicht darin sterben, ehe man es merkt.
+  const wucht = Math.max(3, Math.round(atkOf(werfer) * .25));
+  for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const x = tx + dx, y = ty + dy;
+    if (!inBounds(x, y) || !WALKABLE[G.map.tiles[idx(x, y)]]) continue;
+    const schon = G.traps.find(f => f.x === x && f.y === y && f.brenntBis);
+    if (schon) {
+      schon.brenntBis = Math.max(schon.brenntBis, G.time + 4.5);
+      schon.eigen = false;
+      continue;
+    }
+    G.traps.push({ x, y, art: "feuer", scharf: false, entdeckt: true,
+                   brenntBis: G.time + 4.5, wucht });
+  }
+  burst(mitte(tx), mitte(ty), "#FF9A40", 24);
+  ring(mitte(tx), mitte(ty), 1.4, "#E8703A");
+  anim.shake = 5;
+  Sfx.spiel("feuer");
+}
+
+/* Ein Irrlicht sieht man auch jenseits des eigenen Scheins - das ist sein
+   ganzer Trick. Aber nur mit freier Sicht, und nicht quer ueber die Etage. */
+function leuchtetFern(a) {
+  if (a.isPlayer || !a.spec || !a.spec.leuchtet) return false;
+  const p = G.player;
+  return Math.hypot(a.x - p.x, a.y - p.y) <= 12 &&
+         lineOfSight(kachelX(p), kachelY(p), kachelX(a), kachelY(a));
+}
+
+// Wo ein Schlammkriecher verborgen liegt, steigen Blasen auf - aus der Naehe
+function zeichneBlasen(a, camX, camY) {
+  const p = G.player;
+  if (!G.map.visible[idx(kachelX(a), kachelY(a))]) return;
+  if (Math.hypot(a.x - p.x, a.y - p.y) > 4.5) return;
+  const x = (a.x - camX) * TILE, y = (a.y - camY) * TILE;
+  ctx.save();
+  ctx.strokeStyle = "rgba(210,196,150,.55)";
+  ctx.lineWidth = 1;
+  for (let k = 0; k < 3; k++) {
+    const f = (anim.t * .6 + k / 3 + a.bob) % 1;
+    ctx.globalAlpha = 1 - f;
+    ctx.beginPath();
+    ctx.arc(x + Math.sin(k * 2.1 + a.bob) * TILE * .18, y - f * TILE * .12,
+            TILE * (.04 + f * .06), 0, 6.283);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function zweitePhase(a, titel, zeile) {
   if (a.phase2 || a.hp > a.maxhp * .5) return false;
   a.phase2 = true;
@@ -13011,6 +13354,8 @@ function upkeep() {
   if (!p.alive) return;
   tickStatuses(p);
   if (!p.alive) return;
+  egelSaugen();
+  if (!p.alive) return;
 
   // Ausgeloeste Feuerspeier brennen ein paar Sekunden nach
   for (const f of (G.traps || [])) {
@@ -13149,6 +13494,8 @@ function lenke(a, dt) {
   a.nachhieb = Math.max(0, (a.nachhieb || 0) - dt);
   // Pluenderer laufen ihrem eigenen Ziel nach, nicht dir.
   if (a.ai === "raeuber") return raeuberLenke(a, dt);
+  // Ein Egel, der sich festgesaugt hat, geht mit dir mit
+  if (a.saugtAn) { haftAn(a); return; }
   const p = G.player;
   const dist = Math.hypot(p.x - a.x, p.y - a.y);
   let zx = 0, zy = 0;
@@ -13170,7 +13517,11 @@ function lenke(a, dt) {
   } else if (a.wach) {
     /* Lichtscheues Getier weicht dem hellen Schein aus - man kann sich damit
        Luft verschaffen, zahlt sie aber mit Öl. */
-    if (a.spec.lichtscheu && flamme().name === "aufgedreht" && dist < 3.6) {
+    if (a.spec.lockt && dist < 3.4) {
+      zx = a.x - p.x; zy = a.y - p.y;          // das Irrlicht weicht - es lockt
+    } else if (a.abflugBis > G.time) {
+      zx = a.x - p.x; zy = a.y - p.y;          // nach dem Sturzflug hoch und weg
+    } else if (a.spec.lichtscheu && flamme().name === "aufgedreht" && dist < 3.6) {
       zx = a.x - p.x; zy = a.y - p.y;
     } else if (a.ai === "ranged" && dist < (a.spec.keep || 4) && a.kite > 0) {
       a.kite -= dt;                            // Rückzug ist begrenzt
@@ -13782,7 +14133,9 @@ function drawFrame(dt) {
   const drawables = G.actors.filter(a => a.alive);
   drawables.sort((a, b) => a.y - b.y);
   for (const a of drawables) {
-    if (!G.map.visible[idx(kachelX(a), kachelY(a))] && !a.isPlayer) continue;
+    if (!G.map.visible[idx(kachelX(a), kachelY(a))] && !a.isPlayer && !leuchtetFern(a)) continue;
+    // Ein Schlammkriecher liegt verborgen - nur aufsteigende Blasen verraten ihn
+    if (!a.isPlayer && a.spec.verborgen && !a.aufgetaucht) { zeichneBlasen(a, camX, camY); continue; }
 
     // Position ist bereits stufenlos - nichts mehr zu glätten
     a.ax = a.x; a.ay = a.y;
@@ -13821,7 +14174,7 @@ function drawFrame(dt) {
     const x = (a.x - .5 - camX) * TILE + ox, y = (a.y - .5 - camY) * TILE + oy;
     if (x < -TILE * 2 || y < -TILE * 2) continue;
 
-    const light = a.isPlayer ? 1 : lightAt(Math.hypot(a.x - px, a.y - py));
+    const light = a.isPlayer || a.spec.leuchtet ? 1 : lightAt(Math.hypot(a.x - px, a.y - py));
 
     if (a.isPlayer) drawHero(ctx, x, y, light, anim.t, a);
     else drawCreature(ctx, x, y, a.spec, light, anim.t + a.bob, a);
@@ -14484,9 +14837,21 @@ function drawBedrock(camX, camY) {
   ctx.drawImage(bedrock, -TILE - (camX - gx) * TILE, -TILE - (camY - gy) * TILE);
 }
 
+/* Nimmt "#rrggbb" - und auch "rgb(r,g,b)", also das, was mix selbst
+   zurueckgibt. Die Zeichnungen der Wesen bekommen ihre Farben von
+   drawCreature schon gemischt und mischen sie weiter; die alte Fassung las
+   daraus "rgb(NaN,NaN,128)", der Canvas verwarf die Farbe still und malte
+   mit der vorigen weiter. Gemessen: der Schild des Muschelritters wurde
+   schwarz, und die Klinge des Pluenderers traf es schon lange. */
+function farbTeile(c) {
+  if (c.charCodeAt(0) === 35)
+    return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+  const z = c.match(/\d+(\.\d+)?/g) || [0, 0, 0];
+  return [+z[0], +z[1], +z[2]];
+}
+
 function mix(a, b, t) {
-  const pa = [parseInt(a.slice(1, 3), 16), parseInt(a.slice(3, 5), 16), parseInt(a.slice(5, 7), 16)];
-  const pb = [parseInt(b.slice(1, 3), 16), parseInt(b.slice(3, 5), 16), parseInt(b.slice(5, 7), 16)];
+  const pa = farbTeile(a), pb = farbTeile(b);
   return `rgb(${Math.round(pa[0] + (pb[0] - pa[0]) * t)},${Math.round(pa[1] + (pb[1] - pa[1]) * t)},${Math.round(pa[2] + (pb[2] - pa[2]) * t)})`;
 }
 
@@ -15902,6 +16267,362 @@ const PAINT = {
   },
 
   // Groß, gehörnt, Mantel breit aufgeschlagen, drei Augen
+  /* ── Die Wesen der Moorfeste ──────────────────────────────────────────── */
+
+  /* Ein Knaeuel aus drei Egeln, die sich ueber den Boden winden: geringelte
+     Leiber, vorn ein heller Saugmund. Tief am Boden - man sieht sie erst,
+     wenn einer schon an einem haengt. */
+  egel(P) {
+    const { cx, g, s, body, dark, eye, t } = P;
+    for (const [ox, oy, ph] of [[-.18, -.08, .2], [.16, -.04, 2.4], [0, -.18, 4.1]]) {
+      const kx = cx + s * ox, ky = g + s * oy;
+      const wellen = f => Math.sin(t * 5 + ph + f * 3.2) * s * .045;
+      for (let i = 5; i >= 0; i--) {
+        const f = i / 5;
+        const r = s * (.07 + Math.sin(f * Math.PI) * .045);
+        ctx.fillStyle = i % 2 ? body : dark;
+        ctx.beginPath();
+        ctx.ellipse(kx + (f - .5) * s * .46, ky - s * .06 - wellen(f), r * 1.15, r, 0, 0, 6.283);
+        ctx.fill();
+      }
+      const mx = kx + s * .23, my = ky - s * .06 - wellen(1);
+      ctx.fillStyle = eye;
+      ctx.beginPath();
+      ctx.arc(mx, my, s * .034, 0, 6.283);
+      ctx.fill();
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = Math.max(1, s * .02);
+      ctx.beginPath();
+      ctx.arc(mx, my, s * .055, 0, 6.283);
+      ctx.stroke();
+    }
+  },
+
+  /* Kein Koerper, nur Licht: ein warmer Kern, der atmet, ein Hof darum und
+     Flammenfaeden, die nach oben ziehen. Aus der Naehe zwei dunkle Stellen im
+     Kern - als schaute es zurueck. Beim Umriss-Durchgang (drawCreature malt
+     einmal ganz in Schwarz dahinter) nur der Kern: sonst laege um das Licht
+     ein schwarzer Hof. */
+  irrlicht(P) {
+    const { cx, g, s, body, dark, t } = P;
+    const my = g - s * .52 + Math.sin(t * 2.3) * s * .06;
+    const atmen = .85 + Math.sin(t * 4.1) * .15;
+    const umriss = ctx.filter && ctx.filter !== "none";
+    if (!umriss) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const hof = ctx.createRadialGradient(cx, my, 0, cx, my, s * .62 * atmen);
+      hof.addColorStop(0, "rgba(255,238,170,.55)");
+      hof.addColorStop(.35, "rgba(232,210,122,.26)");
+      hof.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = hof;
+      ctx.beginPath();
+      ctx.arc(cx, my, s * .62 * atmen, 0, 6.283);
+      ctx.fill();
+      ctx.strokeStyle = body;
+      ctx.lineCap = "round";
+      ctx.globalAlpha = .45;
+      ctx.lineWidth = Math.max(1, s * .04);
+      for (let k = 0; k < 4; k++) {
+        const ph = t * 3 + k * 1.6;
+        ctx.beginPath();
+        ctx.moveTo(cx + (k - 1.5) * s * .05, my - s * .08);
+        ctx.quadraticCurveTo(cx + Math.sin(ph) * s * .14, my - s * .26,
+                             cx + Math.sin(ph * 1.3) * s * .10, my - s * (.38 + (k % 2) * .08));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    ctx.fillStyle = "#FFF6D8";
+    ctx.beginPath();
+    ctx.arc(cx, my, s * .13 * atmen, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(cx, my, s * .09, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = dark;
+    for (const d of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + d * s * .035, my - s * .01, s * .016, s * .026, 0, 0, 6.283);
+      ctx.fill();
+    }
+  },
+
+  /* Ein Buckel aus Schlamm, der sich aufrichtet: kein klarer Umriss, zwei
+     lange Arme mit Krallen, die nach vorn greifen, zwei gelbe Punkte, wo
+     Augen sein koennten. Es tropft. */
+  kriecher(P) {
+    const { cx, g, s, body, dark, eye, t } = P;
+    const hebt = Math.sin(t * 1.7) * s * .03;
+    for (const d of [-1, 1]) {
+      const schw = Math.sin(t * 2.6 + d) * s * .05;
+      limb(cx + d * s * .20, g - s * .40, cx + d * s * .44, g - s * .30 + schw, s * .10, dark);
+      limb(cx + d * s * .44, g - s * .30 + schw, cx + d * s * .54, g - s * .12 + schw, s * .08, dark);
+      ctx.strokeStyle = mix(dark, "#C8B890", .45);
+      ctx.lineWidth = Math.max(1, s * .025);
+      for (let k = -1; k <= 1; k++) {
+        ctx.beginPath();
+        ctx.moveTo(cx + d * s * .54, g - s * .12 + schw);
+        ctx.lineTo(cx + d * s * (.60 + k * .02), g - s * (.04 - k * .03) + schw);
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .40, g - s * .02);
+    ctx.quadraticCurveTo(cx - s * .42, g - s * .66 + hebt, cx - s * .04, g - s * .72 + hebt);
+    ctx.quadraticCurveTo(cx + s * .36, g - s * .70 + hebt, cx + s * .40, g - s * .02);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = dark;
+    for (const [ox, oy, r] of [[-.18, -.46, .09], [.12, -.56, .07], [.22, -.30, .08], [-.26, -.20, .06]]) {
+      ctx.beginPath();
+      ctx.arc(cx + s * ox, g + s * oy + hebt, s * r, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.fillStyle = mix(body, "#1A140C", .4);
+    for (let k = 0; k < 3; k++) {
+      const f = (t * .8 + k / 3) % 1;
+      ctx.beginPath();
+      ctx.ellipse(cx + s * (-.2 + k * .2), g - s * (.36 - f * .34), s * .025, s * .04, 0, 0, 6.283);
+      ctx.fill();
+    }
+    slitEyes(cx + s * .02, g - s * .54 + hebt, s, eye, 2, .09);
+  },
+
+  /* Eine ertrunkene Hofdame: hochgeschlossenes Mieder, weiter Rock, der unten
+     in nassen Bahnen ausfranst, das Haar haengt ihr ins Gesicht, die Haende
+     gefaltet. Singt sie, gehen Ringe von ihr aus. */
+  hofdame(P) {
+    const { cx, g, s, body, dark, eye, t, akteur } = P;
+    const weht = Math.sin(t * 1.3) * s * .04;
+    const saum = g - s * .04;
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .12, g - s * .56);
+    ctx.quadraticCurveTo(cx - s * .38, g - s * .30, cx - s * .36 + weht, saum);
+    for (let i = 0; i < 6; i++) {
+      const fx = cx - s * .36 + weht + (s * .72 * (i + .5)) / 6;
+      ctx.lineTo(fx, saum + s * .06 + Math.sin(t * 2 + i * 1.3) * s * .03);
+      ctx.lineTo(fx + s * .06, saum - s * .02);
+    }
+    ctx.quadraticCurveTo(cx + s * .38, g - s * .30, cx + s * .12, g - s * .56);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.26)";
+    ctx.lineWidth = Math.max(1, s * .025);
+    for (const d of [-.18, 0, .18]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + s * d * .5, g - s * .52);
+      ctx.quadraticCurveTo(cx + s * d, g - s * .28, cx + s * d * 1.4 + weht, saum);
+      ctx.stroke();
+    }
+    ctx.fillStyle = dark;
+    roundRect(ctx, cx - s * .13, g - s * .82, s * .26, s * .30, s * .06);
+    ctx.fill();
+    ctx.fillStyle = mix(body, "#E8F4EE", .35);
+    ctx.beginPath();
+    ctx.ellipse(cx, g - s * .56, s * .06, s * .045, 0, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = mix(body, "#E8F4EE", .45);
+    ctx.beginPath();
+    ctx.ellipse(cx, g - s * .94, s * .10, s * .12, 0, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .13, g - s * .70);
+    ctx.quadraticCurveTo(cx - s * .16, g - s * 1.08, cx, g - s * 1.08);
+    ctx.quadraticCurveTo(cx + s * .16, g - s * 1.08, cx + s * .13, g - s * .70);
+    ctx.lineTo(cx + s * .06, g - s * .84);
+    ctx.quadraticCurveTo(cx, g - s * .98, cx - s * .06, g - s * .84);
+    ctx.closePath();
+    ctx.fill();
+    slitEyes(cx, g - s * .95, s, eye, 2, .04);
+    if (akteur && G && akteur.singtBis > G.time) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(200,240,230,.40)";
+      ctx.lineWidth = Math.max(1, s * .025);
+      for (let k = 0; k < 3; k++) {
+        const f = (t * .9 + k / 3) % 1;
+        ctx.globalAlpha = 1 - f;
+        ctx.beginPath();
+        ctx.arc(cx, g - s * .90, s * (.18 + f * .5), -2.4, -.7);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  },
+
+  /* Ein Palastwaechter, den das Wasser behalten hat: schwere Ruestung unter
+     Muschelkrusten, ein runder Schild voller Seepocken, ein Helm mit schmalem
+     Schlitz. Er steht breit - wer ihm zu nahe kommt, fliegt. */
+  muschel(P) {
+    const { cx, g, s, body, dark, eye } = P;
+    limb(cx - s * .13, g - s * .32, cx - s * .16, g - s * .02, s * .13, dark);
+    limb(cx + s * .13, g - s * .32, cx + s * .16, g - s * .02, s * .13, dark);
+    ctx.fillStyle = body;
+    roundRect(ctx, cx - s * .24, g - s * .78, s * .48, s * .50, s * .10);
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.fillRect(cx - s * .24, g - s * .50, s * .48, s * .05);
+    const kruste = mix(body, "#D8E0CC", .35);
+    for (const [ox, oy, r] of [[-.14, -.70, .05], [.10, -.62, .045], [-.04, -.40, .04], [.16, -.36, .035]]) {
+      ctx.fillStyle = kruste;
+      ctx.beginPath();
+      ctx.arc(cx + s * ox, g + s * oy, s * r, Math.PI, 0);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.3)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx + s * ox, g + s * oy);
+      ctx.lineTo(cx + s * ox, g + s * (oy - r));
+      ctx.stroke();
+    }
+    ctx.fillStyle = dark;
+    for (const d of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + d * s * .25, g - s * .74, s * .12, s * .08, 0, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.fillStyle = mix(body, dark, .35);
+    roundRect(ctx, cx - s * .15, g - s * 1.02, s * .30, s * .28, s * .09);
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.85)";
+    ctx.fillRect(cx - s * .11, g - s * .90, s * .22, s * .04);
+    slitEyes(cx, g - s * .88, s, eye, 2, .05);
+    const sx = cx - s * .30, sy = g - s * .52;
+    ctx.fillStyle = mix(dark, body, .88);
+    ctx.beginPath();
+    ctx.arc(sx, sy, s * .24, 0, 6.283);
+    ctx.fill();
+    ctx.strokeStyle = mix(body, "#DCE4D4", .5);
+    ctx.lineWidth = Math.max(1.2, s * .035);
+    ctx.stroke();
+    ctx.fillStyle = kruste;
+    for (let k = 0; k < 6; k++) {
+      const w = k * 1.05 + .3;
+      ctx.beginPath();
+      ctx.arc(sx + Math.cos(w) * s * .14, sy + Math.sin(w) * s * .14, s * .035, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(sx, sy, s * .05, 0, 6.283);
+    ctx.fill();
+  },
+
+  /* Eine Sturmkraehe mit ausgebreiteten Schwingen, die im Wind schlagen:
+     Keilschwanz, schwerer Schnabel, die Federspitzen hell vom Regen. Im
+     Sturzflug legt sie die Fluegel an. */
+  kraehe(P) {
+    const { cx, g, s, body, dark, eye, t, akteur } = P;
+    const stuerzt = !!(akteur && G && akteur.sturzBis > G.time);
+    const schlag = stuerzt ? -.2 : Math.sin(t * 7.5) * .55;
+    const weit = stuerzt ? .26 : .54;
+    const my = g - s * .62;
+    for (const d of [-1, 1]) {
+      ctx.fillStyle = dark;
+      ctx.beginPath();
+      ctx.moveTo(cx + d * s * .06, my);
+      ctx.quadraticCurveTo(cx + d * s * .30, my - s * (.22 + schlag * .25),
+                           cx + d * s * weit, my - s * schlag * .30);
+      for (let k = 0; k < 4; k++) {
+        const f = 1 - k / 4;
+        ctx.lineTo(cx + d * s * (weit - .04) * f, my + s * (.06 + k * .02) - s * schlag * .25 * f);
+        ctx.lineTo(cx + d * s * (weit - .12) * f, my + s * .02 - s * schlag * .22 * f);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = mix(dark, "#C8D0E0", .35);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx + d * s * .12, my + s * .02);
+      ctx.lineTo(cx + d * s * (weit - .02), my - s * schlag * .30);
+      ctx.stroke();
+    }
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.ellipse(cx, my + s * .02, s * .13, s * .17, 0, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .08, my + s * .14);
+    ctx.lineTo(cx, my + s * .34);
+    ctx.lineTo(cx + s * .08, my + s * .14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(cx, my - s * .17, s * .09, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = "#2A2420";
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .035, my - s * .15);
+    ctx.lineTo(cx, my - s * .02);
+    ctx.lineTo(cx + s * .035, my - s * .15);
+    ctx.closePath();
+    ctx.fill();
+    slitEyes(cx, my - s * .19, s, eye, 2, .04);
+  },
+
+  /* Ein verdorrter Burgwaechter, gebueckt, der Helm verbeult, am Guertel drei
+     Toepfe. In der Hand einer, der schon raucht - an seinem Glimmen erkennt
+     man ihn im Dunkeln, lange bevor er wirft. */
+  pechwerfer(P) {
+    const { cx, g, s, body, dark, eye, t } = P;
+    limb(cx - s * .11, g - s * .34, cx - s * .15, g - s * .02, s * .10, dark);
+    limb(cx + s * .11, g - s * .34, cx + s * .14, g - s * .02, s * .10, dark);
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * .20, g - s * .36);
+    ctx.quadraticCurveTo(cx - s * .26, g - s * .66, cx - s * .06, g - s * .80);
+    ctx.quadraticCurveTo(cx + s * .20, g - s * .78, cx + s * .20, g - s * .36);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(10,8,6,.55)";
+    ctx.beginPath();
+    ctx.ellipse(cx + s * .06, g - s * .52, s * .08, s * .05, .4, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = dark;
+    ctx.fillRect(cx - s * .21, g - s * .42, s * .42, s * .05);
+    for (const d of [-.14, 0, .14]) {
+      ctx.fillStyle = "#2A2622";
+      ctx.beginPath();
+      ctx.arc(cx + s * d, g - s * .33, s * .05, 0, 6.283);
+      ctx.fill();
+    }
+    limb(cx + s * .16, g - s * .70, cx + s * .34, g - s * .56, s * .08, body);
+    const tx = cx + s * .38, ty = g - s * .54;
+    ctx.fillStyle = "#1E1A16";
+    ctx.beginPath();
+    ctx.arc(tx, ty, s * .08, 0, 6.283);
+    ctx.fill();
+    const glut = .6 + Math.sin(t * 6) * .25;
+    ctx.fillStyle = `rgba(255,${130 + Math.round(glut * 60)},60,${.7 + glut * .3})`;
+    ctx.beginPath();
+    ctx.ellipse(tx, ty - s * .05, s * .05, s * .02, 0, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = "rgba(60,56,52,.35)";
+    for (let k = 0; k < 3; k++) {
+      const f = (t * .7 + k / 3) % 1;
+      ctx.beginPath();
+      ctx.arc(tx + Math.sin(f * 6 + k) * s * .04, ty - s * (.10 + f * .34), s * (.03 + f * .05), 0, 6.283);
+      ctx.fill();
+    }
+    ctx.fillStyle = mix(body, dark, .45);
+    ctx.beginPath();
+    ctx.arc(cx - s * .04, g - s * .86, s * .13, Math.PI, 0);
+    ctx.lineTo(cx + s * .12, g - s * .78);
+    ctx.lineTo(cx - s * .20, g - s * .78);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.8)";
+    ctx.beginPath();
+    ctx.ellipse(cx - s * .03, g - s * .76, s * .09, s * .06, 0, 0, 6.283);
+    ctx.fill();
+    slitEyes(cx - s * .03, g - s * .76, s, eye, 2, .04);
+  },
+
   boss(P) {
     const { cx, g, s, body, dark, eye, t } = P;
     const pulse = .5 + Math.sin(t * 1.8) * .5;
@@ -15975,7 +16696,7 @@ function drawCreature(ctx, x, y, spec, light, t, actor) {
   const g = y + TILE - 2 + float + bob;   // Standlinie des Wesens
 
   const P = {
-    cx, g, s, t,
+    cx, g, s, t, akteur: actor,
     body: mix("#100D0A", spec.body, .30 + light * .70),
     dark: mix("#0A0908", spec.dark, .30 + light * .70),
     eye: mix("#4A3A26", spec.eye || "#F2E6C8", .40 + light * .60),
@@ -17072,6 +17793,7 @@ function zeichneKarte(now) {
   for (const a of G.actors) {
     if (a.isPlayer || !a.alive) continue;
     if (!G.map.visible[idx(kachelX(a), kachelY(a))]) continue;
+    if (a.spec.verborgen && !a.aufgetaucht) continue;   // der Kriecher verraet sich nicht
     /* Pluenderer bekommen eine eigene Farbe. Auf der Uebersicht muss man
        sehen koennen, ob da ein Goblin steht oder jemand, der dir gerade die
        Truhe leert. */
@@ -17270,7 +17992,8 @@ function refreshUI() {
   }).join("");
 
   const foes = G.actors
-    .filter(a => !a.isPlayer && a.alive && seesTile(kachelX(a), kachelY(a)))
+    .filter(a => !a.isPlayer && a.alive && seesTile(kachelX(a), kachelY(a)) &&
+                 !(a.spec.verborgen && !a.aufgetaucht))
     .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))
     .slice(0, 7);
   $("foes").innerHTML = foes.length
