@@ -4790,10 +4790,10 @@ const MOORFESTE_THEMES = [
   },
   {
     from: 4, name: "Die ersoffenen Säle",
-    wallDim: "#1E2426", wallLit: "#4C6064", wallTop: "#6C8286",
-    floorDim: "#141A1C", floorLit: "#2A3638",
-    speck: "168,200,206", glow: "118,164,172", mote: "#A8CCD2",
-    rock: "#0C1012", decor: "none", gen: "saele", style: "masonry",
+    wallDim: "#28251F", wallLit: "#6C6452", wallTop: "#8E8470",
+    floorDim: "#1A1914", floorLit: "#48443A",
+    speck: "212,200,164", glow: "150,172,124", mote: "#C6D2AA",
+    rock: "#0E0D0A", decor: "none", gen: "saele", style: "masonry",
     hell: .25,
   },
   {
@@ -4801,7 +4801,7 @@ const MOORFESTE_THEMES = [
     wallDim: "#2A2A2E", wallLit: "#767C86", wallTop: "#9AA2AE",
     floorDim: "#202024", floorLit: "#464A52",
     speck: "214,224,238", glow: "170,190,214", mote: "#D6E4F4",
-    rock: "#141416", decor: "none", gen: "wehrgang", style: "masonry",
+    rock: "#1F2024", decor: "none", gen: "wehrgang", style: "masonry",
     hell: .6, wind: true, vista: true,
   },
   {
@@ -4809,7 +4809,7 @@ const MOORFESTE_THEMES = [
     wallDim: "#3A3C40", wallLit: "#9AA4B0", wallTop: "#C2CCD8",
     floorDim: "#32363A", floorLit: "#6E767E",
     speck: "234,242,252", glow: "200,220,244", mote: "#EAF2FC",
-    rock: "#222426", decor: "none", gen: "turmkopf", style: "masonry",
+    rock: "#2A2C31", decor: "none", gen: "turmkopf", style: "masonry",
     hell: 1, wind: true, vista: true,
   },
 ];
@@ -6074,6 +6074,37 @@ const MOORFESTE_ITEMS = {
    Gemessen: 1 je 18,9 Kacheln vorher gegen 1 je 46,7 im Kerker. */
 const MOORFESTE_MAX_MONSTER = [[1, 2], [4, 3], [7, 3], [9, 4]];
 
+/* Die drei Namentlichen der Moorfeste, je einer am Ende eines Bereichs -
+   genau wie Schloss und Totenstadt es halten. "base" leiht Koerper und
+   Grund-KI, power ist ihre eigene Zeile in elitePower(). Anders als der
+   Sturmrufer oben (Windmeisterin) bleiben sie an ihren eigenen Ort
+   gebunden: Schlamm, Sog, Fernschuss - kein Wind, der bleibt ihr allein. */
+const MOORFESTE_ELITES = {
+  3: { base: "troll", name: "Der Wurzelgreifer", epithet: "wurzelt, wo er steht",
+       power: "wurzel", hp: 340, atk: 12, def: 4, xp: 480, size: 1.32,
+       body: "#5A4A28", dark: "#2A2010", eye: "#C8A84E", glow: "#8A6E30", drop: "spiess" },
+  6: { base: "wraith", name: "Der Sogwächter", epithet: "zieht dich zu sich",
+       power: "sog", hp: 640, atk: 15, def: 6, xp: 780, size: 1.40,
+       body: "#2E4A5C", dark: "#12222C", eye: "#7FE0D8", glow: "#4AA8A0", drop: "guard" },
+  9: { base: "gebein", name: "Der Turmschütze", epithet: "sieht dich zuerst",
+       power: "weitschuss", hp: 850, atk: 18, def: 8, xp: 1250, size: 1.38,
+       body: "#C8CCD0", dark: "#6A7078", eye: "#FFD880", glow: "#E8C060", drop: "hellebarde" },
+};
+
+/* Ein Auftrag je Namentlichem, plus der Boss - dieselbe Form wie im
+   Schloss und der Totenstadt. Die uebrigen Etagen bleiben ohne: kein
+   erfundenes Sammelziel nur um die Luecke zu fuellen. */
+const MOORFESTE_QUESTS = {
+  3: { type: "elite", title: "Der Wurzelgreifer",
+       desc: "Stelle den Wurzelgreifer.", reward: { xp: 420, gear: "spiess" } },
+  6: { type: "elite", title: "Der Sogwächter",
+       desc: "Stelle den Sogwächter.", reward: { xp: 700, gear: "guard" } },
+  9: { type: "elite", title: "Der Turmschütze",
+       desc: "Stelle den Turmschützen.", reward: { xp: 1100, gear: "hellebarde" } },
+  10: { type: "boss", title: "Die Sturmrufer",
+        desc: "Sie ruft den Sturm. Beende ihn.", reward: { xp: 0 } },
+};
+
 ORT_INHALT.moorfeste = {
   name: "Die Moorfeste",
   themes: MOORFESTE_THEMES,
@@ -6081,6 +6112,8 @@ ORT_INHALT.moorfeste = {
   items: MOORFESTE_ITEMS,
   maxMonster: MOORFESTE_MAX_MONSTER,
   maxItems: MAX_ITEMS,
+  elites: MOORFESTE_ELITES,
+  quests: MOORFESTE_QUESTS,
   boss: "sturmrufer",
   maxFloor: 10,
   hinauf: true,             // der einzige Ort, den man hinaufsteigt
@@ -6798,6 +6831,7 @@ function newMap() {
     room: new Uint8Array(MAP_W * MAP_H),   // 1 = gehört zu einem Raum, 0 = Gang
     nass: new Uint8Array(MAP_W * MAP_H),   // 1 = Wasser/Schlamm - langsamer und lauter
     offen: new Uint8Array(MAP_W * MAP_H),  // 1 = im Wind - Boeen draengen hier ab
+    teppich: new Uint8Array(MAP_W * MAP_H),// 1 = roter Teppich (rein optisch)
     visible: new Uint8Array(MAP_W * MAP_H),
     explored: new Uint8Array(MAP_W * MAP_H),
     dist: new Int32Array(MAP_W * MAP_H).fill(-1),
@@ -6807,7 +6841,8 @@ function newMap() {
     veilRoom: null, // welche Felder liegen innerhalb der Kammer
     gateBoss: false,// versperrt ein Namentlicher die Treppe?
     sealed: false,  // steht der Spieler schon drinnen?
-    wachkammer: null, // bewohnt aussehende Kammer im Kern der Wehrgaenge, falls gebaut
+    herrensaal: null, // der grosse Saal im Kern der Wehrgaenge, falls gebaut
+    nischen: null,     // die Waffenkammern am Ringrand, fuer garantierten Fund
   };
 }
 
@@ -7849,50 +7884,432 @@ function trockneKachel(map, x, y) {
   }
 }
 
-/* ── Die Ersoffenen Säle: wenige, aber sehr große Säle ────────────────────
-   Verbunden durch auffällig lange, gerade Flure - das betont die Weite der
-   einst prächtigen Architektur, jetzt verlassen. "Ersoffen" ist hier
-   wörtlich: die Mitte jedes Saals steht unter Wasser (map.nass), nur ein
-   schmaler trockener Rand an den Wänden bleibt fest - wer nicht durch die
-   Mitte waten will, geht länger, aber trocken am Rand entlang. */
+/* ── Die Ersoffenen Säle: ein versunkener Palast ──────────────────────────
+   Dritter Anlauf. Erst waren es wenige riesige Kisten mit geraden Fluren,
+   dann dieselben Kisten mit Buchten - beides las sich als "blaues Becken
+   mit duennem Rand", und fast alles stand unter Wasser. Gewuenscht war ein
+   Bau, dem man ansieht, dass er einmal prachtvoll war und dann versank.
+
+   Also steht jetzt ein zusammenhaengender Palast auf der Etage: Saele, die
+   sich ihre Mauern teilen, statt ueber Flure verbunden zu sein; breite
+   Portale zwischen ihnen; ein Fluegel ist in Gemaecher mit schmaler Tuer
+   geteilt; manchmal eine Rotunde. Dann ist er eingesunken: rund ein Drittel
+   der Saalflaeche liegt tiefer und steht unter Wasser - trocken bleiben dort
+   nur eine Galerie an der Wand und ein paar Schuttinseln. Mauern sind
+   stellenweise eingebrochen, Saeulen umgestuerzt, Brocken liegen herum.
+   Der Rest des Palastes ist trocken. */
 function generateSaele(floor) {
   const map = newMap();
-  const rooms = [];
-  const maxRooms = 5 + Math.floor(floor / 4);   // wenige, dafür riesig
+  const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const grabe = (x, y) => { map.tiles[idx(x, y)] = FLOOR; map.room[idx(x, y)] = 1; };
 
-  for (let versuch = 0; versuch < maxRooms * 10 && rooms.length < maxRooms; versuch++) {
-    const w = ri(13, 20), h = ri(11, 16);
-    const x = ri(1, MAP_W - w - 2), y = ri(1, MAP_H - h - 2);
-    const room = { x1: x, y1: y, x2: x + w, y2: y + h,
-                   shape: rng() < .35 ? "hall" : "rect" };
-    if (rooms.some(r => overlaps(room, r))) continue;
-    carveRoom(map, room);
-    // Ein Flur je neuem Saal, moeglichst gerade - keine mehrfachen Kniffe
-    // wie beim Standardbau, das waeren keine "langen, geraden Flure" mehr.
-    if (rooms.length) carveTunnel(map, roomCenter(rooms[rooms.length - 1]), roomCenter(room));
-    rooms.push(room);
+  /* Gerade aus zusammenhaengend, nicht nur ueber Eck: der Held laeuft
+     achsenweise (siehe erreichbarOhneSchleier). vollVerbunden liesse zwei
+     Brocken durchgehen, die sich nur an einer Ecke beruehren. */
+  const verbunden = () => {
+    let start = -1, gesamt = 0;
+    for (let i = 0; i < map.tiles.length; i++)
+      if (WALKABLE[map.tiles[i]]) { gesamt++; if (start < 0) start = i; }
+    if (start < 0) return false;
+    const gesehen = new Uint8Array(map.tiles.length);
+    const stapel = [start];
+    gesehen[start] = 1;
+    let erreicht = 1;
+    while (stapel.length) {
+      const i = stapel.pop(), x = i % MAP_W, y = (i / MAP_W) | 0;
+      for (const [dx, dy] of ORTHO) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+        const k = ny * MAP_W + nx;
+        if (gesehen[k] || !WALKABLE[map.tiles[k]]) continue;
+        gesehen[k] = 1; erreicht++; stapel.push(k);
+      }
+    }
+    return erreicht === gesamt;
+  };
+
+  /* 1) Das Raster. Auf den Grenzen stehen die Mauern, die sich zwei Saele
+        teilen. Die Grenzen wackeln, sonst waere jede Etage dasselbe Brett. */
+  const grenzen = (von, bis, stuecke) => {
+    const out = [von];
+    for (let i = 1; i < stuecke; i++)
+      out.push(Math.round(von + (bis - von) * i / stuecke) + ri(-2, 2));
+    out.push(bis);
+    return out;
+  };
+  const xs = grenzen(1, MAP_W - 2, ri(3, 4)), ys = grenzen(1, MAP_H - 2, 3);
+  const spalten = xs.length - 1, zeilen = ys.length - 1;
+  const zellen = [];
+  for (let j = 0; j < zeilen; j++)
+    for (let i = 0; i < spalten; i++)
+      zellen.push({ k: zellen.length, i, j,
+                    x1: xs[i] + 1, x2: xs[i + 1] - 1, y1: ys[j] + 1, y2: ys[j + 1] - 1 });
+  const zelle = (i, j) =>
+    (i >= 0 && j >= 0 && i < spalten && j < zeilen) ? zellen[j * spalten + i] : null;
+
+  // Ein eingestuerzter Fluegel: bis zu zwei Eckzellen stehen nicht mehr.
+  // Ecken, weil das Raster ohne sie trotzdem zusammenhaengt.
+  let weg = 0;
+  for (const [i, j] of [[0, 0], [spalten - 1, 0], [0, zeilen - 1], [spalten - 1, zeilen - 1]]
+         .sort(() => rng() - .5))
+    if (weg < 2 && rng() < .4) { zelle(i, j).weg = true; weg++; }
+
+  /* 2) Nachbarzellen verschmelzen zu grossen Saelen, hoechstens drei Zellen -
+        so entstehen auch Winkelsaele, aber nie ein einziger Riesenraum. Und
+        es bleiben mindestens sechs: gemessen blieben bei drei Spalten ohne
+        zwei Ecken sonst manchmal nur drei Raeume uebrig. */
+  const wurzel = zellen.map(z => z.k), anzahl = zellen.map(() => 1);
+  const finde = k => wurzel[k] === k ? k : (wurzel[k] = finde(wurzel[k]));
+  const gefallen = [];
+  const zellPaare = [];
+  for (const z of zellen) {
+    if (z.weg) continue;
+    for (const [di, dj] of [[1, 0], [0, 1]]) {
+      const n = zelle(z.i + di, z.j + dj);
+      if (n && !n.weg) zellPaare.push([z, n, di]);
+    }
   }
-  // Sehr grosse Raeume passen manchmal kaum - wenigstens ein Saal muss
-  // stehen, sonst gibt es keine Etage.
-  if (!rooms.length) {
-    const room = { x1: 10, y1: 8, x2: 50, y2: 32, shape: "rect" };
-    carveRoom(map, room);
-    rooms.push(room);
+  let raumZahl = zellen.filter(z => !z.weg).length;
+  zellPaare.sort(() => rng() - .5);
+  for (const [a, b, di] of zellPaare) {
+    if (raumZahl <= 6 || rng() > .25) continue;
+    const ka = finde(a.k), kb = finde(b.k);
+    if (ka === kb || anzahl[ka] + anzahl[kb] > 3) continue;
+    wurzel[kb] = ka; anzahl[ka] += anzahl[kb];
+    raumZahl--;
+    a.verschmolzen = b.verschmolzen = true;
+    if (di) for (let y = a.y1; y <= a.y2; y++) gefallen.push([xs[a.i + 1], y, a.k]);
+    else for (let x = a.x1; x <= a.x2; x++) gefallen.push([x, ys[a.j + 1], a.k]);
   }
 
-  markDoorways(map);
+  /* 3) Ein Fluegel wird Gemaecher: eine unverschmolzene Zelle, quer zur
+        laengeren Seite geteilt - kleine Raeume mit schmaler Tuer. Eine andere
+        wird vielleicht zur Rotunde. */
+  const unberuehrt = zellen.filter(z => !z.weg && !z.verschmolzen).sort(() => rng() - .5);
+  const gemachZelle = unberuehrt.find(z => z.x2 - z.x1 >= 12 || z.y2 - z.y1 >= 12);
+  if (gemachZelle) gemachZelle.gemach = true;
+  const rundZelle = unberuehrt.find(z => !z.gemach && z.x2 - z.x1 >= 10 && z.y2 - z.y1 >= 10);
+  if (rundZelle && rng() < .5) rundZelle.rund = true;
 
-  // Überflutete Mitte: alles, was mindestens zwei Kacheln von der
-  // Raumkante entfernt ist. Der Rand bleibt trocken begehbar.
-  for (const room of rooms) {
-    for (const [x, y] of roomTiles(room)) {
-      if (map.tiles[idx(x, y)] !== FLOOR) continue;
-      const randAbstand = Math.min(x - room.x1, room.x2 - x, y - room.y1, room.y2 - y);
-      if (randAbstand >= 2) map.nass[idx(x, y)] = 1;
+  const lab = new Int16Array(MAP_W * MAP_H).fill(-1);
+  const raeume = [];
+  const neuerRaum = art => { const r = { id: raeume.length, art, rechtecke: [] }; raeume.push(r); return r; };
+  const beschrifte = (x1, y1, x2, y2, id) => {
+    for (let y = y1; y <= y2; y++) for (let x = x1; x <= x2; x++) lab[idx(x, y)] = id;
+  };
+  const gruppenRaum = new Map();
+  for (const z of zellen) {
+    if (z.weg) continue;
+    if (z.gemach) {
+      const quer = z.x2 - z.x1 >= z.y2 - z.y1;
+      const teil = quer ? (z.x1 + z.x2) >> 1 : (z.y1 + z.y2) >> 1;
+      const haelften = quer
+        ? [[z.x1, z.y1, teil - 1, z.y2], [teil + 1, z.y1, z.x2, z.y2]]
+        : [[z.x1, z.y1, z.x2, teil - 1], [z.x1, teil + 1, z.x2, z.y2]];
+      for (const [x1, y1, x2, y2] of haelften) {
+        const r = neuerRaum("gemach");
+        r.rechtecke.push([x1, y1, x2, y2]);
+        for (let y = y1; y <= y2; y++) for (let x = x1; x <= x2; x++) grabe(x, y);
+        beschrifte(x1, y1, x2, y2, r.id);
+      }
+      continue;
+    }
+    const g = finde(z.k);
+    if (!gruppenRaum.has(g)) gruppenRaum.set(g, neuerRaum("saal"));
+    const r = gruppenRaum.get(g);
+    r.rechtecke.push([z.x1, z.y1, z.x2, z.y2]);
+    beschrifte(z.x1, z.y1, z.x2, z.y2, r.id);
+    if (z.rund) {
+      r.rund = true;
+      const cx = (z.x1 + z.x2) / 2, cy = (z.y1 + z.y2) / 2;
+      const rad = Math.min(z.x2 - z.x1, z.y2 - z.y1) / 2 + .3;
+      for (let y = z.y1; y <= z.y2; y++)
+        for (let x = z.x1; x <= z.x2; x++)
+          if (Math.hypot(x - cx, y - cy) <= rad) grabe(x, y);
+    } else {
+      for (let y = z.y1; y <= z.y2; y++) for (let x = z.x1; x <= z.x2; x++) grabe(x, y);
+    }
+  }
+  for (const [x, y, k] of gefallen) {
+    grabe(x, y);
+    lab[idx(x, y)] = gruppenRaum.get(finde(k)).id;
+  }
+
+  /* 4) Welche Raeume teilen sich eine Mauer, und wo? Eine Mauerkachel, links
+        und rechts (oder oben und unten) zwei verschiedene Raeume. */
+  const paare = new Map();
+  for (let y = 1; y < MAP_H - 1; y++)
+    for (let x = 1; x < MAP_W - 1; x++) {
+      const i = idx(x, y);
+      if (lab[i] !== -1 || map.tiles[i] !== WALL) continue;
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const a = lab[idx(x - dx, y - dy)], b = lab[idx(x + dx, y + dy)];
+        if (a < 0 || b < 0 || a === b) continue;
+        const lo = Math.min(a, b), hi = Math.max(a, b), key = lo * 1000 + hi;
+        if (!paare.has(key)) paare.set(key, { a: lo, b: hi, liste: [] });
+        paare.get(key).liste.push([x, y, dx, dy]);
+      }
+    }
+
+  /* Kommt man von dieser Mauerkachel aus nach beiden Seiten gerade auf
+     Boden? Neben einer Rotunde nicht ueberall: zwischen Rechteck und Rund
+     liegt eine Ecke Mauerwerk, und je nach Zeile trifft der Durchbruch das
+     Rund nie. Solche Stellen taugen weder fuer ein Portal noch fuer einen
+     Einbruch - und das Durchbrechen hat keine feste Reichweite mehr. */
+  const durchgaengig = (x, y, dx, dy) => [1, -1].every(s => {
+    for (let k = 1; k < 40; k++) {
+      const nx = x + dx * s * k, ny = y + dy * s * k;
+      if (!inBounds(nx, ny)) return false;
+      if (map.tiles[idx(nx, ny)] !== WALL) return true;
+      if (lab[idx(nx, ny)] < 0) return false;
+    }
+    return false;
+  });
+  const oeffnungen = [];
+  const brich = (x, y, dx, dy, schmal) => {
+    grabe(x, y);
+    if (schmal) map.room[idx(x, y)] = 0;        // markDoorways macht daraus eine Tuer
+    oeffnungen.push([x, y]);
+    for (const s of [1, -1])
+      for (let k = 1; k < 40; k++) {
+        const nx = x + dx * s * k, ny = y + dy * s * k;
+        if (!inBounds(nx, ny) || map.tiles[idx(nx, ny)] !== WALL || lab[idx(nx, ny)] < 0) break;
+        grabe(nx, ny);
+      }
+  };
+  // Ein zusammenhaengendes Mauerstueck der gemeinsamen Wand: mittig fuer ein
+  // Portal, irgendwo fuer einen Einbruch - an jedem Ende bleibt ein Stein.
+  const mauerstueck = (liste, breite, mittig) => {
+    const quer = liste.filter(p => p[2] === 1).length * 2 >= liste.length ? 1 : 0;
+    const eigene = liste.filter(p => p[2] === quer && map.tiles[idx(p[0], p[1])] === WALL &&
+                                     durchgaengig(p[0], p[1], p[2], p[3]));
+    if (!eigene.length) return null;
+    eigene.sort((p, q) => quer ? (p[0] - q[0]) || (p[1] - q[1]) : (p[1] - q[1]) || (p[0] - q[0]));
+    const laeufe = [[eigene[0]]];
+    for (let k = 1; k < eigene.length; k++) {
+      const p = eigene[k - 1], q = eigene[k];
+      const dran = quer ? p[0] === q[0] && q[1] === p[1] + 1 : p[1] === q[1] && q[0] === p[0] + 1;
+      if (dran) laeufe[laeufe.length - 1].push(q); else laeufe.push([q]);
+    }
+    laeufe.sort((a, b) => b.length - a.length);
+    const l = laeufe[0];
+    if (l.length < 3) return l.slice(0, 1);
+    const w = Math.min(breite, l.length - 2);
+    const spiel = l.length - w - 2;
+    const anfang = 1 + (mittig ? (spiel >> 1) + ri(-(spiel >> 2), spiel >> 2) : ri(0, spiel));
+    return l.slice(anfang, anfang + w);
+  };
+  const beideSaele = kante => raeume[kante.a].art === "saal" && raeume[kante.b].art === "saal";
+  const portal = kante => {
+    const stueck = mauerstueck(kante.liste, beideSaele(kante) ? ri(2, 3) : 1, true);
+    if (!stueck || !stueck.length) return false;
+    for (const [x, y, dx, dy] of stueck) brich(x, y, dx, dy, stueck.length === 1);
+    return true;
+  };
+
+  // Erst ein Gerippe, das alles verbindet, dann ein paar Portale mehr fuer
+  // Rundwege - Gemaecher bekommen selten eine zweite Tuer.
+  const kanten = [...paare.values()].sort(() => rng() - .5);
+  const wurzelR = raeume.map(r => r.id);
+  const findeR = k => wurzelR[k] === k ? k : (wurzelR[k] = findeR(wurzelR[k]));
+  for (const kante of kanten) {
+    const ra = findeR(kante.a), rb = findeR(kante.b);
+    if (ra !== rb && portal(kante)) { wurzelR[rb] = ra; kante.offen = true; }
+  }
+  for (const kante of kanten)
+    if (!kante.offen && rng() < (beideSaele(kante) ? .35 : .12) && portal(kante)) kante.offen = true;
+
+  /* 5) Eingebrochene Mauern: unregelmaessig und irgendwo, nicht mittig wie
+        ein Portal. Nur zwischen Saelen - ein Gemach mit Loch in der Wand
+        waere keines mehr. */
+  for (const kante of kanten) {
+    if (!beideSaele(kante) || rng() > .3) continue;
+    const stueck = mauerstueck(kante.liste, ri(2, 4), false);
+    if (!stueck || stueck.length < 2) continue;
+    for (const [x, y, dx, dy] of stueck) brich(x, y, dx, dy, false);
+    // ausgefranst: an einem Ende bricht oft noch ein Stein mit weg
+    const [x0, y0, dx, dy] = stueck[0], [x9, y9] = stueck[stueck.length - 1];
+    for (const [ex, ey, s] of [[x0, y0, -1], [x9, y9, 1]]) {
+      const nx = ex + dy * s, ny = ey + dx * s;
+      if (rng() < .45 && inBounds(nx, ny) && map.tiles[idx(nx, ny)] === WALL && lab[idx(nx, ny)] < 0 &&
+          lab[idx(nx - dx, ny - dy)] >= 0 && lab[idx(nx + dx, ny + dy)] >= 0 &&
+          durchgaengig(nx, ny, dx, dy))
+        brich(nx, ny, dx, dy, false);
     }
   }
 
-  return { map, zones: rooms.map(r => ({ tiles: roomTiles(r), center: roomCenter(r) })) };
+  const nahOeffnung = (x, y, r) =>
+    oeffnungen.some(([ox, oy]) => Math.abs(ox - x) <= r && Math.abs(oy - y) <= r);
+
+  /* 6) Saeulenreihen entlang der langen Waende - jede vierte ist umgestuerzt.
+        Zwischen Reihe und Mauer bleibt ein Umgang frei; vor Portalen steht
+        keine. */
+  const saeulen = [];
+  for (const r of raeume) {
+    if (r.art !== "saal" || r.rund) continue;
+    for (const [x1, y1, x2, y2] of r.rechtecke) {
+      const w = x2 - x1 + 1, h = y2 - y1 + 1;
+      if (w < 9 || h < 8 || rng() > .55) continue;
+      const setze = (x, y) => {
+        if (map.tiles[idx(x, y)] !== FLOOR || nahOeffnung(x, y, 2) || rng() < .25) return;
+        map.tiles[idx(x, y)] = PILLAR;
+        saeulen.push([x, y]);
+      };
+      if (w >= h) { for (const y of [y1 + 2, y2 - 2]) for (let x = x1 + 2; x <= x2 - 2; x += 3) setze(x, y); }
+      else { for (const x of [x1 + 2, x2 - 2]) for (let y = y1 + 2; y <= y2 - 2; y += 3) setze(x, y); }
+    }
+  }
+
+  const kachelnVon = r => {
+    const out = [];
+    for (let y = 1; y < MAP_H - 1; y++)
+      for (let x = 1; x < MAP_W - 1; x++)
+        if (lab[idx(x, y)] === r.id && map.tiles[idx(x, y)] === FLOOR) out.push([x, y]);
+    return out;
+  };
+  const schwerpunkt = r => {
+    let sx = 0, sy = 0;
+    for (const [x, y] of r.kacheln) { sx += x; sy += y; }
+    return [sx / r.kacheln.length, sy / r.kacheln.length];
+  };
+  for (const r of raeume) r.kacheln = kachelnVon(r);
+  const saele = raeume.filter(r => r.art === "saal" && r.kacheln.length);
+
+  // Man kommt am Rand an, in einem trockenen Saal - links oder rechts
+  const vonLinks = rng() < .5;
+  const start = saele.slice().sort((p, q) =>
+    (schwerpunkt(p)[0] - schwerpunkt(q)[0]) * (vonLinks ? 1 : -1))[0];
+
+  /* 7) Das Einsinken. Rund ein Drittel der Saalflaeche liegt tiefer: dort
+        steht Wasser, ausser auf einer Galerie an ein, zwei Waenden und auf
+        ein paar Schuttinseln, manche mit einem Saeulenstumpf. Nie ueber 45 %
+        der Saalflaeche - ein grosser Winkelsaal zu viel setzte sonst mehr als
+        die Haelfte der Etage unter Wasser (gemessen 59 %). */
+  const gesamt = saele.reduce((s, r) => s + r.kacheln.length, 0);
+  let versunken = 0;
+  for (const r of saele.filter(r => r !== start).sort(() => rng() - .5)) {
+    if (versunken >= gesamt * .32) break;
+    if (versunken + r.kacheln.length > gesamt * .45) continue;
+    r.versunken = true;
+    versunken += r.kacheln.length;
+  }
+  const istWand = (x, y) => !inBounds(x, y) || map.tiles[idx(x, y)] === WALL;
+  for (const r of saele) {
+    if (!r.versunken) continue;
+    const drin = new Set(r.kacheln.map(([x, y]) => idx(x, y)));
+    for (const i of drin) map.nass[i] = 1;
+    const seiten = [[0, -1], [0, 1], [-1, 0], [1, 0]].sort(() => rng() - .5).slice(0, rng() < .5 ? 1 : 2);
+    for (const [x, y] of r.kacheln)
+      if (seiten.some(([dx, dy]) => istWand(x + dx, y + dy) || istWand(x + 2 * dx, y + 2 * dy)))
+        map.nass[idx(x, y)] = 0;
+
+    const inseln = 1 + Math.floor(r.kacheln.length / 110);
+    for (let n = 0; n < inseln; n++) {
+      const tief = r.kacheln.filter(([x, y]) => map.nass[idx(x, y)] &&
+        [-2, -1, 0, 1, 2].every(oy => [-2, -1, 0, 1, 2].every(ox => !istWand(x + ox, y + oy))));
+      if (!tief.length) break;
+      const [ix, iy] = tief[Math.floor(rng() * tief.length)];
+      const rad = 1.5 + rng() * 1.2;
+      for (const [x, y] of r.kacheln) if (Math.hypot(x - ix, y - iy) <= rad) map.nass[idx(x, y)] = 0;
+      if (rng() < .45 && !nahOeffnung(ix, iy, 2)) {
+        map.tiles[idx(ix, iy)] = PILLAR;
+        saeulen.push([ix, iy]);
+      }
+    }
+
+    // Das Ufer franst aus - aber nur, wo schon zwei Nachbarn anders sind.
+    // Sonst blieben einzelne trockene Tupfer mitten im Wasser stehen, und
+    // das Ufer saehe verrauscht aus statt gewachsen.
+    const vorher = Uint8Array.from(map.nass);
+    for (const [x, y] of r.kacheln) {
+      const i = idx(x, y);
+      const anders = ORTHO.filter(([dx, dy]) => drin.has(idx(x + dx, y + dy)) &&
+                                                vorher[idx(x + dx, y + dy)] !== vorher[i]).length;
+      if (anders >= 2 && rng() < .45) map.nass[i] = vorher[i] ? 0 : 1;
+    }
+  }
+  // Durch die Portale laeuft das Wasser ein Stueck in die Nachbarsaele
+  const inVersunkenem = j => lab[j] >= 0 && raeume[lab[j]].versunken;
+  for (const [x, y] of oeffnungen) {
+    if (!ORTHO.some(([dx, dy]) => { const j = idx(x + dx, y + dy); return inVersunkenem(j) && map.nass[j]; }))
+      continue;
+    map.nass[idx(x, y)] = 1;
+    for (const [dx, dy] of ORTHO) {
+      const j = idx(x + dx, y + dy);
+      if (map.tiles[j] === FLOOR && !inVersunkenem(j) && rng() < .5) map.nass[j] = 1;
+    }
+  }
+
+  // Saeulen duerfen keinen Weg abschneiden - notfalls fallen alle
+  if (!verbunden()) for (const [x, y] of saeulen) map.tiles[idx(x, y)] = FLOOR;
+
+  /* 8) Brocken aus eingestuerzten Gewoelben: nie vor einem Portal, und jeder
+        wird sofort zurueckgenommen, wenn er einen Weg abschneidet. */
+  for (const r of saele) {
+    const zahl = rng() < .65 ? ri(1, 2) : 0;
+    for (let n = 0; n < zahl; n++) {
+      const moeglich = r.kacheln.filter(([x, y]) => map.tiles[idx(x, y)] === FLOOR && !nahOeffnung(x, y, 2));
+      if (!moeglich.length) break;
+      let [x, y] = moeglich[Math.floor(rng() * moeglich.length)];
+      const brocken = [];
+      for (let k = ri(1, 3); k > 0; k--) {
+        if (!inBounds(x, y) || map.tiles[idx(x, y)] !== FLOOR || lab[idx(x, y)] !== r.id ||
+            nahOeffnung(x, y, 2)) break;
+        map.tiles[idx(x, y)] = WALL;
+        brocken.push([x, y]);
+        const [dx, dy] = ORTHO[Math.floor(rng() * 4)];
+        x += dx; y += dy;
+      }
+      if (brocken.length && !verbunden())
+        for (const [bx, by] of brocken) map.tiles[idx(bx, by)] = FLOOR;
+    }
+  }
+  // Wasser steht nur auf Boden
+  for (let i = 0; i < map.tiles.length; i++) if (map.tiles[i] !== FLOOR) map.nass[i] = 0;
+
+  markDoorways(map);
+
+  /* 9) Zonen. Der Ankunftssaal zuerst; die Treppe kommt in den fernsten
+        trockenen Raum - nicht mitten ins Wasser. */
+  for (const r of raeume) r.kacheln = kachelnVon(r);
+  const brauchbar = raeume.filter(r => r.kacheln.length >= 6);
+  const zoneVon = r => {
+    const [mx, my] = schwerpunkt(r);
+    let best = r.kacheln[0], bd = 1e9;
+    for (const [x, y] of r.kacheln) {
+      const d = Math.hypot(x - mx, y - my) + (map.nass[idx(x, y)] ? 6 : 0);
+      if (d < bd) { bd = d; best = [x, y]; }
+    }
+    return { tiles: r.kacheln, center: best };
+  };
+  const [sx, sy] = schwerpunkt(start);
+  const rest = brauchbar.filter(r => r !== start);
+  const ziel = rest.filter(r => !r.versunken).sort((p, q) => {
+    const [px, py] = schwerpunkt(p), [qx, qy] = schwerpunkt(q);
+    return Math.hypot(qx - sx, qy - sy) - Math.hypot(px - sx, py - sy);
+  })[0];
+  const dazwischen = rest.filter(r => r !== ziel).sort(() => rng() - .5);
+  const ordnung = [start, ...dazwischen];
+  if (ziel) ordnung.push(ziel);
+  return { map, zones: ordnung.map(zoneVon) };
+}
+
+/* Ein gerader, breiter Gang entlang eines Winkels vom Zentrum aus - fuer
+   die grossen Zugaenge zum Herrensaal. Kein Tunnelbau zwischen zwei
+   Rechtecken wie sonst: hier gibt es kein Raster, nur ein Zentrum, ein
+   Winkel und zwei Radien. */
+function carveRadialWeg(map, cx, cy, winkel, vonR, bisR, breite) {
+  const dx = Math.cos(winkel), dy = Math.sin(winkel);
+  const px = -dy, py = dx;               // senkrecht dazu, fuer die Breite
+  const schritte = Math.max(1, Math.ceil((bisR - vonR) * 2));
+  for (let s = 0; s <= schritte; s++) {
+    const r = vonR + (bisR - vonR) * (s / schritte);
+    const mxr = cx + dx * r, myr = cy + dy * r;
+    for (let w = -breite / 2; w <= breite / 2; w += .5) {
+      const tx = Math.round(mxr + px * w), ty = Math.round(myr + py * w);
+      if (inBounds(tx, ty)) map.tiles[idx(tx, ty)] = FLOOR;
+    }
+  }
 }
 
 /* ── Die Wehrgänge: ein Ring um einen massiven Kern ───────────────────────
@@ -7939,28 +8356,86 @@ function generateWehrgang(floor) {
     carveRoom(map, room);
     nischen.push(room);
   }
+  // Fuer den garantierten Fund je Waffenkammer (siehe populateFloor) - jede
+  // soll wirklich etwas hergeben, nicht nur zufaellig eine Chance darauf.
+  map.nischen = nischen.map(r => ({ tiles: roomTiles(r), center: roomCenter(r) }));
 
-  /* Die Wache: der Kern war bisher totes Gestein. Eine ausgehauene Kammer
-     mit einem einzelnen Gang zum Ring - eine Tuer, keine Nische im Wind -
-     und sie soll aussehen, als haette dort jemand gehaust. Sie bleibt
-     ausserhalb der normalen Zonenliste: kein Zufallsmonster soll den Fund
-     verderben, sie bekommt ihr Licht von Hand (siehe populateFloor). */
-  const kernPlatz = innen - 3;
-  if (kernPlatz >= 3) {
-    const kw = ri(5, 7), kh = ri(5, 7);
-    const wache = { x1: Math.round(cx - kw / 2), y1: Math.round(cy - kh / 2),
-                     x2: Math.round(cx - kw / 2) + kw, y2: Math.round(cy - kh / 2) + kh,
-                     shape: "rect" };
-    carveRoom(map, wache);
-    const winkel = rng() * 6.283;
-    const zurRing = [Math.round(cx + Math.cos(winkel) * (innen + 1)),
-                      Math.round(cy + Math.sin(winkel) * (innen + 1))];
-    carveTunnel(map, roomCenter(wache), zurRing);
-    const wacheTiles = roomTiles(wache);
-    map.wachkammer = { tiles: wacheTiles, center: roomCenter(wache),
-                        x: wacheTiles[Math.floor(wacheTiles.length / 2)][0],
-                        y: wacheTiles[Math.floor(wacheTiles.length / 2)][1],
-                        entdeckt: false };
+  /* Der Herrensaal: der Kern war bisher totes Gestein. Jetzt ein grosser
+     runder Saal darin - hier lebte einmal jemand mit Anspruch, kein
+     Wachposten. Ein paar Nebenzimmer haengen an seinem Rand, und zwei bis
+     drei breite Gaenge fuehren zum Ring hinaus, kein einzelner Geheimgang.
+     Er bleibt ausserhalb der normalen Zonenliste: kein Zufallsmonster soll
+     den Fund verderben, er bekommt sein Licht und seine Beute von Hand
+     (siehe populateFloor). */
+  const saalR = Math.max(6, innen - 5);
+  const saalTiles = [];
+  if (saalR >= 6) {
+    for (let y = 1; y < MAP_H - 1; y++)
+      for (let x = 1; x < MAP_W - 1; x++) {
+        if (Math.hypot(x - cx, y - cy) > saalR) continue;
+        map.tiles[idx(x, y)] = FLOOR;
+        map.room[idx(x, y)] = 1;
+        map.teppich[idx(x, y)] = 1;
+        saalTiles.push([x, y]);
+      }
+
+    // Nebenzimmer: ein Anker am Saalrand, das Rechteck ein Stueck darueber
+    // hinaus versetzt - Privatgemaecher, keine Nischen im Wind, und sie
+    // duerfen nicht bis in den Ring hineinwachsen.
+    const zimmer = [];
+    const zimmerZiel = 3 + Math.floor(rng() * 2);
+    for (let versuch = 0; versuch < zimmerZiel * 25 && zimmer.length < zimmerZiel; versuch++) {
+      const winkel = rng() * 6.283;
+      const raus = [Math.cos(winkel), Math.sin(winkel)];
+      const ax = Math.round(cx + raus[0] * (saalR - 1)), ay = Math.round(cy + raus[1] * (saalR - 1));
+      const w = ri(4, 5), h = ri(4, 5);
+      const versatz = Math.max(w, h) * .45;
+      const zx = Math.round(ax + raus[0] * versatz), zy = Math.round(ay + raus[1] * versatz);
+      const room = { x1: zx - (w >> 1), y1: zy - (h >> 1),
+                     x2: zx - (w >> 1) + w, y2: zy - (h >> 1) + h, shape: "rect" };
+      if (room.x1 < 2 || room.y1 < 2 || room.x2 > MAP_W - 3 || room.y2 > MAP_H - 3) continue;
+      if (zimmer.some(z => overlaps(room, z))) continue;
+      if (ax < room.x1 || ax > room.x2 || ay < room.y1 || ay > room.y2) continue;
+      // Zwischen Saal und Ring muss Wand bleiben - sonst wird ein
+      // Nebenzimmer zur vierten, ungeplanten Boe-Tuer.
+      const [zmx, zmy] = roomCenter(room);
+      if (Math.hypot(zmx - cx, zmy - cy) + Math.max(w, h) / 2 > innen - 1) continue;
+      carveRoom(map, room);
+      zimmer.push(room);
+    }
+
+    // Zwei bis drei breite Gaenge vom Saal zum Ring - ein Zugang mit
+    // Format, keine Geheimtuer. Winkel moeglichst verteilt, kein zweiter
+    // Gang dicht neben dem ersten.
+    const gaengeZahl = 2 + (rng() < .5 ? 1 : 0);
+    const winkelSchon = [];
+    for (let i = 0; i < gaengeZahl; i++) {
+      let winkel, versuch = 0;
+      do { winkel = rng() * 6.283; versuch++; }
+      while (versuch < 30 && winkelSchon.some(w => {
+        const d = Math.abs(w - winkel) % 6.283;
+        return Math.min(d, 6.283 - d) < 1.4;
+      }));
+      winkelSchon.push(winkel);
+      carveRadialWeg(map, cx, cy, winkel, saalR - 1, innen + 1, 3);
+    }
+
+    // Moebel: ein Thron und eine Tafel im Saal, ein Bett in bis zu zwei
+    // Nebenzimmern - reine Kulisse, blockiert nichts.
+    const mobiliar = [
+      { x: Math.round(cx), y: Math.round(cy - saalR * .4), art: "thron" },
+      { x: Math.round(cx), y: Math.round(cy + saalR * .2), art: "tisch" },
+    ];
+    for (const z of zimmer.slice(0, 2)) {
+      const [zx, zy] = roomCenter(z);
+      mobiliar.push({ x: zx, y: zy, art: "bett" });
+    }
+
+    const alleTiles = saalTiles.concat(...zimmer.map(z => roomTiles(z)));
+    map.herrensaal = {
+      tiles: alleTiles, center: [Math.round(cx), Math.round(cy)],
+      mobiliar, entdeckt: false,
+    };
   }
 
   markDoorways(map);
@@ -7968,18 +8443,18 @@ function generateWehrgang(floor) {
   // Zonen: verstreute Ankerpunkte quer über Ring und Kammern, wie in den
   // gewachsenen Formen (Höhle, Schlammgrund) - ein Ring hat keine "Räume",
   // die sich von selbst als Zonen anbieten.
-  /* Die Wache bleibt aussen vor - nicht nur als Anker, auch aus dem
+  /* Der Herrensaal bleibt aussen vor - nicht nur als Anker, auch aus dem
      Nachbarschafts-Suchradius jeder anderen Zone. Sonst landet doch ein
-     Zufallswesen darin: eine Kachel am Rand der Kammer gehoert sonst
-     leicht zur Nachbarschaft eines Ankers auf dem Ring. */
-  const wacheKacheln = new Set(
-    (map.wachkammer ? map.wachkammer.tiles : []).map(([x, y]) => idx(x, y)));
+     Zufallswesen darin: eine Kachel am Rand gehoert sonst leicht zur
+     Nachbarschaft eines Ankers auf dem Ring. */
+  const saalKacheln = new Set(
+    (map.herrensaal ? map.herrensaal.tiles : []).map(([x, y]) => idx(x, y)));
 
   const zones = [];
   const offenFelder = [];
   for (let y = 0; y < MAP_H; y++)
     for (let x = 0; x < MAP_W; x++)
-      if (map.tiles[idx(x, y)] === FLOOR && !wacheKacheln.has(idx(x, y))) offenFelder.push([x, y]);
+      if (map.tiles[idx(x, y)] === FLOOR && !saalKacheln.has(idx(x, y))) offenFelder.push([x, y]);
 
   /* Weniger Zonen als die anderen Formen: der Ring ist schmal, dieselbe
      Zonenzahl wie im Kerker staute sich dort viel dichter. */
@@ -7991,7 +8466,7 @@ function generateWehrgang(floor) {
     for (let dy = -3; dy <= 3; dy++)
       for (let dx = -3; dx <= 3; dx++) {
         const nx = x + dx, ny = y + dy;
-        if (!inBounds(nx, ny) || wacheKacheln.has(idx(nx, ny))) continue;
+        if (!inBounds(nx, ny) || saalKacheln.has(idx(nx, ny))) continue;
         if (map.tiles[idx(nx, ny)] === FLOOR) tiles.push([nx, ny]);
       }
     if (tiles.length >= 10) zones.push({ tiles, center: [x, y] });
@@ -9262,15 +9737,15 @@ function entdeckeSchaechte() {
   }
 }
 
-/* Die Wache im Kern der Wehrgaenge: ein Fund, kein Zufallsraum - genau
-   einmal gesagt, wenn man sie zum ersten Mal sieht. */
-function entdeckeWachkammer() {
-  const w = G.map.wachkammer;
-  if (!w || w.entdeckt) return;
-  if (!w.tiles.some(([x, y]) => seesTile(x, y))) return;
-  w.entdeckt = true;
-  log("Ein Lager, längst kalt — Decken, ein Kessel, ein zerbrochener Bogen. "
-    + "Hier hat jemand gewacht.", "good");
+/* Der Herrensaal im Kern der Wehrgaenge: ein Fund, kein Zufallsraum - genau
+   einmal gesagt, wenn man ihn zum ersten Mal sieht. */
+function entdeckeHerrensaal() {
+  const h = G.map.herrensaal;
+  if (!h || h.entdeckt) return;
+  if (!h.tiles.some(([x, y]) => seesTile(x, y))) return;
+  h.entdeckt = true;
+  log("Ein Saal, roter Teppich unter Staub — ein Thron, eine lange Tafel. "
+    + "Hier lebte einmal jemand mit Anspruch.", "good");
 }
 
 function entdeckeSchatzkammer() {
@@ -9794,14 +10269,23 @@ function populateFloor(floor) {
   }
   G.decals = [];
   G.chests = [];
+  G.mobiliar = map.herrensaal ? map.herrensaal.mobiliar : [];
   G.veilWarned = false;
   if (map.arenaSchalen) G.braziers = map.arenaSchalen.map(b => ({ x: b.x, y: b.y }));
   // "Verlassen": keine Schale brennt mehr - man hat ja seine Fackel
   if (hatLaune("verlassen")) G.braziers = [];
-  /* Die Wache im Kern der Wehrgaenge leuchtet trotzdem - nach den
-     Laune-Reglern platziert, sonst loescht "Verlassen" auch ihr eigenes
-     Licht, obwohl gerade sie unabhaengig vom Zufall brennen soll. */
-  if (map.wachkammer) G.braziers.push({ x: map.wachkammer.x, y: map.wachkammer.y, kammer: true });
+  /* Der Herrensaal im Kern der Wehrgaenge leuchtet trotzdem - nach den
+     Laune-Reglern platziert, sonst loescht "Verlassen" auch sein eigenes
+     Licht, obwohl er unabhaengig vom Zufall brennen soll. Ein grosser Saal
+     braucht mehr als eine Schale, sonst bleibt der Rand im Dunkeln. */
+  if (map.herrensaal) {
+    const frei = map.herrensaal.tiles.filter(([x, y]) =>
+      isWalkable(x, y) && !G.braziers.some(b => b.x === x && b.y === y));
+    for (let k = 0; k < 3 && frei.length; k++) {
+      const [bx, by] = frei.splice(Math.floor(rng() * frei.length), 1)[0];
+      G.braziers.push({ x: bx, y: by, kammer: true });
+    }
+  }
   G.hasLava = map.tiles.includes(LAVA);
   /* Einmal einsammeln statt sechzigmal je Sekunde suchen: die Entfernung
      zur naechsten Lava wird in jedem Bildlauf gebraucht, und eine Suche
@@ -9847,6 +10331,39 @@ function populateFloor(floor) {
 
   stelleKisten(map, zones, floor, 0);
   streueBeute(map, zones, floor);
+
+  /* Besondere Raeume sollen auch besonders beschenken - bisher fielen die
+     Waffenkammern und der Herrensaal der Wehrgaenge bei der normalen
+     Verteilung unter den Tisch, weil sie ausserhalb der Zonenliste liegen.
+     Ein garantierter Fund je Waffenkammer, mehrere im Saal - ein Adelssitz
+     laesst nicht nur eine Truhe zurueck. */
+  if (map.nischen || map.herrensaal) {
+    const chancen = chancesFor(ort().items, floor);
+    const freiesFeld = tiles => tiles.filter(([x, y]) =>
+      isWalkable(x, y) && !actorAt(x, y) &&
+      !G.ground.some(i => i.x === x && i.y === y) &&
+      !G.chests.some(c => c.x === x && c.y === y) &&
+      !G.braziers.some(b => b.x === x && b.y === y));
+
+    if (chancen.length) {
+      for (const n of (map.nischen || [])) {
+        const frei = freiesFeld(n.tiles);
+        if (!frei.length) continue;
+        const [x, y] = frei[Math.floor(rng() * frei.length)];
+        G.chests.push({ x, y, opened: false, loot: [makeLoot(weighted(chancen), x, y, floor, true)] });
+      }
+
+      if (map.herrensaal) {
+        const truhen = 2 + Math.floor(rng() * 2);
+        for (let k = 0; k < truhen; k++) {
+          const frei = freiesFeld(map.herrensaal.tiles);
+          if (!frei.length) break;
+          const [x, y] = frei[Math.floor(rng() * frei.length)];
+          G.chests.push({ x, y, opened: false, loot: [makeLoot(weighted(chancen), x, y, floor, true)] });
+        }
+      }
+    }
+  }
 
   /* Ein Auftragsstueck, das irgendwo auf dem Boden liegt, findet niemand: es
      lag im Mittel sechzehn Kachelmasse abseits des Weges und wurde in zwei
@@ -12069,6 +12586,72 @@ function elitePower(a, cheb) {
     return false;
   }
 
+  /* ── Der Wurzelgreifer: der Boden um ihn wird zu Schlamm ──────────────── */
+  if (a.power === "wurzel") {
+    if (zweitePhase(a, "Der Wurzelgreifer bricht auf",
+                    "Der Boden um ihn wird jetzt weiter zu Schlamm")) return true;
+    if (a.cooldown || cheb > 8) return false;
+    a.cooldown = a.phase2 ? 5 : 8;
+
+    const radius = a.phase2 ? 4 : 3;
+    const ax = kachelX(a), ay = kachelY(a);
+    let gesetzt = 0;
+    for (let dy = -radius; dy <= radius; dy++)
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.hypot(dx, dy) > radius) continue;
+        const tx = ax + dx, ty = ay + dy;
+        if (!inBounds(tx, ty) || !WALKABLE[G.map.tiles[idx(tx, ty)]]) continue;
+        if (G.map.nass[idx(tx, ty)]) continue;
+        G.map.nass[idx(tx, ty)] = 1;
+        gesetzt++;
+      }
+    if (!gesetzt) return false;
+    ring(a.x, a.y, radius, "#8A6E30");
+    Sfx.spiel("saeule");
+    log(`${a.spec.name} lässt den Boden um sich zu Schlamm werden.`, "bad");
+    return true;
+  }
+
+  /* ── Der Sogwächter: zieht dich zu sich ────────────────────────────────── */
+  if (a.power === "sog") {
+    if (zweitePhase(a, "Der Sogwächter taucht auf",
+                    "Der Sog reicht jetzt weiter")) return true;
+    if (a.cooldown || cheb < 3 || cheb > (a.phase2 ? 9 : 6)) return false;
+    if (!lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p))) return false;
+    a.cooldown = a.phase2 ? 4 : 6;
+
+    const l = Math.hypot(a.x - p.x, a.y - p.y) || 1;
+    const zx = (a.x - p.x) / l, zy = (a.y - p.y) / l;
+    bewege(p, zx * (a.phase2 ? 3.2 : 2.2), zy * (a.phase2 ? 3.2 : 2.2));
+    anim.shake = 8;
+    Sfx.spiel("wummern");
+    log(`${a.spec.name} zieht dich zu sich.`, "bad");
+    return true;
+  }
+
+  /* ── Der Turmschütze: ein Fernschuss, weiter als jeder Bogen sonst ────── */
+  if (a.power === "weitschuss") {
+    if (zweitePhase(a, "Der Turmschütze visiert neu",
+                    "Sein nächster Schuss trägt noch weiter")) return true;
+    if (a.cooldown || cheb < 5 || cheb > (a.phase2 ? 20 : 14)) return false;
+    if (!lineOfSight(kachelX(a), kachelY(a), kachelX(p), kachelY(p))) return false;
+    a.cooldown = a.phase2 ? 5 : 8;
+
+    const zielX = p.x, zielY = p.y, schuetze = a;
+    banner("Er legt an", "weiter als sonst — so offen steht er nirgends sonst", "bad");
+    Sfx.spiel("anlegen");
+    setTimeout(() => {
+      if (!schuetze.alive || !G || mode.kind !== "play") return;
+      if (!lineOfSight(kachelX(schuetze), kachelY(schuetze), Math.floor(zielX), Math.floor(zielY))) return;
+      if (Math.hypot(G.player.x - zielX, G.player.y - zielY) < 1.2) {
+        const [dmg] = resolveDamage(Math.round(atkOf(schuetze) * 1.6), playerDef());
+        if (dmg > 0) { log(`${schuetze.spec.name} trifft aus großer Entfernung — ${dmg}.`, "bad");
+                       damage(G.player, dmg, schuetze); Sfx.spiel("wehgetan"); }
+      } else log(`${schuetze.spec.name}s Pfeil verfehlt knapp.`, "system");
+    }, 900);
+    return true;
+  }
+
   return false;
 }
 
@@ -12502,7 +13085,7 @@ function tickWorld(dt) {
   entdeckeGeheimnisse();
   entdeckeSchatzkammer();
   entdeckeSchaechte();
-  entdeckeWachkammer();
+  entdeckeHerrensaal();
   spuereZug();
   schachtHinweis();
 
@@ -12928,6 +13511,10 @@ function drawFrame(dt) {
   ctx.save();
   ctx.translate(sx, sy);
   if (theme().vista) drawVista(camX, camY); else drawBedrock(camX, camY);
+  // Ueber der Kulisse verdeckt die Burg das Moor auch dort, wo noch keiner
+  // war - sonst saehe man durch unbetretene Saele hindurch auf den Sumpf.
+  const luftMaske = theme().vista ? burgMaske(G.map) : null;
+  const burgStein = theme().rock || "#100D0A";
 
   const px = G.player.x - .5, py = G.player.y - .5;
   const flicker = .93 + Math.sin(anim.t * 7.3) * .035 + Math.sin(anim.t * 17.1) * .025;
@@ -12964,7 +13551,18 @@ function drawFrame(dt) {
       if (mx < 0 || mx >= MAP_W) continue;
       const i = idx(mx, my);
       const vis = G.map.visible[i], exp = G.map.explored[i];
-      if (!vis && !exp) continue;
+      if (!vis && !exp) {
+        if (luftMaske && !luftMaske[i]) {
+          const bx = Math.round((mx - camX) * TILE), by = Math.round((my - camY) * TILE);
+          ctx.fillStyle = burgStein;
+          ctx.fillRect(bx, by, TILE, TILE);
+          // Fugen wie Quader von oben - so ist es Mauerwerk und kein Loch
+          ctx.fillStyle = "rgba(0,0,0,.30)";
+          ctx.fillRect(bx, by, TILE, 1);
+          ctx.fillRect(bx + ((my & 1) ? TILE / 2 : 0), by, 1, TILE);
+        }
+        continue;
+      }
 
       const x = Math.round((mx - camX) * TILE), y = Math.round((my - camY) * TILE);
       const kind = G.map.tiles[i];
@@ -13098,6 +13696,17 @@ function drawFrame(dt) {
     const x = (sch.x - camX) * TILE, y = (sch.y - camY) * TILE;
     if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
     drawSchacht(x, y, !!G.map.visible[i]);
+  }
+
+  /* --- Möbel im Herrensaal --- */
+  for (const m of (G.mobiliar || [])) {
+    const i = idx(m.x, m.y);
+    if (!G.map.explored[i]) continue;
+    const x = (m.x - camX) * TILE, y = (m.y - camY) * TILE;
+    if (x < -TILE * 2 || y < -TILE * 2 || x > VIEW_W * TILE || y > VIEW_H * TILE) continue;
+    const vis = !!G.map.visible[i];
+    drawMobiliar(x, y, m.art, vis, vis ? lightAt(Math.hypot(mitte(m.x) - G.player.x,
+                                                             mitte(m.y) - G.player.y)) : .3);
   }
 
   /* --- Kisten --- */
@@ -13500,109 +14109,336 @@ function drawRegen(dt, camX, camY) {
   ctx.restore();
 }
 
-/* Der Fels, aus dem alles herausgeschlagen ist. Wird zwischengespeichert und
-   nur neu gezeichnet, wenn sich Ausschnitt oder Tiefe ändern. */
 /* == Die Kulisse jenseits der Mauern =====================================
-   Wehrgaenge und Turmkopf haben keinen Fels ringsum, sondern die Luft -
-   "man sieht das ganze Moor" war das Versprechen seit dem Geruest. Bisher
-   stand dort, wo nie eine Kachel gebaut wurde, nur die leere Bedrock-Flaeche
-   (siehe drawBedrock) - auch ausserhalb jeder Mauer schwarzer Fels. Diese
-   Funktion ersetzt sie dort durch eine gemalte Ferne: Himmel, Moor, tote
-   Baeume, und - vom Turmkopf aus, ganz schwach - die beiden anderen Orte
-   am Horizont. Mehrere Ebenen scrollen mit der Kamera, aber jede langsamer
-   als die Welt selbst - das allein macht "weit weg" glaubhaft, ohne echte
-   Kameratiefe zu rechnen. Nichts davon ist begehbar; es liegt hinter allem
-   anderen, wie drawBedrock auch. */
+   Wehrgaenge und Turmkopf haben keinen Fels ringsum, sondern Luft - und
+   darunter das Moor. Der erste Wurf malte es in Seitenansicht: Himmel,
+   Horizont, aufrechte Baeume, Tuerme in der Ferne. Hinter einer Karte, die
+   ueberall sonst von oben gezeigt wird, hing das wie ein Bild an der
+   falschen Wand. Jetzt ist es dieselbe Draufsicht wie alles andere:
+   Tuempel, Schilf, kahle Baumkronen, und Nebel, der darueber zieht.
+
+   Von den Wehrgaengen aus liegt das Moor nah - gleicher Massstab, es
+   scrollt Kachel fuer Kachel mit, und die Burg wirft ihren Schatten darauf.
+   Vom Turmkopf aus liegt es tief: halb so gross und halb so schnell (beides
+   zusammen macht die Entfernung glaubhaft), dunstig, und Wolken ziehen
+   zwischen Turm und Boden hindurch.
+
+   Nichts davon ist begehbar; es liegt hinter allem anderen, wie drawBedrock
+   auch. Was ruht, wird zwischengespeichert und nur neu gemalt, wenn der
+   Ausschnitt eine Zelle weiterrueckt - bewegt wird je Bild nur der Nebel. */
+
+/* Was gehoert zur Burg, was ist Luft? Luft ist massive Wand, die vom
+   Kartenrand aus erreichbar ist, ohne je eine Kachel neben begehbarem Boden
+   zu beruehren. Die Mauerkante um jeden Boden bleibt Burg - und ebenso
+   Mauerwerk, das ringsum von Boden eingeschlossen ist: der Kern zwischen
+   Ring und Herrensaal ist Mauer, kein Loch ins Moor. */
+function burgMaske(map) {
+  if (map.luft) return map.luft;
+  const luft = new Uint8Array(MAP_W * MAP_H);
+  const amBoden = (x, y) => {
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        if (inBounds(x + dx, y + dy) && map.tiles[idx(x + dx, y + dy)] !== WALL) return true;
+    return false;
+  };
+  const stapel = [];
+  for (let x = 0; x < MAP_W; x++) stapel.push([x, 0], [x, MAP_H - 1]);
+  for (let y = 0; y < MAP_H; y++) stapel.push([0, y], [MAP_W - 1, y]);
+  while (stapel.length) {
+    const [x, y] = stapel.pop();
+    const i = idx(x, y);
+    if (luft[i] || map.tiles[i] !== WALL || amBoden(x, y)) continue;
+    luft[i] = 1;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+      if (inBounds(x + dx, y + dy)) stapel.push([x + dx, y + dy]);
+  }
+  map.luft = luft;
+  return luft;
+}
+
+/* Weiches Rauschen fuer das Moor: grobe Gitterwerte, dazwischen geglaettet,
+   und ein Hauch Feinkorn - das ergibt zusammenhaengende Tuempel statt
+   verstreuter Einzelpfuetzen im Kachelraster. */
+function moorRausch(u, v) {
+  const RASTER = 5;
+  const gx = Math.floor(u / RASTER), gy = Math.floor(v / RASTER);
+  const fx = u / RASTER - gx, fy = v / RASTER - gy;
+  const glatt = t => t * t * (3 - 2 * t);
+  const w = (a, b) => hash2(a * 13 + 7, b * 29 + 3);
+  const oben = w(gx, gy) + (w(gx + 1, gy) - w(gx, gy)) * glatt(fx);
+  const unten = w(gx, gy + 1) + (w(gx + 1, gy + 1) - w(gx, gy + 1)) * glatt(fx);
+  return (oben + (unten - oben) * glatt(fy)) * .82 + hash2(u * 7 + 1, v * 11 + 5) * .18;
+}
+
+/* Eine kahle Baumkrone von oben: dunkler Stamm in der Mitte, die Aeste
+   strahlen aus und verzweigen sich einmal. Der Schatten liegt versetzt
+   darunter - sonst saehe der Baum aufgemalt aus statt stehend.
+   Gemalt wird hier nichts: die Striche werden an gemeinsame Pfade gehaengt,
+   und malMoor zieht jeden Pfad einmal nach. Einzeln gestrichen kostete das
+   Neumalen vom Turmkopf aus 17 ms - ueber ein ganzes Bild. */
+function moorBaumPfade(p, x, y, groesse, saat) {
+  const aeste = 5 + Math.floor(hash2(saat, 3) * 3);
+  for (const [versatz, dick, duenn, stamm] of [
+    [1, p.schattenDick, p.schattenDuenn, p.schattenStamm],
+    [0, p.astDick, p.astDuenn, p.stamm]]) {
+    const bx = x + versatz * groesse * .12, by = y + versatz * groesse * .16;
+    for (let k = 0; k < aeste; k++) {
+      const winkel = (k / aeste) * 6.283 + hash2(saat + k, 11) * .9;
+      const laenge = groesse * (.55 + hash2(saat, k + 17) * .45);
+      const knick = (hash2(k, saat + 5) - .5) * .7;
+      const kx = bx + Math.cos(winkel + knick) * laenge * .5;
+      const ky = by + Math.sin(winkel + knick) * laenge * .5;
+      dick.moveTo(bx, by);
+      dick.quadraticCurveTo(kx, ky, bx + Math.cos(winkel) * laenge, by + Math.sin(winkel) * laenge);
+      const zweig = winkel + (hash2(saat, k + 31) < .5 ? .7 : -.7);
+      duenn.moveTo(kx, ky);
+      duenn.lineTo(kx + Math.cos(zweig) * laenge * .4, ky + Math.sin(zweig) * laenge * .4);
+    }
+    stamm.moveTo(bx + groesse * .13, by);
+    stamm.arc(bx, by, groesse * .13, 0, 6.283);
+  }
+}
+
+/* Ein Schilfbueschel von oben: Halme, die aus einem Punkt nach allen
+   Seiten fallen - gedeckt, nicht leuchtend; es ist Ufer, kein Fund. */
+function schilfPfade(p, x, y, groesse, saat) {
+  const halme = 5 + Math.floor(hash2(saat, 9) * 3);
+  for (let k = 0; k < halme; k++) {
+    const winkel = hash2(saat + k * 3, 21) * 6.283;
+    const laenge = groesse * (.2 + hash2(k, saat + 1) * .28);
+    const pfad = hash2(k * 5, saat) < .6 ? p.schilfDunkel : p.schilfHell;
+    pfad.moveTo(x, y);
+    pfad.lineTo(x + Math.cos(winkel) * laenge, y + Math.sin(winkel) * laenge);
+  }
+}
+
+/* Malt den ruhenden Teil: Boden, Tuempel, Ufer, Baeume, Schatten der Burg.
+   (u0, v0) ist die Moorzelle in der linken oberen Ecke der Zwischenablage.
+   Alles Gleichfarbige liegt auf einem Pfad und wird einmal gefuellt. */
+function malMoor(mc, u0, v0, spalten, zeilen, Z, hoch, luft, schattenBlatt) {
+  const B = spalten * Z, H = zeilen * Z;
+  const rausch = (s, r) => moorRausch(u0 + s, v0 + r);
+
+  mc.fillStyle = hoch ? "#232B20" : "#1E251A";
+  mc.fillRect(0, 0, B, H);
+
+  // Moospolster und dunkle Torfflecken - weich, ohne sichtbares Raster
+  const moos = new Path2D(), torf = new Path2D();
+  for (let r = -1; r <= zeilen; r++)
+    for (let s = -1; s <= spalten; s++) {
+      const u = u0 + s, v = v0 + r;
+      const a = hash2(u * 17 + 3, v * 23 + 9), b = hash2(v * 31 + 1, u * 13 + 7);
+      const ex = (s + b) * Z, ey = (r + a) * Z;
+      const rx = Z * (.35 + a * .4), ry = Z * (.25 + b * .3), dreh = a * 3;
+      const pfad = a > .55 ? moos : torf;
+      pfad.moveTo(ex + Math.cos(dreh) * rx, ey + Math.sin(dreh) * rx);
+      pfad.ellipse(ex, ey, rx, ry, dreh, 0, 6.283);
+    }
+  mc.fillStyle = "rgba(98,112,64,.10)";
+  mc.fill(moos);
+  mc.fillStyle = "rgba(0,0,0,.11)";
+  mc.fill(torf);
+
+  // Tuempel: je Zelle ein Kreis, dessen Groesse mit der Wassertiefe waechst
+  // und dessen Mitte ein wenig verrutscht - so entsteht ein unregelmaessiges
+  // Ufer statt einer Kette gleich grosser Boegen im Kachelraster.
+  for (const [schwelle, grund, farbe] of [
+    [.59, .42, hoch ? "#15211F" : "#101B1C"],
+    [.67, .28, hoch ? "#101A19" : "#0B1415"],
+  ]) {
+    const pfad = new Path2D();
+    for (let r = -1; r <= zeilen; r++)
+      for (let s = -1; s <= spalten; s++) {
+        const n = rausch(s, r);
+        if (n <= schwelle) continue;
+        const u = u0 + s, v = v0 + r;
+        const rad = Z * Math.min(1.05, grund + (n - schwelle) * 5);
+        const cx = (s + .5 + (hash2(u * 43 + 1, v * 59 + 7) - .5) * .5) * Z;
+        const cy = (r + .5 + (hash2(v * 47 + 3, u * 53 + 9) - .5) * .5) * Z;
+        pfad.moveTo(cx + rad, cy);
+        pfad.arc(cx, cy, rad, 0, 6.283);
+      }
+    mc.fillStyle = farbe;
+    mc.fill(pfad);
+  }
+  // Ein matter Glanz auf dem offenen Wasser
+  const glanz = new Path2D();
+  for (let r = 0; r < zeilen; r++)
+    for (let s = 0; s < spalten; s++) {
+      if (rausch(s, r) <= .66 || hash2((u0 + s) * 41 + 5, (v0 + r) * 37 + 1) < .72) continue;
+      const gx = (s + .5) * Z, gy = (r + .4) * Z;
+      glanz.moveTo(gx + Z * .35, gy);
+      glanz.ellipse(gx, gy, Z * .35, Z * .07, 0, 0, 6.283);
+    }
+  mc.fillStyle = "rgba(170,196,190,.07)";
+  mc.fill(glanz);
+
+  // Ufer, Wollgras, Baeume - mit Rand, damit nichts an der Kante abreisst
+  const p = {
+    schilfDunkel: new Path2D(), schilfHell: new Path2D(), wollgras: new Path2D(),
+    schattenDick: new Path2D(), schattenDuenn: new Path2D(), schattenStamm: new Path2D(),
+    astDick: new Path2D(), astDuenn: new Path2D(), stamm: new Path2D(),
+  };
+  const baumSchwelle = hoch ? .988 : .975;   // vom Turmkopf aus sind es doppelt so viele Zellen
+  for (let r = -2; r <= zeilen + 1; r++)
+    for (let s = -2; s <= spalten + 1; s++) {
+      const u = u0 + s, v = v0 + r, n = rausch(s, r);
+      const jx = hash2(u * 3 + 1, v * 5 + 2) - .5, jy = hash2(v * 7 + 3, u * 11 + 4) - .5;
+      const cx = (s + .5 + jx * .6) * Z, cy = (r + .5 + jy * .6) * Z;
+      if (n > .52 && n <= .59) {
+        if (hash2(u * 19 + 2, v * 7 + 11) > .5) schilfPfade(p, cx, cy, Z * .9, u * 131 + v);
+      } else if (n <= .52) {
+        if (hash2(u * 31 + 4, v * 17 + 6) > baumSchwelle) {
+          moorBaumPfade(p, cx, cy, Z * 1.25, u * 71 + v * 3);
+        } else if (hash2(u * 23 + 8, v * 29 + 2) > .93) {
+          const d = Math.max(.8, Z * .04);
+          for (let k = 0; k < 4; k++) {
+            const wx = cx + (hash2(u + k, v) - .5) * Z * .6, wy = cy + (hash2(v + k, u) - .5) * Z * .6;
+            p.wollgras.moveTo(wx + d, wy);
+            p.wollgras.arc(wx, wy, d, 0, 6.283);
+          }
+        }
+      }
+    }
+  mc.lineCap = "round";
+  mc.lineWidth = Math.max(.8, Z * .06);
+  mc.strokeStyle = "rgba(74,82,46,.85)";
+  mc.stroke(p.schilfDunkel);
+  mc.strokeStyle = "rgba(104,106,64,.75)";
+  mc.stroke(p.schilfHell);
+  mc.fillStyle = "rgba(222,222,200,.30)";
+  mc.fill(p.wollgras);
+  const baum = Z * 1.25;
+  for (const [dick, duenn, stamm, farbe] of [
+    [p.schattenDick, p.schattenDuenn, p.schattenStamm, "rgba(0,0,0,.30)"],
+    [p.astDick, p.astDuenn, p.stamm, "#12160F"]]) {
+    mc.strokeStyle = farbe;
+    mc.lineWidth = Math.max(1, baum * .09);
+    mc.stroke(dick);
+    mc.lineWidth = Math.max(.8, baum * .045);
+    mc.stroke(duenn);
+    mc.fillStyle = farbe;
+    mc.fill(stamm);
+  }
+
+  // Die Burg wirft ihren Schatten nach rechts unten - weich, weil das Licht
+  // durch Wolken kommt. Nur von den Wehrgaengen aus: vom Turmkopf aus liegt
+  // der Boden zu tief, als dass ein Schatten ihn noch erreichte.
+  if (!hoch && schattenBlatt) {
+    const sc = schattenBlatt.getContext("2d");
+    sc.clearRect(0, 0, schattenBlatt.width, schattenBlatt.height);
+    sc.fillStyle = "#000";
+    for (let r = 0; r < zeilen; r++)
+      for (let s = 0; s < spalten; s++) {
+        const u = u0 + s, v = v0 + r;
+        if (!inBounds(u, v) || luft[idx(u, v)]) continue;
+        sc.fillRect((s + .45) * Z, (r + .6) * Z, Z, Z);
+      }
+    mc.save();
+    mc.globalAlpha = .38;
+    if ("filter" in mc) mc.filter = "blur(6px)";
+    mc.drawImage(schattenBlatt, 0, 0);
+    mc.restore();
+  }
+
+  // Vom Turmkopf aus: Dunst liegt zwischen dir und dem Boden
+  if (hoch) {
+    mc.fillStyle = "rgba(128,142,152,.16)";
+    mc.fillRect(0, 0, B, H);
+  }
+}
+
+/* Das ruhende Moor wird einmal je Etage gemalt - gleich fuer den ganzen
+   Bereich, den der Ausschnitt ueberhaupt je zeigen kann. Erst wurde bei
+   jedem Kachelschritt neu gemalt; vom Turmkopf aus (viermal so viele Zellen
+   je Bildflaeche) kostete das gemessen 17 bis 25 ms - ein Ruckeln bei jedem
+   Schritt. Einmal beim Betreten stoert dagegen niemanden. */
+const KULISSE_UEBERSTAND = 6;   // camera() laesst den Ausschnitt 5 Kacheln ueber den Rand
+let moorBlatt = null, moorSchluessel = "", moorKarte = null;
+let kulisseZeit = null;
+const kulisseDrift = { x: 0, y: 0 };
+
 function drawVista(camX, camY) {
   const T = theme();
   const W = VIEW_W * TILE, H = VIEW_H * TILE;
-  const hoch = T.gen === "turmkopf";   // sieht am weitesten und klarsten
+  const hoch = T.gen === "turmkopf";      // der Boden liegt tiefer: kleiner, langsamer
+  const Z = TILE * (hoch ? .5 : 1);       // eine Moorzelle in Pixeln
 
-  const himmel = ctx.createLinearGradient(0, 0, 0, H);
-  himmel.addColorStop(0, hoch ? "#242A3C" : "#1A1E28");
-  himmel.addColorStop(.5, hoch ? "#454C60" : "#333A46");
-  himmel.addColorStop(1, hoch ? "#7C8878" : "#545E50");
-  ctx.fillStyle = himmel;
-  ctx.fillRect(0, 0, W, H);
+  // Moorzelle u liegt bei Bildschirm-x (u - camX) * Z. Die Kamera reicht von
+  // -5 bis MAP_W - VIEW_W + 5; dazu kommt, was der Ausschnitt breit ist.
+  const u0 = -KULISSE_UEBERSTAND - 1, v0 = -KULISSE_UEBERSTAND - 1;
+  const spalten = MAP_W - VIEW_W + 2 * KULISSE_UEBERSTAND + Math.ceil(W / Z) + 3;
+  const zeilen = MAP_H - VIEW_H + 2 * KULISSE_UEBERSTAND + Math.ceil(H / Z) + 3;
 
-  // Sturmwolken - kaum merklich verschoben, sehr weit weg
-  const wv = -(camX * TILE) * .04;
-  ctx.save();
-  ctx.globalAlpha = .5;
-  ctx.fillStyle = "rgba(74,80,96,.55)";
-  for (let i = -1; i < 6; i++) {
-    const bx = ((i * 260 + wv) % (W + 320)) - 160;
-    const by = H * .16 + Math.sin(i * 2.3) * 14;
-    ctx.beginPath();
-    ctx.ellipse(bx, by, 130, 18, 0, 0, 6.283);
-    ctx.ellipse(bx + 70, by + 6, 90, 14, 0, 0, 6.283);
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // Vom Turmkopf aus, ganz fern: die Totenstadt und das Schloss - ein
-  // Schimmer, kein Bauplan. Von den Wehrgaengen aus verschluckt sie der
-  // Dunst noch, so wie fovFromOil unten weniger Sicht gibt als oben.
-  if (hoch) {
-    const tv = -(camX * TILE) * .07;
-    const horiz = H * .655;
-    ctx.save();
-    ctx.globalAlpha = .62;
-    ctx.fillStyle = "#8A9484";
-    for (let i = 0; i < 4; i++) {
-      const tx = ((i * 90 + tv + 40) % (W + 220)) - 110;
-      const hh = 34 + (i % 2) * 14;
-      ctx.fillRect(tx, horiz - hh, 6, hh);
-      ctx.beginPath();
-      ctx.moveTo(tx - 3, horiz - hh);
-      ctx.lineTo(tx + 3, horiz - hh - 12);
-      ctx.lineTo(tx + 9, horiz - hh);
-      ctx.fill();
+  if (!moorBlatt || moorKarte !== G.map || moorSchluessel !== T.name) {
+    const bw = spalten * Z, bh = zeilen * Z;
+    if (!moorBlatt || moorBlatt.width !== bw || moorBlatt.height !== bh) {
+      moorBlatt = document.createElement("canvas");
+      moorBlatt.width = bw; moorBlatt.height = bh;
     }
-    const sx = ((W * .72 + tv * .7) % (W + 320)) - 120;
-    ctx.fillRect(sx, horiz - 30, 50, 30);
-    ctx.fillRect(sx - 9, horiz - 46, 11, 46);
-    ctx.fillRect(sx + 44, horiz - 40, 10, 40);
-    ctx.restore();
+    // Die Schattenvorlage wird nur waehrend des Malens gebraucht
+    let schatten = null;
+    if (!hoch) {
+      schatten = document.createElement("canvas");
+      schatten.width = bw; schatten.height = bh;
+    }
+    malMoor(moorBlatt.getContext("2d"), u0, v0, spalten, zeilen, Z, hoch, burgMaske(G.map), schatten);
+    moorSchluessel = T.name;
+    moorKarte = G.map;
   }
+  // Gerundet wie die Kacheln selbst - sonst stuende der Burgschatten einen
+  // halben Pixel neben der Mauer, die ihn wirft.
+  ctx.drawImage(moorBlatt, Math.round((u0 - camX) * Z), Math.round((v0 - camY) * Z));
 
-  // Das Moor selbst: eine dunkle Flaeche, tote Baeume davor, Nebel driftet.
-  const mv = -(camX * TILE) * .18;
-  const moorY = H * (hoch ? .66 : .60);
-  ctx.fillStyle = hoch ? "#2E3A30" : "#222A24";
-  ctx.fillRect(0, moorY, W, H - moorY);
+  /* Nebel ueber dem Moor, vom Turmkopf aus Wolken samt ihren Schatten. Er
+     zieht langsam - und mit der Boe schnell in ihre Richtung: wer den Nebel
+     reissen sieht, weiss, woher es gleich draengt. Die Verschiebung wird
+     aufsummiert statt aus der Zeit gerechnet, sonst spraenge der Nebel beim
+     Einsetzen der Boe an eine andere Stelle. */
+  const dt = kulisseZeit === null ? 0 : Math.max(0, Math.min(.1, anim.t - kulisseZeit));
+  kulisseZeit = anim.t;
+  const boe = G.windAktiv && G.windRichtung;
+  const [rx0, ry0] = boe ? G.windRichtung : [.92, .38];
+  const tempo = boe ? 70 : 8;
+  kulisseDrift.x += rx0 * tempo * dt;
+  kulisseDrift.y += ry0 * tempo * dt;
 
-  ctx.save();
-  ctx.globalAlpha = .55;
-  ctx.strokeStyle = "#161E16";
-  ctx.lineWidth = 2.4;
-  ctx.lineCap = "round";
-  for (let i = -1; i < 10; i++) {
-    const bx = ((i * 110 + mv) % (W + 140)) - 70;
-    const by = moorY + 10 + (i % 3) * 8;
+  const R = hoch ? 150 : 110;
+  const spanneX = W + R * 2, spanneY = H + R * 2;
+  const umbruch = (wert, spanne) => ((wert % spanne) + spanne) % spanne - R;
+  const schwade = (x, y, rx, ry, farbe) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, ry / rx);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, farbe);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.moveTo(bx, by + 26);
-    ctx.lineTo(bx, by);
-    ctx.lineTo(bx - 6, by - 9);
-    ctx.moveTo(bx, by - 3);
-    ctx.lineTo(bx + 7, by - 12);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  ctx.save();
-  ctx.globalAlpha = .22;
-  ctx.fillStyle = "#B8C4B4";
-  const drift = (anim.t * 5) % 100;
-  for (let i = -1; i < 8; i++) {
-    const nx = ((i * 100 + mv * .6 + drift) % (W + 120)) - 60;
-    ctx.beginPath();
-    ctx.ellipse(nx, moorY + 4, 60, 7, 0, 0, 6.283);
+    ctx.arc(0, 0, rx, 0, 6.283);
     ctx.fill();
+    ctx.restore();
+  };
+  const anzahl = hoch ? 7 : 9;
+  for (let k = 0; k < anzahl; k++) {
+    const rx = R * (.6 + hash2(k, 97) * .6), ry = rx * (.45 + hash2(k, 5) * .3);
+    const bx = hash2(k, 71) * spanneX + kulisseDrift.x;
+    const by = hash2(k, 83) * spanneY + kulisseDrift.y;
+    if (hoch) {
+      // Der Schatten liegt auf dem Boden: er zieht mit dem Moor, nicht mit der Wolke
+      schwade(umbruch(bx - camX * Z + 60, spanneX), umbruch(by - camY * Z + 80, spanneY),
+              rx, ry, "rgba(0,0,0,.16)");
+      schwade(umbruch(bx - camX * TILE * .8, spanneX), umbruch(by - camY * TILE * .8, spanneY),
+              rx, ry, "rgba(226,232,238,.22)");
+    } else {
+      schwade(umbruch(bx - camX * TILE, spanneX), umbruch(by - camY * TILE, spanneY),
+              rx, ry, "rgba(186,198,192,.12)");
+    }
   }
-  ctx.restore();
 }
 
+/* Der Fels, aus dem alles herausgeschlagen ist. Wird zwischengespeichert und
+   nur neu gezeichnet, wenn sich Ausschnitt oder Tiefe ändern. */
 let bedrock = null, bedrockKey = "";
 function drawBedrock(camX, camY) {
   const T = theme();
@@ -13740,6 +14576,14 @@ function drawWall(x, y, mx, my, vis, light, kind) {
     grad.addColorStop(1, mix("#0B0908", T.wallDim, .35 + light * .5));
     ctx.fillStyle = grad;
     ctx.fillRect(x, fy, TILE, FACE);
+    // In den Saelen stand das Wasser einmal hoeher: ein gruener Rand an
+    // jeder Mauer, bis wohin es jahrelang stand.
+    if (T.gen === "saele") {
+      ctx.fillStyle = `rgba(44,64,36,${.34 + light * .16})`;
+      ctx.fillRect(x, fy + FACE * .5, TILE, FACE * .5);
+      ctx.fillStyle = `rgba(176,196,140,${.12 * light})`;
+      ctx.fillRect(x, fy + FACE * .5, TILE, 1);
+    }
     // Senkrechte Fugen in der Front
     ctx.fillStyle = `rgba(0,0,0,${.22 + n * .1})`;
     ctx.fillRect(x + (TILE * (n > .5 ? .42 : .58) | 0), fy, 1, FACE);
@@ -13805,7 +14649,26 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
       : mix(T.floorDim, T.floorLit, light);
     ctx.fillRect(x, y, TILE, TILE);
 
-    if (inRoom) {
+    if (inRoom && T.gen === "saele") {
+      /* Die Saele waren einmal Marmor im Schachbrett - zwei Kacheln je Feld,
+         verblichen, mit Rissen. Das allein sagt schon: hier war es praechtig. */
+      const feldHell = ((mx >> 1) + (my >> 1)) & 1;
+      ctx.fillStyle = feldHell ? `rgba(236,226,200,${.035 + light * .06})` : "rgba(0,0,0,.12)";
+      ctx.fillRect(x, y, TILE, TILE);
+      ctx.fillStyle = "rgba(0,0,0,.22)";
+      if (!(my & 1)) ctx.fillRect(x, y, TILE, 1);
+      if (!(mx & 1)) ctx.fillRect(x, y, 1, TILE);
+      const riss = hash2(mx * 13 + 5, my * 19 + 3);
+      if (riss > .84) {
+        ctx.strokeStyle = `rgba(0,0,0,${.22 + light * .12})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + riss * TILE * .6, y + 2);
+        ctx.lineTo(x + TILE * .5, y + TILE * (.3 + riss * .3));
+        ctx.lineTo(x + TILE - 3, y + TILE * (.6 + (1 - riss) * .8));
+        ctx.stroke();
+      }
+    } else if (inRoom) {
       /* Platten sind zwei Kacheln breit und zeilenweise versetzt (Läuferverband).
          Dadurch fällt die Pflasterung nicht mit dem Bewegungsraster zusammen -
          genau das ließ den Boden vorher wie ein Gitter aussehen. */
@@ -13875,7 +14738,39 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
 
     // Wasser/Schlamm: muss man sehen, nicht nur wissen - langsamer und lauter
     // ist sonst eine unsichtbare Regel.
-    if (G.map.nass[idx(mx, my)]) {
+    if (G.map.nass[idx(mx, my)] && T.gen === "saele") {
+      /* Stehendes Moorwasser in den abgesenkten Saelen: truebgruen, der Marmor
+         schimmert kaum noch durch. Statt heller Streifen - die lasen sich wie
+         ein Schwimmbecken - treiben Algen, und selten zieht ein Ring, wo etwas
+         darunter atmet. Am trockenen Ufer ein heller Saum, damit man die
+         Galerie sieht, bevor man hineintritt. */
+      ctx.fillStyle = `rgba(20,38,26,${.60 + light * .20})`;
+      ctx.fillRect(x, y, TILE, TILE);
+      const alge = hash2(mx * 37 + 11, my * 23 + 7);
+      if (alge > .5) {
+        ctx.fillStyle = `rgba(96,124,60,${.10 + light * .14})`;
+        ctx.beginPath();
+        ctx.ellipse(x + alge * TILE, y + hash2(my * 5 + 1, mx * 3 + 2) * TILE,
+                    TILE * (.10 + (alge - .5) * .3), TILE * (.05 + (alge - .5) * .1),
+                    alge * 6, 0, 6.283);
+        ctx.fill();
+      }
+      ctx.fillStyle = `rgba(206,214,180,${.10 + light * .14})`;
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const nx = mx + dx, ny = my + dy;
+        if (!inBounds(nx, ny) || G.map.nass[idx(nx, ny)] || !WALKABLE[G.map.tiles[idx(nx, ny)]]) continue;
+        if (dy) ctx.fillRect(x, dy < 0 ? y : y + TILE - 2, TILE, 2);
+        else ctx.fillRect(dx < 0 ? x : x + TILE - 2, y, 2, TILE);
+      }
+      const takt = (anim.t * .6 + hash2(mx * 7 + 3, my * 11 + 5) * 11) % 11;
+      if (takt < 1.8 && hash2(mx * 3 + 1, my * 17 + 2) > .8) {
+        ctx.strokeStyle = `rgba(196,220,186,${(1 - takt / 1.8) * (.12 + light * .16)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x + TILE * .5, y + TILE * .5, TILE * (.08 + takt * .22), 0, 6.283);
+        ctx.stroke();
+      }
+    } else if (G.map.nass[idx(mx, my)]) {
       const glanz = .5 + Math.sin(anim.t * 1.3 + mx * .7 + my * .5) * .5;
       ctx.fillStyle = `rgba(18,46,54,${.46 + light * .26})`;
       ctx.fillRect(x, y, TILE, TILE);
@@ -13896,6 +14791,15 @@ function drawFloor(x, y, mx, my, vis, light, kind) {
         ctx.lineTo(x + drift - TILE * .1, y + TILE * (.28 + k * .42));
         ctx.stroke();
       }
+    }
+
+    // Roter Teppich im Herrensaal - rein optisch, keine eigene Regel.
+    if (G.map.teppich[idx(mx, my)]) {
+      ctx.fillStyle = `rgba(122,26,30,${.34 + light * .30})`;
+      ctx.fillRect(x, y, TILE, TILE);
+      ctx.fillStyle = `rgba(212,180,90,${.05 + light * .10})`;
+      ctx.fillRect(x + TILE * .12, y, TILE * .04, TILE);
+      ctx.fillRect(x + TILE * .84, y, TILE * .04, TILE);
     }
   } else {
     ctx.fillStyle = C.memFloor;
@@ -15628,6 +16532,54 @@ function drawChest(x, y, vis, light, offen, hatInhalt) {
     ctx.beginPath();
     ctx.ellipse(cx, basis - 8 * k, 11 * k, 9 * k, 0, 0, 6.283);
     ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* Möbel im Herrensaal - reine Kulisse, kein Hindernis, kein Zustand. Nur
+   bei Sicht gezeichnet: ein Thron, den niemand mehr sieht, muss sich
+   niemand merken. */
+function drawMobiliar(x, y, art, vis, light) {
+  if (!vis) return;
+  const k = TILE / 26;
+  const cx = x + TILE / 2, basis = y + TILE - 4 * k;
+  ctx.save();
+
+  ctx.fillStyle = `rgba(0,0,0,${.26 * light})`;
+  ctx.beginPath();
+  ctx.ellipse(cx, basis + 1, art === "tisch" ? 12 * k : 9 * k, 3 * k, 0, 0, 6.283);
+  ctx.fill();
+
+  const holz = mix("#1E140A", "#6E4A28", .3 + light * .7);
+  const gold = mix("#3A2E10", "#C8A24A", .3 + light * .7);
+  const rot = mix("#2A0808", "#8A1E1E", .3 + light * .7);
+
+  if (art === "thron") {
+    ctx.fillStyle = holz;
+    ctx.fillRect(cx - 9 * k, basis - 24 * k, 18 * k, 22 * k);
+    ctx.fillStyle = gold;
+    ctx.fillRect(cx - 9 * k, basis - 24 * k, 18 * k, 2 * k);
+    ctx.fillRect(cx - 9 * k, basis - 8 * k, 18 * k, 1.4 * k);
+    ctx.fillStyle = rot;
+    ctx.fillRect(cx - 8 * k, basis - 9 * k, 16 * k, 6 * k);
+    ctx.fillStyle = holz;
+    ctx.fillRect(cx - 11 * k, basis - 10 * k, 3 * k, 8 * k);
+    ctx.fillRect(cx + 8 * k, basis - 10 * k, 3 * k, 8 * k);
+  } else if (art === "tisch") {
+    ctx.fillStyle = holz;
+    ctx.fillRect(cx - 13 * k, basis - 8 * k, 26 * k, 7 * k);
+    ctx.fillStyle = mix(holz, "#000000", .25);
+    ctx.fillRect(cx - 13 * k, basis - 8 * k, 26 * k, 1.4 * k);
+    ctx.fillStyle = holz;
+    ctx.fillRect(cx - 12 * k, basis - 1 * k, 2 * k, 1 * k);
+    ctx.fillRect(cx + 10 * k, basis - 1 * k, 2 * k, 1 * k);
+  } else if (art === "bett") {
+    ctx.fillStyle = holz;
+    ctx.fillRect(cx - 10 * k, basis - 10 * k, 20 * k, 10 * k);
+    ctx.fillStyle = rot;
+    ctx.fillRect(cx - 9 * k, basis - 9 * k, 18 * k, 6 * k);
+    ctx.fillStyle = mix(rot, "#FFFFFF", .2);
+    ctx.fillRect(cx - 9 * k, basis - 9 * k, 6 * k, 3 * k);
   }
   ctx.restore();
 }
