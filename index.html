@@ -586,6 +586,16 @@ body {
 /* Marken fuer den Werkstoffvorrat: der Name klein, die Zahl gross. */
 .stoffreihe { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
 
+/* Die Bauplaene im Handbuch: gelernte farbig mit Haken, gesehene grau, Luecken als Fragezeichen. */
+.planreihe { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.planmarke {
+  display: inline-flex; gap: 5px; align-items: baseline;
+  padding: 4px 9px; border: 1px solid var(--stone-700); border-radius: 3px;
+  font-size: 13px; color: var(--vellum-dim);
+}
+.planmarke.gelernt { border-color: currentColor; }
+.planmarke.leer { opacity: .45; }
+
 .stoffmarke {
   display: inline-flex;
   align-items: baseline;
@@ -837,7 +847,6 @@ body {
 }
 
 .ladeseite .quiet { margin: 8px 0 0; font-size: 12px; }
-.ladeseite .lastbalken { margin-top: 10px; }
 
 /* Vier Plaetze am Koerper. Sie sahen aus wie vier Textzeilen; man konnte
    nicht sehen, dass man etwas darauf ablegen kann. Jetzt hat jeder einen
@@ -1164,16 +1173,6 @@ body {
 .kachel svg, .kachelgeist svg { width: 26px; height: 26px; display: block; }
 .kachelbild { line-height: 0; }
 
-.kachelname {
-  font-family: var(--rubric);
-  font-size: 9px;
-  letter-spacing: .03em;
-  line-height: 1.2;
-  text-align: center;
-  color: var(--vellum-dim);
-  overflow: hidden;
-}
-
 .kachelstufe {
   position: absolute;
   top: 1px;
@@ -1399,34 +1398,9 @@ body {
   background: rgba(160,50,45,.22);
 }
 
-/* ── Was du schleppst ─────────────────────────────────────────────────── */
-/* Das Gewicht entscheidet, was mit hinabgeht - fuenf Pixel waren dafuer zu
-   wenig, um es im Blick zu behalten. */
-.lastbalken {
-  position: relative;
-  height: 9px;
-  margin: 0 0 12px;
-  border-radius: 5px;
-  border: 1px solid var(--stone-700);
-  background: var(--stone-950);
-  overflow: hidden;
-}
-
-.lastbalken i {
-  display: block;
-  height: 100%;
-  background: var(--verdigris);
-  transition: width .18s ease;
-}
-
-.lastbalken i.voll { background: var(--madder-lit); }
-
 /* Der Aufstiegsbalken - er laeuft nur, waehrend man wirklich hinaufsteigt */
 .meter.aufstieg { box-shadow: 0 0 0 1px rgba(127,192,169,.35); }
 .fill.aufstieg { background: linear-gradient(90deg, #5C9E8A, #A8E0C8); }
-/* Die Marke, ab der man als schwer beladen gilt. */
-.lastbalken u { position: absolute; top: 0; width: 2px; height: 100%; background: var(--vellum-leise); }
-.schwerbeladen { color: var(--madder-lit); }
 
 /* ── Die Tafel unter dem Raster ───────────────────────────────────────── */
 .tafel {
@@ -5031,58 +5005,86 @@ const ITEMS = {
      keine Klassen mehr gibt: was du kannst, haengt daran, was du gefunden
      hast - und wer stirbt, verliert es. Ein Modul belegt seinen eigenen Platz
      am Koerper, nicht das Raster. */
-  /* `kraft` ist der Griff, an dem die Seltenheit ein Modul hebt: ein Modul
-     hat keinen Angriff, den sie heben koennte. Ein episches schlaegt gut
-     doppelt so hart und wartet deutlich kuerzer. */
   modWall:    { name: "Wallstein",     kind: "modul", tint: "#8FA6D8", slot: "Modul",
-                faehig: "wall",     kraft: 1, note: "Fähigkeit: Schildwall" },
+                faehig: "wall",     note: "Fähigkeit: Schildwall" },
   modSchatten:{ name: "Schattenmal",   kind: "modul", tint: "#9C7FE0", slot: "Modul",
-                faehig: "schatten", kraft: 1, note: "Fähigkeit: Schattenschritt" },
+                faehig: "schatten", note: "Fähigkeit: Schattenschritt" },
   modLanze:   { name: "Flammenkern",   kind: "modul", tint: "#E8763A", slot: "Modul",
-                faehig: "lanze",    kraft: 1, note: "Fähigkeit: Flammenlanze" },
+                faehig: "lanze",    note: "Fähigkeit: Flammenlanze" },
   modDonner:  { name: "Donnerkeil",    kind: "modul", tint: "#E8D06A", slot: "Modul",
-                faehig: "donner",   kraft: 1, note: "Fähigkeit: Donnerschlag" },
+                faehig: "donner",   note: "Fähigkeit: Donnerschlag" },
   modZoll:    { name: "Blutsiegel",    kind: "modul", tint: "#D9634F", slot: "Modul",
-                faehig: "zoll",     kraft: 1, note: "Fähigkeit: Blutzoll" },
+                faehig: "zoll",     note: "Fähigkeit: Blutzoll" },
   modZehr:    { name: "Zehrstein",     kind: "modul", tint: "#9FD8B0", slot: "Modul",
-                faehig: "zehren",   kraft: 1, note: "Fähigkeit: Lebensentzug" },
+                faehig: "zehren",   note: "Fähigkeit: Lebensentzug" },
   modSplitter:{ name: "Splitterkern",  kind: "modul", tint: "#C8CEDA", slot: "Modul",
-                faehig: "splitter", kraft: 1, note: "Fähigkeit: Splitterstoss" },
+                faehig: "splitter", note: "Fähigkeit: Splitterstoss" },
   modStille:  { name: "Schweigestein", kind: "modul", tint: "#7FA8A0", slot: "Modul",
-                faehig: "stille",   kraft: 1, note: "Fähigkeit: Grabesstille" },
+                faehig: "stille",   note: "Fähigkeit: Grabesstille" },
 
-  /* Werkstoffe. Sie tun nichts, solange man sie traegt - erst beim Haendler
-     werden sie zu besserer Ausruestung. Damit hat Aufheben auch dann einen
-     Sinn, wenn der Fund selbst nichts taugt. Sie stapeln sich, sonst waere
-     nach zwei Etagen der halbe Rucksack voll Schrott. */
-  schrott:  { name: "Schrott",     kind: "material", tint: "#9BA4B4", rang: 1, stapel: 20,
-              note: "Werkstoff — beim Händler zum Aufwerten" },
-  eisen:    { name: "Eisenbarren", kind: "material", tint: "#C0C6D2", rang: 2, stapel: 12,
-              note: "Werkstoff — beim Händler zum Aufwerten" },
-  silber:   { name: "Silberdraht", kind: "material", tint: "#9FD8E8", rang: 3, stapel: 8,
-              note: "Werkstoff — beim Händler zum Aufwerten" },
-  /* Fuenfte Stufe, und es faellt nur in der Totenstadt. Wer eine Waffe ganz
-     hochbringen will, muss also beide Orte laufen. */
-  grabsalz: { name: "Grabsalz",    kind: "material", tint: "#B8E8C0", rang: 5, stapel: 5,
-              note: "kristallisierte Grabluft — die letzte Stufe" },
-  tiefenerz:{ name: "Tiefenerz",   kind: "material", tint: "#C08CE8", rang: 4, stapel: 6,
-              note: "Werkstoff — beim Händler zum Aufwerten" },
+  /* Grundstoffe und Ortsstoffe: daraus wird gebaut und aufgewertet. Der
+     Ortsstoff faellt nur an seinem Ort. */
+  eisen:     { name: "Eisen",      kind: "material", tint: "#B8C0CC", stapel: 20, note: "Grundstoff" },
+  holz:      { name: "Holz",       kind: "material", tint: "#B08A5E", stapel: 20, note: "Grundstoff" },
+  leder:     { name: "Leder",      kind: "material", tint: "#9A6A44", stapel: 20, note: "Grundstoff" },
+  stoff:     { name: "Stoff",      kind: "material", tint: "#CFC4AC", stapel: 20, note: "Grundstoff" },
+  kraeuter:  { name: "Kräuter",    kind: "material", tint: "#86B474", stapel: 20, note: "Grundstoff" },
+  talg:      { name: "Talg",       kind: "material", tint: "#E4D4A4", stapel: 20, note: "Grundstoff" },
+  runenstaub:{ name: "Runenstaub", kind: "material", tint: "#8FC8F0", stapel: 10, ortsstoff: "schloss",
+               note: "Ortsstoff aus dem Schloss" },
+  grabsalz:  { name: "Grabsalz",   kind: "material", tint: "#B8E8C0", stapel: 10, ortsstoff: "totenstadt",
+               note: "Ortsstoff aus der Totenstadt" },
+  sturmfeder:{ name: "Sturmfeder", kind: "material", tint: "#C8D8EC", stapel: 10, ortsstoff: "moorfeste",
+               note: "Ortsstoff aus der Moorfeste" },
+
+  /* Plunder: zerlegen oder verkaufen. Die Wertsache jedes Ortes bringt beim
+     Haendler viel und beim Zerlegen wenig. */
+  zahnrad:       { name: "Rostiges Zahnrad",  kind: "plunder", tint: "#A89A8A", stapel: 5, preis: 14,
+                   zerlegt: { eisen: 2 } },
+  kerzenleuchter:{ name: "Kerzenleuchter",    kind: "plunder", tint: "#D8C070", stapel: 5, preis: 16,
+                   zerlegt: { eisen: 1, talg: 1 } },
+  wandteppich:   { name: "Wandteppichfetzen", kind: "plunder", tint: "#B8705E", stapel: 5, preis: 12,
+                   zerlegt: { stoff: 2 } },
+  pilzbuendel:   { name: "Pilzbündel",        kind: "plunder", tint: "#C8A890", stapel: 5, preis: 10,
+                   zerlegt: { kraeuter: 2 } },
+  silberbecher:  { name: "Silberbecher",      kind: "plunder", tint: "#DCE4EC", stapel: 5, preis: 150,
+                   zerlegt: { eisen: 1 }, wertsache: true },
+  sargnaegel:    { name: "Sargnägel",         kind: "plunder", tint: "#8E929C", stapel: 5, preis: 12,
+                   zerlegt: { eisen: 2 } },
+  grabkerze:     { name: "Grabkerze",         kind: "plunder", tint: "#E8DCC0", stapel: 5, preis: 12,
+                   zerlegt: { talg: 2 } },
+  leichentuch:   { name: "Leichentuch",       kind: "plunder", tint: "#D4D0C4", stapel: 5, preis: 12,
+                   zerlegt: { stoff: 2 } },
+  grabblumen:    { name: "Grabblumen",        kind: "plunder", tint: "#B884AC", stapel: 5, preis: 10,
+                   zerlegt: { kraeuter: 2 } },
+  totenmaske:    { name: "Totenmaske",        kind: "plunder", tint: "#E4DCBC", stapel: 5, preis: 150,
+                   zerlegt: { stoff: 1 }, wertsache: true },
+  harpune:       { name: "Rostige Harpune",   kind: "plunder", tint: "#948878", stapel: 5, preis: 16,
+                   zerlegt: { eisen: 1, holz: 1 } },
+  aalhaut:       { name: "Aalhaut",           kind: "plunder", tint: "#7A866A", stapel: 5, preis: 12,
+                   zerlegt: { leder: 2 } },
+  schilfbuendel: { name: "Schilfbündel",      kind: "plunder", tint: "#BCAC74", stapel: 5, preis: 10,
+                   zerlegt: { holz: 2 } },
+  moorkraut:     { name: "Moorkraut",         kind: "plunder", tint: "#74AC76", stapel: 5, preis: 10,
+                   zerlegt: { kraeuter: 2 } },
+  muschelgeld:   { name: "Muschelgeld",       kind: "plunder", tint: "#ECDCCC", stapel: 5, preis: 150,
+                   zerlegt: { stoff: 1 }, wertsache: true },
 
   // g = grammatisches Geschlecht, damit Affix-Adjektive richtig gebeugt werden
   rostdolch:   { name: "Rostiger Dolch", g: "m", kind: "weapon", tint: "#7A6E5E", slot: "Waffe",   atk: 1,
                  note: "besser als die blanke Faust, und mehr nicht" },
-  dagger:      { name: "Dolch",         g: "m", kind: "weapon", tint: "#9BA4B4", slot: "Waffe",    atk: 2 },
-  sword:       { name: "Kurzschwert",   g: "n", kind: "weapon", tint: "#B8C2D2", slot: "Waffe",    atk: 4 },
-  axe:         { name: "Kriegsaxt",     g: "f", kind: "weapon", tint: "#CEA878", slot: "Waffe",    atk: 7 },
-  runeblade:   { name: "Runenklinge",   g: "f", kind: "weapon", tint: "#8FC8F0", slot: "Waffe",    atk: 10, glow: true },
-  spiess:      { name: "Spieß",         g: "m", kind: "weapon", tint: "#A8B0BC", slot: "Waffe",    atk: 5, reach: .55, hast: -.12 },
-  kolben:      { name: "Streitkolben",  g: "m", kind: "weapon", tint: "#C0A878", slot: "Waffe",    atk: 8, hast: -.18, def: 1 },
-  hellebarde:  { name: "Hellebarde",    g: "f", kind: "weapon", tint: "#B8A890", slot: "Waffe",    atk: 13, reach: .40, hast: -.25 },
-  schuppen:    { name: "Schuppenpanzer",g: "m", kind: "armor",  tint: "#8FA69C", slot: "Rüstung",  def: 4, maxhp: 10 },
-  reisemantel: { name: "Reisemantel",   g: "m", kind: "armor",  tint: "#7A6A52", slot: "Rüstung",  def: 2, tempo: .08, evade: .05 },
-  leather:     { name: "Lederrüstung",  g: "f", kind: "armor",  tint: "#966E4A", slot: "Rüstung",  def: 1 },
-  chain:       { name: "Kettenhemd",    g: "n", kind: "armor",  tint: "#A0A6B4", slot: "Rüstung",  def: 3 },
-  plate:       { name: "Plattenpanzer", g: "m", kind: "armor",  tint: "#C4CAD8", slot: "Rüstung",  def: 6 },
+  dagger:      { name: "Dolch",         g: "m", kind: "weapon", tint: "#9BA4B4", slot: "Waffe",    atk: 2, serie: 3 },
+  sword:       { name: "Kurzschwert",   g: "n", kind: "weapon", tint: "#B8C2D2", slot: "Waffe",    atk: 4, evade: .08, gegenhieb: 1 },
+  axe:         { name: "Kriegsaxt",     g: "f", kind: "weapon", tint: "#CEA878", slot: "Waffe",    atk: 7, spaltet: .5 },
+  runeblade:   { name: "Runenklinge",   g: "f", kind: "weapon", tint: "#8FC8F0", slot: "Waffe",    atk: 10, glow: true, brand: 3 },
+  spiess:      { name: "Spieß",         g: "m", kind: "weapon", tint: "#A8B0BC", slot: "Waffe",    atk: 5, reach: .55, hast: -.12, bremst: 2 },
+  kolben:      { name: "Streitkolben",  g: "m", kind: "weapon", tint: "#C0A878", slot: "Waffe",    atk: 8, hast: -.18, def: 1, zertruemmert: 1 },
+  hellebarde:  { name: "Hellebarde",    g: "f", kind: "weapon", tint: "#B8A890", slot: "Waffe",    atk: 13, reach: .40, hast: -.25, bogen: 2 },
+  schuppen:    { name: "Schuppenpanzer",g: "m", kind: "armor",  tint: "#8FA69C", slot: "Rüstung",  def: 4, maxhp: 10, nachwachsen: 1 },
+  reisemantel: { name: "Reisemantel",   g: "m", kind: "armor",  tint: "#7A6A52", slot: "Rüstung",  def: 2, tempo: .08, evade: .05, wetterfest: 1 },
+  leather:     { name: "Lederrüstung",  g: "f", kind: "armor",  tint: "#966E4A", slot: "Rüstung",  def: 1, leise: .35 },
+  chain:       { name: "Kettenhemd",    g: "n", kind: "armor",  tint: "#A0A6B4", slot: "Rüstung",  def: 3, geschossfest: .4 },
+  plate:       { name: "Plattenpanzer", g: "m", kind: "armor",  tint: "#C4CAD8", slot: "Rüstung",  def: 6, standfest: 1 },
   /* ── Stuecke mit einer Eigenheit ──────────────────────────────────────
      Bis hierher unterschieden sich zwei Waffen nur in Zahlen: mehr Angriff,
      weniger Tempo. Diese vier tun etwas, das keine Zahl abbildet - und die
@@ -5113,13 +5115,9 @@ const ITEMS = {
                  def: 9, maxhp: 14, tempo: -.22, evade: -.08,
                  note: "nichts kommt durch, und du kommst nicht weit" },
 
-  // avoid: Affixe, die neben dem eigenen Namen doppelt klingen würden
-  vitality:    { name: "Blutstein",     g: "m", kind: "amulet", tint: "#E2608C", slot: "Amulett", maxhp: 25,
-                 avoid: ["leben"] },
-  wrath:       { name: "Zornmal",       g: "n", kind: "amulet", tint: "#E2A048", slot: "Amulett", atk: 3,
-                 avoid: ["zorn"] },
-  guard:       { name: "Wachtkette",    g: "f", kind: "amulet", tint: "#78B4E2", slot: "Amulett", def: 2,
-                 avoid: ["wacht"] },
+  vitality:    { name: "Blutstein",     g: "m", kind: "amulet", tint: "#E2608C", slot: "Amulett", maxhp: 25, letzterAtem: 1 },
+  wrath:       { name: "Zornmal",       g: "n", kind: "amulet", tint: "#E2A048", slot: "Amulett", atk: 3, rausch: 4 },
+  guard:       { name: "Wachtkette",    g: "f", kind: "amulet", tint: "#78B4E2", slot: "Amulett", def: 2, wachsam: 2 },
 
   /* Legendaere Stuecke. Sie tragen keinen Affix - ihr Name steht schon fest -
      und haben neben den Grundwerten eine eigene Wirkung. Die Zusatzfelder
@@ -5151,117 +5149,27 @@ const ITEMS = {
                   sage: "Die Flamme zehrt nicht mehr an sich selbst." },
 };
 
+// Plunder sagt auf der Tafel, was beim Zerlegen herauskommt
+for (const d of Object.values(ITEMS))
+  if (d.kind === "plunder")
+    d.note = `Plunder — zerlegt: ${Object.entries(d.zerlegt)
+      .map(([id, n]) => `${n} ${ITEMS[id].name}`).join(", ")}`;
+
 /* == Der Rucksack ========================================================
-   Ein Beutel mit zwanzig gleichen Plaetzen sagt nichts darueber aus, was man
-   traegt. Ein Raster tut es: der Plattenpanzer nimmt acht Kacheln, die
-   Blitzrolle eine. Dazu kommt das Gewicht - Platz und Traglast sind zwei
-   verschiedene Grenzen, und beide sollen wehtun. Ein Rucksack voller Rollen
-   ist leicht und voll, einer mit zwei Panzern schwer und halb leer.
-
-   Angelegtes zaehlt weder im Raster noch auf der Waage: was du am Koerper
-   traegst, schleppst du nicht. Damit steht bei jedem Fund dieselbe Frage -
-   anlegen oder mitnehmen? */
-
-/* Voreinstellung je Art, danach die Ausreisser. [breite, hoehe, gewicht] */
-const KACHEL_ART = {
-  potion: [1, 1, .5], scroll: [1, 1, .2], oil: [1, 1, .8], seil: [1, 1, 1.2],
-  wurf: [1, 1, .55],
-  weapon: [1, 3, 3.5], armor: [2, 3, 8], amulet: [1, 1, .3], relic: [1, 1, 1],
-  material: [1, 1, .35], modul: [1, 1, .6],
-};
-
-const KACHEL_EIGEN = {
-  bigoil:         [1, 2, 1.6],
-  dagger:         [1, 2, 1.0],
-  sword:          [1, 3, 2.4],
-  spiess:         [1, 4, 3.2],
-  axe:            [2, 3, 5.0],
-  kolben:         [2, 3, 6.5],
-  runeblade:      [1, 3, 2.8],
-  grabklinge:     [1, 3, 2.6],
-  totenaxt:       [2, 4, 7.0],
-  knochenhemd:    [2, 2, 3.2],
-  salzpanzer:     [2, 3, 13.0],
-  grabmal:        [1, 1, .5],
-  hellebarde:     [2, 4, 8.0],
-  leather:        [2, 2, 4.0],
-  reisemantel:    [2, 2, 3.0],
-  chain:          [2, 3, 9.0],
-  schuppen:       [2, 3, 11.0],
-  plate:          [2, 3, 16.0],
-  meuchelklinge:  [1, 2, 1.1],
-  aderlass:       [1, 3, 2.6],
-  richtschwert:   [2, 4, 6.0],
-  morgenstern:    [2, 3, 7.5],
-  pilgermantel:   [2, 2, 2.2],
-  dornenpanzer:   [2, 3, 10.0],
-  totenwacht:     [2, 3, 9.0],
-  bleiharnisch:   [2, 3, 19.0],
-  schattenzahn:   [1, 2, 1.8],
-  aschebringer:   [2, 4, 12.0],
-  koenigsmoerder: [1, 3, 3.4],
-  nachtmantel:    [2, 2, 2.6],
-  bollwerk:       [2, 3, 22.0],
-  bergherz:       [1, 1, 1.2],
-  namenlosauge:   [1, 1, .4],
-  ewiglicht:      [1, 1, .6],
-};
-
-/* Auftragsgegenstaende haben keine id in ITEMS - sie fallen auf relic zurueck. */
-function kachelMass(eintrag) {
-  const id = eintrag && eintrag.id;
-  // Im Lager liegen blosse Datensaetze ohne def - dann zaehlt die Vorlage
-  const art = (eintrag && eintrag.def && eintrag.def.kind)
-    || (ITEMS[id] && ITEMS[id].kind) || "relic";
-  const m = KACHEL_EIGEN[id] || KACHEL_ART[art] || KACHEL_ART.relic;
-  // Quergelegt tauschen Breite und Hoehe die Plaetze
-  const quer = eintrag && eintrag.dreh;
-  // Ein Stapel Schrott belegt eine Kachel, wiegt aber so viel, wie er ist
-  return { w: quer ? m[1] : m[0], h: quer ? m[0] : m[1],
-           kg: m[2] * (eintrag && eintrag.menge || 1) };
-}
-
-/* Ob sich Drehen bei diesem Stueck ueberhaupt lohnt. */
-function drehbar(eintrag) {
-  const m = kachelMass(eintrag);
-  return m.w !== m.h;
-}
-
-/* Gewichte lesen sich als Kilo mit einer Nachkommastelle, deutsches Komma. */
-function last(kg) { return `${(Math.round(kg * 10) / 10).toFixed(1).replace(".", ",")} kg`; }
-
-const kachelBreite = e => kachelMass(e).w;
-const kachelHoehe  = e => kachelMass(e).h;
-
-/* Gut gepackt macht alles leichter - auch das, was schon im Rucksack liegt. */
-function gewicht(eintrag) {
-  const roh = kachelMass(eintrag).kg;
-  return roh * (1 - Math.min(.6, skillRang("packen") * .08));
-}
-
-/* == Mass des Rucksacks ==================================================
-   Sechs Kacheln breit, vier hoch. Geraeumig legt Reihen drauf, gekaufte
-   Erweiterungen Reihen oder Spalten. */
-const RASTER_SPALTEN = 6;
-const RASTER_REIHEN = 4;
+   Einfache Plaetze: jedes Stueck belegt einen, ein Stapel zaehlt als eines.
+   Angelegtes und der Guertel belegen keinen. */
+const RASTER_SPALTEN = 5;
+const RASTER_REIHEN = 3;
 
 const ERWEITERUNGEN = {
-  seitentaschen: { name: "Seitentaschen", spalten: 1, preis: 220,
-                   note: "eine Spalte mehr im Rucksack" },
-  traggestell:   { name: "Traggestell",   reihen: 1,  preis: 320,
-                   note: "eine Reihe mehr im Rucksack" },
-  gurtzeug:      { name: "Gurtzeug",      last: 8,    preis: 260,
-                   note: "+8 Traglast" },
-  packrahmen:    { name: "Packrahmen",    reihen: 1, last: 6, preis: 640,
-                   note: "eine Reihe mehr und +6 Traglast" },
-  zweitertornister: { name: "Zweiter Tornister", spalten: 1, reihen: 1, preis: 980,
-                   note: "eine Spalte und eine Reihe mehr im Rucksack" },
-  regalbrett:    { name: "Regalbrett",    lagerReihen: 2,  preis: 180,
-                   note: "zwei Reihen mehr im Lager" },
-  wandhaken:     { name: "Wandhaken",     lagerSpalten: 2, preis: 260,
-                   note: "zwei Spalten mehr im Lager" },
-  kellergewoelbe:{ name: "Kellergewölbe", lagerReihen: 4, lagerSpalten: 2, preis: 1400,
-                   note: "vier Reihen und zwei Spalten mehr im Lager" },
+  seitentaschen: { name: "Seitentaschen", reihen: 1, preis: 220,
+                   note: "fünf Plätze mehr im Rucksack" },
+  regalbrett:    { name: "Regalbrett",    lagerReihen: 1, preis: 180,
+                   note: "zehn Plätze mehr im Lager" },
+  wandhaken:     { name: "Wandhaken",     lagerReihen: 1, preis: 260,
+                   note: "zehn Plätze mehr im Lager" },
+  kellergewoelbe:{ name: "Kellergewölbe", lagerReihen: 2, preis: 1400,
+                   note: "zwanzig Plätze mehr im Lager" },
 };
 
 /* == Der Guertel =========================================================
@@ -5271,8 +5179,7 @@ const ERWEITERUNGEN = {
    suchen und anklicken. Nebenbei frassen fuenf Traenke fuenf Kacheln, die
    dann fuer Beute fehlten.
 
-   Der Guertel ist ein eigenes Band mit fuenf Plaetzen. Er belegt kein Raster,
-   liegt aber auf der Waage - sonst waere er heimlich mehr Tragkraft. Jeder
+   Der Guertel ist ein eigenes Band mit fuenf Plaetzen neben dem Rucksack. Jeder
    Platz haelt einen Stapel einer Sorte und hat die Ziffer, die auf ihm steht,
    als Taste. Was darin steckt, ueberlebt den Aufstieg wie das Angelegte und
    ist beim Tod verloren wie alles andere. */
@@ -5293,17 +5200,13 @@ function guertel(p) {
   return p.guertel;
 }
 
-function guertelGewicht(p) {
-  return guertel(p).reduce((a, e) => a + (e ? gewicht(e) : 0), 0);
-}
-
 /* Wohin ein Stueck im Guertel gehoert: zuerst auf einen angefangenen Stapel
    derselben Sorte, sonst auf den ersten freien Platz. */
 function guertelPlatzFuer(p, eintrag) {
   if (!istFlasche(eintrag.def)) return -1;
   const g = guertel(p);
   for (let i = 0; i < g.length; i++)
-    if (g[i] && g[i].id === eintrag.id && g[i].sel === eintrag.sel &&
+    if (g[i] && g[i].id === eintrag.id &&
         (g[i].menge || 1) < (g[i].def.stapel || 1)) return i;
   for (let i = 0; i < g.length; i++) if (!g[i]) return i;
   return -1;
@@ -5334,7 +5237,6 @@ function inDenGuertel(p, eintrag) {
   const i = p.bag.indexOf(eintrag);
   if (i >= 0) p.bag.splice(i, 1);
   eintrag.gx = eintrag.gy = null;
-  eintrag.dreh = false;
   g[nr] = eintrag;
   return true;
 }
@@ -5377,8 +5279,8 @@ function erweiterungsSumme(feld) {
 
 function raster() {
   return {
-    spalten: RASTER_SPALTEN + erweiterungsSumme("spalten"),
-    reihen: RASTER_REIHEN + skillRang("geraeumig") + erweiterungsSumme("reihen"),
+    spalten: RASTER_SPALTEN,
+    reihen: RASTER_REIHEN + erweiterungsSumme("reihen"),
   };
 }
 
@@ -5393,7 +5295,7 @@ const LAGER_REIHEN = 6;
 
 function lagerRaster() {
   return {
-    spalten: LAGER_SPALTEN + erweiterungsSumme("lagerSpalten"),
+    spalten: LAGER_SPALTEN,
     reihen: LAGER_REIHEN + erweiterungsSumme("lagerReihen"),
   };
 }
@@ -5434,35 +5336,12 @@ function lagerVoll() {
   return belegungIn(META.lager, spalten, reihen).every(Boolean);
 }
 
-const TRAGLAST_BASIS = 32;
-
-function traglast() {
-  return TRAGLAST_BASIS + skillRang("ruecken") * 4 + erweiterungsSumme("last");
-}
-
 /* Was im Raster liegt - Angelegtes sitzt am Koerper, nicht im Rucksack. */
 function imRucksack(p) {
   p = p || G.player;
   const an = Object.values(p.equipped);
   return p.bag.filter(e => an.indexOf(e) < 0);
 }
-
-/* Der Guertel belegt keine Kachel, liegt aber auf der Waage - sonst waere er
-   heimlich zusaetzliche Tragkraft und die Frage, was man mitnimmt, waere
-   fuer Flaschen abgeschafft. */
-function getragen(p) {
-  p = p || G.player;
-  return imRucksack(p).reduce((a, e) => a + gewicht(e), 0) + guertelGewicht(p);
-}
-
-/* Ab vier Fuenfteln der Traglast wird der Gang schwer. */
-function ueberladung(p) {
-  p = p || G.player;
-  const anteil = getragen(p) / traglast();
-  return Math.max(0, Math.min(1, (anteil - .8) / .2));
-}
-
-function lastTempo(p) { return 1 - .18 * ueberladung(p); }
 
 /* Der Zustand "Langsam" - die Klage des Ersten Trauernden legt ihn auf. Ohne
    diese Zeile war er nur ein Wort in der Anzeige und hat nichts getan. */
@@ -5471,78 +5350,49 @@ function klageTempo(p) {
 }
 
 /* == Platzsuche ==========================================================
-   Von oben links nach unten rechts, erste passende Luecke. Das reicht: wer
-   es ordentlich haben will, schiebt die Kacheln von Hand. */
-/* Die Rasterrechnung kennt keinen Rucksack mehr, nur noch eine Liste und
-   ein Mass - so rechnet dasselbe Stueck Code fuer Rucksack und Lager. */
+   Rucksack und Lager rechnen mit derselben Liste und demselben Mass. Jedes
+   Stueck liegt auf genau einem Platz (gx, gy). */
 function belegungIn(liste, spalten, reihen, ausser) {
   const feld = new Array(spalten * reihen).fill(null);
   for (const e of liste) {
     if (e === ausser || e.gx == null) continue;
-    const { w, h } = kachelMass(e);
-    for (let y = e.gy; y < e.gy + h; y++)
-      for (let x = e.gx; x < e.gx + w; x++)
-        if (x < spalten && y < reihen) feld[y * spalten + x] = e;
+    if (e.gx < spalten && e.gy < reihen) feld[e.gy * spalten + e.gx] = e;
   }
   return feld;
 }
 
 function passtIn(liste, spalten, reihen, eintrag, gx, gy, feld) {
-  const { w, h } = kachelMass(eintrag);
-  if (gx < 0 || gy < 0 || gx + w > spalten || gy + h > reihen) return false;
+  if (gx < 0 || gy < 0 || gx >= spalten || gy >= reihen) return false;
   feld = feld || belegungIn(liste, spalten, reihen, eintrag);
-  for (let y = gy; y < gy + h; y++)
-    for (let x = gx; x < gx + w; x++)
-      if (feld[y * spalten + x]) return false;
-  return true;
+  return !feld[gy * spalten + gx];
 }
 
-/* Sucht einen Platz und probiert dabei beide Lagen. Der Aufrufer bekommt
-   die Drehung mitgeliefert und muss sie mit uebernehmen - so bleibt der
-   Eintrag waehrend der Suche unberuehrt, wenn nichts passt. */
 function suchePlatzIn(liste, spalten, reihen, eintrag) {
-  const urspruenglich = !!eintrag.dreh;
-  const feld = belegungIn(liste, spalten, reihen, eintrag);
-  const lagen = drehbar(eintrag) ? [urspruenglich, !urspruenglich] : [urspruenglich];
-  try {
-    for (const dreh of lagen) {
-      eintrag.dreh = dreh;
-      const m = kachelMass(eintrag);
-      for (let y = 0; y <= reihen - m.h; y++)
-        for (let x = 0; x <= spalten - m.w; x++)
-          if (passtIn(liste, spalten, reihen, eintrag, x, y, feld))
-            return { gx: x, gy: y, dreh };
-    }
-    return null;
-  } finally { eintrag.dreh = urspruenglich; }
+  const i = belegungIn(liste, spalten, reihen, eintrag).indexOf(null);
+  return i < 0 ? null : { gx: i % spalten, gy: Math.floor(i / spalten) };
 }
 
-/* Legt einen gefundenen Platz an - Ort und Lage zusammen. */
 function setzeAuf(eintrag, platz) {
   eintrag.gx = platz.gx;
   eintrag.gy = platz.gy;
-  if (platz.dreh !== undefined) eintrag.dreh = platz.dreh;
   return eintrag;
 }
 
-/* Groesstes zuerst - sonst zerfranst jedes Raster nach ein paar Funden. */
+/* Aufraeumen sortiert nach Art, wie das Handbuch, und schliesst die Luecken.
+   Was nicht mehr hineinpasst, steht danach ohne Platz da. */
 function raeumeEinIn(liste, spalten, reihen) {
-  const sortiert = liste.slice().sort((a, b) => {
-    const ma = kachelMass(a), mb = kachelMass(b);
-    return (mb.w * mb.h) - (ma.w * ma.h) || mb.h - ma.h;
+  const arten = HANDBUCH_FAECHER.map(([art]) => art);
+  const rang = e => {
+    const i = arten.indexOf(vorlage(e).kind);
+    return i < 0 ? arten.length : i;
+  };
+  const sortiert = liste.slice().sort((a, b) => rang(a) - rang(b) ||
+    (vorlage(a).name || "").localeCompare(vorlage(b).name || ""));
+  sortiert.forEach((e, i) => {
+    if (i < spalten * reihen) setzeAuf(e, { gx: i % spalten, gy: Math.floor(i / spalten) });
+    else e.gx = e.gy = null;
   });
-  const vorher = sortiert.map(e => [e.gx, e.gy, e.dreh]);
-  for (const e of sortiert) { e.gx = e.gy = null; e.dreh = false; }
-  let alle = true;
-  for (const e of sortiert) {
-    const platz = suchePlatzIn(sortiert, spalten, reihen, e);
-    if (platz) setzeAuf(e, platz); else alle = false;
-  }
-  if (!alle && vorher.every(([x]) => x != null))
-    sortiert.forEach((e, i) => {
-      e.gx = vorher[i][0]; e.gy = vorher[i][1]; e.dreh = vorher[i][2];
-    });
-  return alle;
+  return sortiert.length <= spalten * reihen;
 }
 
 // Und die alten Namen, die auf den Rucksack zeigen
@@ -5573,7 +5423,7 @@ function guertelTausch(band, von, nach) {
   const a = band[von], b = band[nach];
   if (!a) return false;
   const stapel = vorlage(a).stapel || 1;
-  if (b && b.id === a.id && (b.sel || null) === (a.sel || null) &&
+  if (b && b.id === a.id &&
       mengeVon(b) < stapel) {
     const nimmt = Math.min(stapel - mengeVon(b), mengeVon(a));
     b.menge = mengeVon(b) + nimmt;
@@ -5597,28 +5447,24 @@ function stapelFuer(p, eintrag) {
   const stapel = eintrag.def && eintrag.def.stapel;
   if (!stapel) return null;
   for (const e of imRucksack(p))
-    if (e.id === eintrag.id && (e.sel || null) === (eintrag.sel || null) &&
+    if (e.id === eintrag.id &&
         e !== eintrag && mengeVon(e) < stapel) return e;
   return null;
 }
 
 /* Legt neu Aufgenommenes ab. Gibt zurueck, woran es scheitert - der Aufrufer
-   sagt es dann mit den richtigen Worten. */
+   sagt es dann mit den richtigen Worten. Gleiches wandert zuerst auf einen
+   angefangenen Stapel; was dann noch uebrig ist, steht in eintrag.menge. */
 function legeAb(p, eintrag) {
-  // Werkstoffe wandern zuerst auf einen angefangenen Stapel
   const stapel = stapelFuer(p, eintrag);
   if (stapel) {
     stapel.menge = mengeVon(stapel);
     eintrag.menge = mengeVon(eintrag);
-    const platz = stapel.def.stapel - stapel.menge;
-    const nimmt = Math.min(platz, eintrag.menge);
-    if (getragen(p) + gewicht({ id: eintrag.id, def: eintrag.def, menge: nimmt })
-        > traglast()) return "gewicht";
+    const nimmt = Math.min(stapel.def.stapel - stapel.menge, eintrag.menge);
     stapel.menge += nimmt;
     eintrag.menge -= nimmt;
     if (eintrag.menge <= 0) return null;
   }
-  if (getragen(p) + gewicht(eintrag) > traglast()) return "gewicht";
   const platz = suchePlatz(p, eintrag);
   if (!platz) return "platz";
   setzeAuf(eintrag, platz);
@@ -5626,25 +5472,23 @@ function legeAb(p, eintrag) {
   return null;
 }
 
-/* Passt es ueberhaupt noch, ohne es schon zu nehmen? */
 /* Beim Aufheben zaehlt der Guertel als zweite Tasche: eine Flasche, fuer die
-   im Raster keine Luecke mehr ist, findet dort noch einen Platz. Nicht in
-   legeAb selbst - sonst legte ausDemGuertel() die Flasche sofort wieder
-   zurueck an den Guertel, aus dem sie gerade kam. */
+   im Rucksack kein Platz mehr ist, findet dort noch einen. Nicht in legeAb
+   selbst - sonst legte ausDemGuertel() die Flasche sofort wieder zurueck an
+   den Guertel, aus dem sie gerade kam. */
 function nimmAuf(p, eintrag) {
   const hindernis = legeAb(p, eintrag);
   if (!hindernis) return null;
-  if (istFlasche(eintrag.def) &&
-      getragen(p) + gewicht(eintrag) <= traglast() &&
-      inDenGuertel(p, eintrag)) return null;
+  if (istFlasche(eintrag.def) && inDenGuertel(p, eintrag)) return null;
   return hindernis;
 }
 
 function nimmtNoch(p, eintrag) {
-  return getragen(p) + gewicht(eintrag) <= traglast() && !!suchePlatz(p, eintrag);
+  return !!suchePlatz(p, eintrag) || !!stapelFuer(p, eintrag) ||
+         (istFlasche(eintrag.def) && guertelPlatzFuer(p, eintrag) >= 0);
 }
 
-/* Nach dem Ablegen eines angelegten Stuecks braucht es wieder eine Kachel. */
+/* Nach dem Ablegen eines angelegten Stuecks braucht es wieder einen Platz. */
 function zurueckInsRaster(p, eintrag) {
   if (eintrag.gx != null && passtHin(p, eintrag, eintrag.gx, eintrag.gy)) return true;
   const platz = suchePlatz(p, eintrag);
@@ -5668,7 +5512,7 @@ function stapelZusammen(liste, vorlageVon) {
     if (!da || !da.stapel) continue;
     for (let j = liste.length - 1; j > i; j--) {
       const b = liste[j];
-      if (b.id !== a.id || (b.sel || null) !== (a.sel || null)) continue;
+      if (b.id !== a.id) continue;
       const platz = da.stapel - mengeVon(a);
       if (platz <= 0) break;
       const nimmt = Math.min(platz, mengeVon(b));
@@ -5696,95 +5540,42 @@ const LEGENDEN = ["schattenzahn", "aschebringer", "koenigsmoerder", "nachtmantel
                   "bollwerk", "bergherz", "namenlosauge", "ewiglicht"];
 
 /* == Seltenheit ==========================================================
-   Vier Stufen fuer alles, was man anlegen kann, plus die acht Legendaeren,
-   die ihre eigene Stufe bilden. Die Stufe ist die sichtbare Ordnung: sie
-   faerbt den Namen, hebt die Werte und vervielfacht den Preis. Affixe bleiben
-   das Beiwerk - sie kommen erst ab Fein vor und werden nach oben haeufiger.
-
-   In der Tiefe verschieben sich die Gewichte nach oben. Auf Etage 1 ist fast
-   alles gewoehnlich, ganz unten faellt regelmaessig Episches. */
-/* Die Stufen lagen zu dicht beieinander: zwischen "fein" und "selten" waren
-   fuenfundzwanzig Prozent auf einer Zahl, die ohnehin meist einstellig ist -
-   aus Angriff 7 wurde 8 statt 9, und "episch" fuehlte sich an wie
-   gewoehnlich. Jetzt sind die Abstaende gross genug, um sie zu sehen, und die
-   oberen Stufen sind seltener. */
+   Jedes Stueck hat seine feste Stufe. Sie sagt, wie selten es faellt, und
+   faerbt den Namen - die Werte gehoeren dem Stueck selbst. */
 const SELTEN = [
-  { key: "gewoehnlich", name: "Gewöhnlich", farbe: "#9BA4B4",
-    mult: 1.00, wert: 1.0, affix: 0,   gewicht: 100 },
-  { key: "fein",        name: "Fein",       farbe: "#7FC08A",
-    mult: 1.28, wert: 2.2, affix: .45, gewicht: 30 },
-  { key: "selten",      name: "Selten",     farbe: "#6E9ED8",
-    mult: 1.70, wert: 5.0, affix: 1,   gewicht: 6 },
-  { key: "episch",      name: "Episch",     farbe: "#B47ADE",
-    mult: 2.35, wert: 13.0, affix: 1,  gewicht: 1.0, zweiterAffix: true },
-  { key: "legendaer",   name: "Legendär",   farbe: "#E8A94B",
-    mult: 1.00, wert: 1.0, affix: 0,   gewicht: 0 },
+  { key: "gewoehnlich", name: "Gewöhnlich", farbe: "#9BA4B4", wert: 1.0 },
+  { key: "fein",        name: "Fein",       farbe: "#7FC08A", wert: 1.3 },
+  { key: "selten",      name: "Selten",     farbe: "#6E9ED8", wert: 1.8 },
+  { key: "episch",      name: "Episch",     farbe: "#B47ADE", wert: 2.6 },
+  { key: "legendaer",   name: "Legendär",   farbe: "#E8A94B", wert: 1.0 },
 ];
 
 const SELTEN_VON = Object.fromEntries(SELTEN.map(r => [r.key, r]));
 const SELTEN_RANG = Object.fromEntries(SELTEN.map((r, i) => [r.key, i]));
 
-/* Je tiefer, desto weiter rutschen die Gewichte nach oben. Der Faktor ist so
-   gewaehlt, dass Episches auf Etage 1 praktisch nie und ganz unten regelmaessig
-   faellt - nachgemessen, nicht geraten. */
-function seltenGewichte(floor, glueck) {
-  // Flacher als vorher: auf Etage 13 war sonst jedes zehnte Stueck episch
-  const schub = 1 + (floor | 0) * .07 + (glueck || 0);
-  return SELTEN.filter(r => r.gewicht > 0)
-    .map((r, i) => [r.key, r.gewicht * Math.pow(schub, i)]);
+// Die Legendaeren tragen ihre Stufe selbst (legendaer: true)
+const STUFEN_ZUORDNUNG = {
+  gewoehnlich:  ["dagger", "leather", "modWall"],
+  fein:         ["sword", "spiess", "chain", "reisemantel", "guard", "modSchatten",
+                "modLanze"],
+  selten:       ["axe", "kolben", "meuchelklinge", "aderlass", "schuppen", "pilgermantel",
+                "vitality", "wrath", "modSplitter", "modDonner", "modStille"],
+  episch:       ["runeblade", "hellebarde", "richtschwert", "morgenstern", "plate",
+                "dornenpanzer", "totenwacht", "bleiharnisch", "modZoll", "modZehr",
+                "grabklinge", "totenaxt", "knochenhemd", "salzpanzer", "grabmal"],
+};
+for (const [stufe, ids] of Object.entries(STUFEN_ZUORDNUNG))
+  for (const id of ids) ITEMS[id].seltenheit = stufe;
+
+/* Zu jedem Stueck gibt es einen Bauplan. Er traegt dessen Stufe und wird
+   gelernt, wenn man ihn lebend hinaufbringt. */
+for (const id of Object.keys(ITEMS)) {
+  const d = ITEMS[id];
+  if (!d.slot || (!d.seltenheit && !d.legendaer)) continue;
+  ITEMS["plan_" + id] = { name: `Bauplan: ${d.name}`, kind: "bauplan", plan: id, tint: d.tint,
+                          note: "wird gelernt, wenn du ihn lebend hinaufbringst" };
 }
 
-function rollSeltenheit(floor, glueck) {
-  return weighted(seltenGewichte(floor, glueck));
-}
-
-/* Wie sich eine Stufe auf die Werte legt. Rundet grosszuegig nach oben, damit
-   ein feines Kurzschwert wirklich besser ist und nicht nur anders heisst. */
-function wendeSeltenAn(def, key) {
-  const r = SELTEN_VON[key];
-  if (!r || r.mult === 1) return def;
-  const d = Object.assign({}, def);
-  if (d.atk)   d.atk   = Math.max(d.atk + 1, Math.round(d.atk * r.mult));
-  if (d.def)   d.def   = Math.max(d.def + 1, Math.round(d.def * r.mult));
-  if (d.maxhp) d.maxhp = Math.round(d.maxhp * r.mult);
-  if (d.crit)  d.crit  = +(d.crit * r.mult).toFixed(3);
-  if (d.evade) d.evade = +(d.evade * r.mult).toFixed(3);
-  /* Ein Modul hat keinen Angriff, den die Stufe heben koennte. Bei ihm hebt
-     sie, was es hat: die Wucht seiner Faehigkeit und die Wartezeit dazwischen.
-     Die Wartezeit sinkt langsamer als die Wucht steigt - sonst waere ein
-     episches Modul nicht besser, sondern ein anderes Spiel. */
-  /* Eigenheiten heben mit. Sonst waere ein episches Richtschwert nur ein
-     schwereres: der Angriff stiege, der Zuschlag fuer den unversehrten Hieb
-     bliebe stehen - und genau der ist der Grund, es zu tragen. */
-  /* Gedaempft, und zwar aus demselben Grund wie bei der Wartezeit eines
-     Moduls: diese Felder liegen auf einem Angriff, der schon gestiegen ist,
-     oder erneuern sich mit jedem Hieb. Der volle Faktor wirkt dort zweimal.
-     Gemessen: ein episches Richtschwert schlug sonst zweieinhalbmal so
-     hart wie ein gewoehnliches, und ein Aderlass setzte sieben Blutung je
-     Runde neben siebzehn Angriff. Die Wucht bleibt ungedaempft - sie ist
-     Weg und Betaeubung, kein Schaden, und begrenzt sich an der naechsten
-     Wand von selbst. */
-  const sanft = 1 + (r.mult - 1) * .55;
-  for (const feld of ["vollHieb", "meuchel"])
-    if (d[feld]) d[feld] = +(d[feld] * sanft).toFixed(3);
-  for (const feld of ["bluten", "dornen"])
-    if (d[feld]) d[feld] = Math.max(d[feld] + 1, Math.round(d[feld] * sanft));
-  /* Wucht und Notschutz steigen ueberhaupt nicht mit - wie Reichweite, Tempo
-     und Oel, die das seit jeher nicht tun. Nachgemessen, warum: ein Schlag
-     kommt alle 0,43 Sekunden, ein Wesen laeuft 3,4 Kacheln je Sekunde. Eine
-     epische Wucht haette 2,6 Kacheln geschoben und 1,2 Sekunden betaeubt -
-     der Getroffene waere nie wieder herangekommen und nie wieder zum Schlag.
-     Und ein epischer Notschutz von sechzehn haette am Rand des Todes mehr
-     gedeckt als ein Bollwerk. Beide Groessen messen sich am Takt des
-     Kampfes, nicht an der Stufe des Stuecks. */
-  if (d.kraft) {
-    d.kraft = +(d.kraft * r.mult).toFixed(2);
-    d.cdAb = +(1 - 1 / (1 + (r.mult - 1) * .55)).toFixed(3);
-  }
-  return d;
-}
-
-/* Die Stufe eines fertigen Stuecks - Legendaere tragen sie fest. */
 /* Die Vorlage eines Eintrags - gebaute Stuecke tragen sie selbst, blosse
    Lagerdatensaetze nur ihre Kennung. */
 function vorlage(e) {
@@ -5793,124 +5584,27 @@ function vorlage(e) {
 
 function seltenheitVon(e) {
   if (!e) return "gewoehnlich";
-  if (vorlage(e).legendaer) return "legendaer";
-  return e.sel || "gewoehnlich";
+  const d = vorlage(e);
+  const ziel = d.plan ? (ITEMS[d.plan] || d) : d;
+  return ziel.legendaer ? "legendaer" : (ziel.seltenheit || "gewoehnlich");
 }
 
 function seltenFarbe(e) { return SELTEN_VON[seltenheitVon(e)].farbe; }
 function seltenName(e) { return SELTEN_VON[seltenheitVon(e)].name; }
 
-/* Affixe. Nachgestellte sind Genitivfügungen und passen zu jedem Geschlecht;
-   vorangestellte sind Adjektive und müssen gebeugt werden. */
+// Beugung vorangestellter Beiwoerter - die Wesen-Affixe brauchen sie
 const ADJ_ENDING = { m: "er", f: "e", n: "es" };
 
-const AFFIXES = [
-  { key: "wacht",   pos: "suffix", text: "der Wacht",     def: 2,             weight: 11 },
-  { key: "zorn",    pos: "suffix", text: "des Zorns",     atk: 2,             weight: 11 },
-  { key: "leben",   pos: "suffix", text: "des Lebens",    maxhp: 12,          weight: 10 },
-  { key: "haert",   pos: "prefix", text: "gehärtet",      def: 1, maxhp: 6,   weight: 9 },
-  { key: "schliff", pos: "prefix", text: "geschliffen",   atk: 2,             weight: 9 },
-  { key: "leicht",  pos: "prefix", text: "leicht",        atk: 3, def: -1,    weight: 7 },
-  { key: "schwer",  pos: "prefix", text: "schwer",        def: 3, atk: -1,    weight: 7 },
-  { key: "zeichen", pos: "prefix", text: "gezeichnet",    atk: 4, maxhp: -10, weight: 5,
-    tint: "#C06CD8" },
-  { key: "tiefe",   pos: "suffix", text: "der Tiefe",     atk: 3, def: 2,     weight: 3, minFloor: 6,
-    tint: "#8FC8F0" },
-  { key: "asche",   pos: "suffix", text: "aus Asche",     atk: 5, def: 2, maxhp: -14, weight: 3,
-    minFloor: 7, tint: "#E8703A" },
-];
-
-const AFFIX_BY_KEY = Object.fromEntries(AFFIXES.map(a => [a.key, a]));
-
-/* Baut eine Gegenstands-Instanz. Ohne Affix teilen sich alle dieselbe Vorlage,
-   mit Affix bekommt jedes Stück seine eigene. */
 /* Ein Name, den es nicht mehr gibt - aus einem alten Spielstand oder einer
-   alten Kiste. Frueher warf das hier, und weil jedes Fenster mit Kacheln
-   ueber buildItem geht, ging dann das ganze Fenster nicht mehr auf. Lieber
-   ein leeres Buendel, das man verkaufen kann. */
+   alten Kiste. Lieber ein leeres Buendel, das man verkaufen kann. */
 const VERSCHOLLEN = { name: "Verwittertes Bündel", g: "n", kind: "relic",
                       tint: "#8A8272", note: "Was einmal darin lag, ist dahin." };
 
-function buildItem(id, affixKey, sel, affixKey2) {
+function buildItem(id) {
   const base = ITEMS[id] || VERSCHOLLEN;
-  const a = affixKey ? AFFIX_BY_KEY[affixKey] : null;
-  const a2 = affixKey2 && affixKey2 !== affixKey ? AFFIX_BY_KEY[affixKey2] : null;
-  // Legendaere tragen ihren Namen und ihre Werte selbst - da kommt nichts dran
-  if (base.legendaer) return { id, def: base };
-  if (!base.slot) {
-    /* Was sich stapeln laesst, fuehrt eine Menge mit. Das galt bisher nur
-       fuer Werkstoff; seit Traenke ein Stapelmass haben, gilt es auch fuer
-       sie - sonst lagen zwoelf Heiltraenke auf zwoelf Kacheln. */
-    const e = { id, def: base };
-    if (base.stapel) e.menge = 1;
-    return e;
-  }
-  const stufe = sel && SELTEN_VON[sel] ? sel : "gewoehnlich";
-  // Module tragen ihre Stufe wie alles andere - sie wirkt nur woanders
-  if (base.kind === "modul") return { id, def: wendeSeltenAn(base, stufe), sel: stufe };
-  if (!a && stufe === "gewoehnlich") return { id, def: base, sel: stufe };
-
-  let def = Object.assign({}, base);
-  if (a) {
-    def.atk = (base.atk || 0) + (a.atk || 0);
-    def.def = (base.def || 0) + (a.def || 0);
-    def.maxhp = (base.maxhp || 0) + (a.maxhp || 0);
-    def.name = a.pos === "prefix"
-      ? `${a.text}${ADJ_ENDING[base.g] || "es"} ${base.name}`
-      : `${base.name} ${a.text}`;
-    def.affix = a.key;
-  }
-  /* Der zweite Affix legt sich obendrauf. Ein Praefix kommt vor den Namen,
-     ein Suffix dahinter - so bleibt "Geschliffene Kriegsaxt des Zorns"
-     lesbar, statt zwei Beiwoerter auf derselben Seite zu stapeln. */
-  if (a2) {
-    def.atk = (def.atk || 0) + (a2.atk || 0);
-    def.def = (def.def || 0) + (a2.def || 0);
-    def.maxhp = (def.maxhp || 0) + (a2.maxhp || 0);
-    def.name = a2.pos === "prefix"
-      ? `${a2.text}${ADJ_ENDING[base.g] || "es"} ${def.name}`
-      : `${def.name} ${a2.text}`;
-    def.affix2 = a2.key;
-  }
-  // Die Stufe legt sich zuletzt darauf, damit sie auch den Affix hebt
-  def = wendeSeltenAn(def, stufe);
-  return { id, def, ax: a ? a.key : null, ax2: a2 ? a2.key : null, sel: stufe };
-}
-
-// Wie oft ein Fund verzaubert ist, steigt mit der Tiefe.
-// boost === true erzwingt einen Affix (Elitebeute, Auftragslohn),
-// eine Zahl erhöht nur die Chance (Schatzkammern).
-function rollItem(id, floor, boost) {
-  const base = ITEMS[id];
-  if (base.legendaer || !base.slot) return buildItem(id, null, null);
-
-  const glueck = ((G.player && G.player.lootLuck) || 0) +
-                 (G.player && G.player.equipped ? equipBonus("lootLuck") : 0) +
-                 (typeof boost === "number" ? boost : 0);
-  // boost === true (Elitebeute, Auftragslohn) hebt die Stufe um einen Rang
-  let sel = rollSeltenheit(floor, glueck);
-  /* Module wuerfeln ihre Stufe mit, aber nie einen Affix: sie haben keine
-     Werte, an denen einer haengen koennte. */
-  if (base.kind === "modul") return buildItem(id, null, sel);
-  if (boost === true) {
-    const naechste = SELTEN[Math.min(3, SELTEN_RANG[sel] + 1)];
-    sel = naechste.key;
-  }
-
-  // Der Affix haengt jetzt an der Stufe, nicht mehr allein an der Tiefe
-  const r = SELTEN_VON[sel];
-  const avoid = base.avoid || [];
-  const pool = AFFIXES.filter(a => (a.minFloor || 1) <= floor && !avoid.includes(a.key));
-  let ax = null, ax2 = null;
-  if (r.affix > 0 && rng() < r.affix && pool.length)
-    ax = weighted(pool.map(a => [a.key, a.weight]));
-  /* Episches traegt zwei. Das ist der Unterschied, den man auf der Kachel
-     sofort sieht - zwei Beinamen statt einem, und die Zahlen dazu. */
-  if (r.zweiterAffix && ax) {
-    const rest = pool.filter(a => a.key !== ax);
-    if (rest.length) ax2 = weighted(rest.map(a => [a.key, a.weight]));
-  }
-  return buildItem(id, ax, sel, ax2);
+  const e = { id, def: base };
+  if (base.stapel) e.menge = 1;
+  return e;
 }
 
 const MONSTER_TABLE = {
@@ -6021,16 +5715,13 @@ const TOTENSTADT_MAX_MONSTER = [[1, 2], [3, 3], [6, 4], [8, 5]];
 const TOTENSTADT_ELITES = {
   4: { base: "klageweib", name: "Die Leichenwäscherin", epithet: "die nie fertig wird",
        power: "waschen", hp: 420, atk: 14, def: 4, xp: 560, size: 1.34,
-       body: "#7E8AA6", dark: "#2A3040", eye: "#DCE8FF", glow: "#8E9CBE",
-       drop: "grabmal" },
+       body: "#7E8AA6", dark: "#2A3040", eye: "#DCE8FF", glow: "#8E9CBE" },
   7: { base: "grabwache", name: "Der Knochenvogt", epithet: "zählt die Gräber",
        power: "vogt", hp: 880, atk: 19, def: 9, xp: 1050, size: 1.46,
-       body: "#B0A88C", dark: "#464234", eye: "#D8E8A0", glow: "#C0D090",
-       drop: "knochenhemd" },
+       body: "#B0A88C", dark: "#464234", eye: "#D8E8A0", glow: "#C0D090" },
   9: { base: "leichnam", name: "Der Erste Trauernde", epithet: "seit dem ersten Grab",
        power: "trauer", hp: 980, atk: 21, def: 7, xp: 1400, size: 1.48,
-       body: "#8E9878", dark: "#343A28", eye: "#E8F4C8", glow: "#B8C898",
-       drop: "salzpanzer" },
+       body: "#8E9878", dark: "#343A28", eye: "#E8F4C8", glow: "#B8C898" },
 };
 
 /* Auftraege der Totenstadt. Dieselbe Form wie im Schloss: erschlagen,
@@ -6043,17 +5734,17 @@ const TOTENSTADT_QUESTS = {
        desc: "Erschlage 3 Leichname.",
        reward: { xp: 180, items: ["bigoil"] } },
   4: { type: "elite", title: "Die Leichenwäscherin",
-       desc: "Stelle die Leichenwäscherin.", reward: { xp: 520, gear: "chain" } },
+       desc: "Stelle die Leichenwäscherin.", reward: { xp: 520, stoffe: { stoff: 2 } } },
   5: { type: "slay", target: "knochen", count: 4, title: "Zerstreuung",
        desc: "Zerschlage 4 Knochenschwärme.",
        reward: { xp: 320, items: ["greatPotion"] } },
   7: { type: "elite", title: "Der Knochenvogt",
-       desc: "Stelle den Knochenvogt.", reward: { xp: 900, gear: "salzpanzer" } },
+       desc: "Stelle den Knochenvogt.", reward: { xp: 900, stoffe: { grabsalz: 1 } } },
   8: { type: "slay", target: "klageweib", count: 3, title: "Stille die Klage",
        desc: "Erschlage 3 Klageweiber.",
        reward: { xp: 620, items: ["greatPotion", "bigoil"] } },
   9: { type: "elite", title: "Der Erste Trauernde",
-       desc: "Stelle den Ersten Trauernden.", reward: { xp: 1200, gear: "grabklinge" } },
+       desc: "Stelle den Ersten Trauernden.", reward: { xp: 1200, stoffe: { eisen: 2, grabsalz: 1 } } },
   10: { type: "boss", title: "Der Totengräber",
         desc: "Er hebt aus, was aufsteht. Beende es.", reward: { xp: 2600 } },
 };
@@ -6120,13 +5811,13 @@ const MOORFESTE_MAX_MONSTER = [[1, 2], [4, 3], [7, 3], [9, 4]];
 const MOORFESTE_ELITES = {
   3: { base: "troll", name: "Der Wurzelgreifer", epithet: "wurzelt, wo er steht",
        power: "wurzel", hp: 340, atk: 12, def: 4, xp: 480, size: 1.32,
-       body: "#5A4A28", dark: "#2A2010", eye: "#C8A84E", glow: "#8A6E30", drop: "spiess" },
+       body: "#5A4A28", dark: "#2A2010", eye: "#C8A84E", glow: "#8A6E30" },
   6: { base: "wraith", name: "Der Sogwächter", epithet: "zieht dich zu sich",
        power: "sog", hp: 640, atk: 15, def: 6, xp: 780, size: 1.40,
-       body: "#2E4A5C", dark: "#12222C", eye: "#7FE0D8", glow: "#4AA8A0", drop: "guard" },
+       body: "#2E4A5C", dark: "#12222C", eye: "#7FE0D8", glow: "#4AA8A0" },
   9: { base: "gebein", name: "Der Turmschütze", epithet: "sieht dich zuerst",
        power: "weitschuss", hp: 850, atk: 18, def: 8, xp: 1250, size: 1.38,
-       body: "#C8CCD0", dark: "#6A7078", eye: "#FFD880", glow: "#E8C060", drop: "hellebarde" },
+       body: "#C8CCD0", dark: "#6A7078", eye: "#FFD880", glow: "#E8C060" },
 };
 
 /* Ein Auftrag je Namentlichem, plus der Boss - dieselbe Form wie im
@@ -6134,11 +5825,11 @@ const MOORFESTE_ELITES = {
    erfundenes Sammelziel nur um die Luecke zu fuellen. */
 const MOORFESTE_QUESTS = {
   3: { type: "elite", title: "Der Wurzelgreifer",
-       desc: "Stelle den Wurzelgreifer.", reward: { xp: 420, gear: "spiess" } },
+       desc: "Stelle den Wurzelgreifer.", reward: { xp: 420, stoffe: { holz: 2 } } },
   6: { type: "elite", title: "Der Sogwächter",
-       desc: "Stelle den Sogwächter.", reward: { xp: 700, gear: "guard" } },
+       desc: "Stelle den Sogwächter.", reward: { xp: 700, stoffe: { leder: 2 } } },
   9: { type: "elite", title: "Der Turmschütze",
-       desc: "Stelle den Turmschützen.", reward: { xp: 1100, gear: "hellebarde" } },
+       desc: "Stelle den Turmschützen.", reward: { xp: 1100, stoffe: { sturmfeder: 1 } } },
   10: { type: "boss", title: "Die Sturmrufer",
         desc: "Sie ruft den Sturm. Beende ihn.", reward: { xp: 0 } },
 };
@@ -6201,6 +5892,9 @@ const RAEUBER_TIEFE = {
 /* Wie viele. Auf Etage eins keiner - dort hat man selbst noch nichts, mit
    dem man sich gegen einen wehren koennte. */
 const RAEUBER_ZAHL = [[1, 0], [2, 1], [5, 2], [9, 3]];
+/* Vorerst erscheinen keine. Ihr Verhalten bleibt vollstaendig im Code -
+   der Schalter holt sie zurueck. */
+const RAEUBER_AN = false;
 
 // Woraus ihr Geraet gezogen wird - dieselben Stuecke, die auch du findest.
 const RAEUBER_WAFFEN = [
@@ -6260,16 +5954,16 @@ const MAFF_BY_KEY = Object.fromEntries(MONSTER_AFFIXES.map(a => [a.key, a]));
 const ELITES = {
   3: { base: "orc", name: "Grimmzahn", epithet: "der Rudelführer", power: "sturm",
        hp: 290, atk: 11, def: 3, xp: 420, size: 1.34,
-       body: "#96742E", dark: "#43330F", eye: "#FFE07A", glow: "#D8A83A", drop: "sword" },
+       body: "#96742E", dark: "#43330F", eye: "#FFE07A", glow: "#D8A83A" },
   5: { base: "cultist", name: "Mutter der Brut", epithet: "Wirtin der Schatten", power: "brut",
        hp: 500, atk: 14, def: 4, xp: 620, size: 1.36,
-       body: "#7A3C9E", dark: "#2E1546", eye: "#E4B4FF", glow: "#9A5ECC", drop: "chain" },
+       body: "#7A3C9E", dark: "#2E1546", eye: "#E4B4FF", glow: "#9A5ECC" },
   7: { base: "golem", name: "Der Steinerne Wächter", epithet: "Hüter der Schwelle", power: "waechter",
        hp: 760, atk: 16, def: 8, xp: 900, size: 1.44,
-       body: "#93A0B0", dark: "#3C4552", eye: "#9AE0FF", glow: "#7ABEE8", drop: "axe" },
+       body: "#93A0B0", dark: "#3C4552", eye: "#9AE0FF", glow: "#7ABEE8" },
   9: { base: "wraith", name: "Der Bleiche Chor", epithet: "vielstimmig", power: "chor",
        hp: 820, atk: 17, def: 6, xp: 1150, size: 1.42,
-       body: "#D2DEEA", dark: "#4A5A6E", eye: "#FFFFFF", glow: "#C8DCF0", drop: "plate" },
+       body: "#D2DEEA", dark: "#4A5A6E", eye: "#FFFFFF", glow: "#C8DCF0" },
 };
 
 /* Ein Auftrag je Etage. Er gibt dem Abstieg ein Ziel jenseits der Treppe. */
@@ -6281,22 +5975,22 @@ const QUESTS = {
        desc: "Finde, was ein Vorgänger hier zurückließ.",
        reward: { xp: 70, items: ["wurfmesser", "oil"] } },
   3: { type: "elite", title: "Grimmzahn", desc: "Erschlage Grimmzahn, den Rudelführer.",
-       reward: { xp: 110, gear: "sword", items: ["might"] } },
+       reward: { xp: 110, stoffe: { eisen: 2 }, items: ["might"] } },
   4: { type: "slay", target: "archer", count: 3, title: "Stille die Schützen",
        desc: "Zerschlage 3 Skelettschützen.",
        reward: { xp: 130, items: ["wurfoel", "oil"] } },
   5: { type: "elite", title: "Mutter der Brut", desc: "Beende die Brut an ihrer Wurzel.",
-       reward: { xp: 180, gear: "chain", items: ["greatPotion"] } },
+       reward: { xp: 180, stoffe: { stoff: 2 }, items: ["greatPotion"] } },
   6: { type: "collect", title: "Das Siegel der Tiefe", relic: "Siegel der Tiefe",
        desc: "Ein Siegel liegt auf dieser Etage. Hol es dir.",
-       reward: { xp: 210, gear: "guard", items: ["bigoil"] } },
+       reward: { xp: 210, stoffe: { leder: 2 }, items: ["bigoil"] } },
   7: { type: "elite", title: "Der Steinerne Wächter", desc: "Zerlege den Hüter der Schwelle.",
-       reward: { xp: 260, gear: "axe", items: ["regen"] } },
+       reward: { xp: 260, stoffe: { eisen: 2, holz: 1 }, items: ["regen"] } },
   8: { type: "slay", target: "wraith", count: 3, title: "Grabruhe",
        desc: "Lege 3 Grabwichte zurück in ihre Ruhe.",
        reward: { xp: 300, items: ["greatPotion", "bigoil"] } },
   9: { type: "elite", title: "Der Bleiche Chor", desc: "Bringe den Chor zum Schweigen.",
-       reward: { xp: 380, gear: "runeblade", items: ["greatPotion"] } },
+       reward: { xp: 380, stoffe: { runenstaub: 1 }, items: ["greatPotion"] } },
   10: { type: "boss", title: "Der Namenlose", desc: "Beende den Abstieg.", reward: { xp: 0 } },
 };
 
@@ -6364,17 +6058,8 @@ function faehigkeitVon(p) {
   return m && m.def.faehig ? m.def.faehig : null;
 }
 
-/* Wie stark das angelegte Modul ist und wie lange es braucht. Bei einem
-   gewoehnlichen ist beides eins - die Stufe hebt es von dort aus. */
-function modulKraft(p) {
-  const m = p && p.equipped && p.equipped["Modul"];
-  return (m && m.def.kraft) || 1;
-}
-
 function abklingzeit(p, ab) {
-  const m = p && p.equipped && p.equipped["Modul"];
-  const ab_ = (m && m.def.cdAb) || 0;
-  return ab.cd * (1 - ab_) * (p.abilityHaste || 1);
+  return ab.cd * (p.abilityHaste || 1);
 }
 
 /* Die Passivfaehigkeit gehoert zur Klasse, nicht zur aktiven Faehigkeit.
@@ -6435,54 +6120,91 @@ function mengenNachtragen(liste) {
   return liste;
 }
 
-function ladeMetaAus(roh) {
-  const leer = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
-                 mitnahme: [], anlegen: {}, guertel: Array(GUERTEL_PLAETZE).fill(null),
-                 gesehen: [], stufe: 1, xp: 0, punkte: 0,
-                 skills: {}, erweiterungen: [] };
-  {
-    if (roh && typeof roh === "object") {
-      return {
-        muenzen: roh.muenzen | 0,
-        lager: mengenNachtragen(nurBekanntes(roh.lager)),
-        umsatz: roh.umsatz | 0,
-        laeufe: roh.laeufe | 0,
-        beste: roh.beste | 0,
-        siege: roh.siege | 0,
-        gesehen: Array.isArray(roh.gesehen) ? roh.gesehen : [],
-        stufe: Math.max(1, roh.stufe | 0),
-        xp: roh.xp | 0,
-        punkte: roh.punkte | 0,
-        skills: (roh.skills && typeof roh.skills === "object") ? roh.skills : {},
-        erweiterungen: Array.isArray(roh.erweiterungen) ? roh.erweiterungen : [],
-        mitnahme: mengenNachtragen(nurBekanntes(roh.mitnahme)),
-        anlegen: (() => {
-          const a = {}, roh_a = roh.anlegen;
-          if (roh_a && typeof roh_a === "object")
-            for (const slot of Object.keys(roh_a)) {
-              const b = roh_a[slot];
-              if (b && (b.q || ITEMS[b.id])) a[slot] = b;
-            }
-          return a;
-        })(),
-        // Aeltere Spielstaende kennen den Guertel noch nicht
-        guertel: Array.from({ length: GUERTEL_PLAETZE }, (_, i) => {
-          const b = Array.isArray(roh.guertel) ? roh.guertel[i] : null;
-          return (b && (b.q || ITEMS[b.id])) ? b : null;
-        }),
-      };
-    }
+/* Fassung 2: Rucksack und Lager in Plaetzen. Aeltere Staende beginnen mit
+   Lager, Muenzen, Haendlern und Ausbauten neu; alles andere bleibt. */
+const META_FASSUNG = 2;
+
+/* Talente, die es nicht mehr gibt oder die kleiner geworden sind, geben
+   ihre Punkte zurueck. */
+function skillsNachStand(skills, punkte) {
+  const raus = {};
+  let zurueck = 0;
+  for (const [key, wert] of Object.entries(skills && typeof skills === "object" ? skills : {})) {
+    const rang = wert | 0;
+    const t = SKILL_VON[key];
+    const behalten = t ? Math.max(0, Math.min(rang, t.max)) : 0;
+    if (behalten > 0) raus[key] = behalten;
+    zurueck += Math.max(0, rang - behalten) * SKILL_KOSTEN;
   }
-  return leer;
+  return { skills: raus, punkte: (punkte | 0) + zurueck };
+}
+
+/* Was hier nicht uebernommen wird, ist nach dem naechsten Laden weg. */
+function ladeMetaAus(roh) {
+  const leer = { fassung: META_FASSUNG, muenzen: 180, lager: [], umsatz: 0,
+                 laeufe: 0, beste: 0, siege: 0,
+                 mitnahme: [], anlegen: {}, guertel: Array(GUERTEL_PLAETZE).fill(null),
+                 gesehen: [], bezwungen: [], kennt: [], stufe: 1, xp: 0, punkte: 0,
+                 skills: {}, erweiterungen: [], plaene: [], werkbaenke: {} };
+  if (!roh || typeof roh !== "object") return leer;
+  const liste = x => (Array.isArray(x) ? x : []);
+  const talente = skillsNachStand(roh.skills, roh.punkte);
+  const bleibt = {
+    laeufe: roh.laeufe | 0,
+    beste: roh.beste | 0,
+    siege: roh.siege | 0,
+    gesehen: liste(roh.gesehen),
+    bezwungen: liste(roh.bezwungen),
+    kennt: liste(roh.kennt),
+    plaene: liste(roh.plaene).filter(id => ITEMS[id] && ITEMS[id].slot),
+    stufe: Math.max(1, roh.stufe | 0),
+    xp: roh.xp | 0,
+    punkte: talente.punkte,
+    skills: talente.skills,
+  };
+  if (roh.admin) bleibt.admin = true;
+  if ((roh.fassung | 0) < META_FASSUNG) return Object.assign(leer, bleibt);
+
+  const m = Object.assign(leer, bleibt, {
+    muenzen: roh.muenzen | 0,
+    lager: mengenNachtragen(nurBekanntes(roh.lager)),
+    umsatz: roh.umsatz | 0,
+    erweiterungen: liste(roh.erweiterungen),
+    // Werkbankstufen II und III; was fehlt, steht auf I
+    werkbaenke: (() => {
+      const w = {}, r = roh.werkbaenke;
+      if (r && typeof r === "object")
+        for (const k of Object.keys(r)) if ((r[k] | 0) > 1) w[k] = Math.min(3, r[k] | 0);
+      return w;
+    })(),
+    mitnahme: mengenNachtragen(nurBekanntes(roh.mitnahme)),
+    anlegen: (() => {
+      const a = {}, roh_a = roh.anlegen;
+      if (roh_a && typeof roh_a === "object")
+        for (const slot of Object.keys(roh_a)) {
+          const b = roh_a[slot];
+          if (b && (b.q || ITEMS[b.id])) a[slot] = b;
+        }
+      return a;
+    })(),
+    guertel: Array.from({ length: GUERTEL_PLAETZE }, (_, i) => {
+      const b = Array.isArray(roh.guertel) ? roh.guertel[i] : null;
+      return (b && (b.q || ITEMS[b.id])) ? b : null;
+    }),
+  });
+  // Aufwerten geht nur noch bis III - hoehere Stufen alter Staende werden gekappt
+  for (const b of [...m.lager, ...m.mitnahme, ...Object.values(m.anlegen), ...m.guertel])
+    if (b && b.stufe > 3) b.stufe = 3;
+  if (roh.umsaetze && typeof roh.umsaetze === "object") m.umsaetze = roh.umsaetze;
+  if (roh.laeden && typeof roh.laeden === "object") m.laeden = roh.laeden;
+  return m;
 }
 
 function speichereMeta(m) {
   try { localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) {}
 }
 
-let META = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
-             mitnahme: [], anlegen: {}, gesehen: [], stufe: 1, xp: 0, punkte: 0,
-             skills: {}, erweiterungen: [] };
+let META = ladeMetaAus(null);
 
 /* == Der Handel ==========================================================
    Wer stirbt, verliert alles - was er mitnahm und was er fand. Gesichert ist
@@ -6512,7 +6234,7 @@ const HAENDLER = [
   { id: "kraemer", name: "Der Krämer", was: "Verbrauchsgüter",
     zeile: "Was man zweimal braucht, hat er dreimal.",
     nimmt: d => d.kind === "potion" || d.kind === "oil" || d.kind === "wurf" ||
-                d.kind === "scroll" || d.kind === "seil" },
+                d.kind === "scroll" || d.kind === "seil" || d.kind === "plunder" },
   { id: "runen", name: "Der Runenschneider", was: "Module und Amulette",
     zeile: "Er redet wenig und schneidet genau.",
     nimmt: d => d.kind === "modul" || d.kind === "amulet" },
@@ -6586,11 +6308,12 @@ function wert(eintrag) {
     w = d.amount ? Math.round(grund * d.amount) : grund;
   }
   if (d.kind === "seil") w = 150;
-  if (d.kind === "material") w = [0, 9, 26, 70, 180, 420][d.rang || 1] * (eintrag.menge || 1);
+  if (d.kind === "plunder") w = d.preis || 10;
+  if (d.kind === "bauplan") w = [50, 90, 150, 280, 600][SELTEN_RANG[seltenheitVon(eintrag)]];
+  if (d.kind === "material") w = (d.ortsstoff ? 45 : 5) * (eintrag.menge || 1);
   /* Drei Heiltraenke auf einer Kachel sind drei Heiltraenke wert. Ohne das
      verschenkte man beim Verkaufen zwei davon. */
   else if (d.stapel && eintrag.menge > 1) w *= eintrag.menge;
-  if (eintrag.ax) w = Math.round(w * 1.35);
   if (d.slot && !d.legendaer) w = Math.round(w * SELTEN_VON[seltenheitVon(eintrag)].wert);
   if (d.legendaer) w = Math.round(w * 3.5);
   if (eintrag.stufe) w = Math.round(w * (1 + eintrag.stufe * .35));
@@ -6609,7 +6332,16 @@ function wert(eintrag) {
    Weiter auseinander sollte sie nicht: bei 4,2 zu 0,30 verkaufte man eine
    Kriegsaxt fuer 264 und kaufte dieselbe fuer 3 696. Ein Faktor von vierzehn
    liest sich nicht wie ein Haendler, sondern wie Betrug. */
-const kaufPreis = e => Math.round(wert(e) * 3.4);
+/* Fertiges fuehrt der Haendler nur noch in Gewoehnlich und Fein, und teuer:
+   mindestens das Anderthalbfache dessen, was das Bauen samt zugekauftem
+   Grundstoff (17 M je Stueck) kostet. Wer den Plan hat, baut guenstiger. */
+const kaufPreis = e => {
+  const roh = Math.round(wert(e) * 3.4);
+  const d = e.def;
+  if (!d || !d.slot || d.quest) return roh;
+  const k = BAU_KOSTEN[seltenheitVon(e)];
+  return Math.max(roh, Math.round(1.5 * (k.muenzen + k.grund * 17)));
+};
 const verkaufPreis = e => Math.max(2, Math.round(wert(e) * .40));
 
 /* Was die naechste Stufe bringt - vorher, nicht nachher. Bisher stand nur
@@ -6618,8 +6350,7 @@ const verkaufPreis = e => Math.max(2, Math.round(wert(e) * .40));
    irgendwann etwas anderes sagt als die Tat. */
 function stufeVorschau(b) {
   const jetzt = b.stufe || 0;
-  const roh = () => ({ id: b.id, ax: b.ax || null, ax2: b.ax2 || null,
-                       sel: b.sel || null, q: b.q });
+  const roh = () => ({ id: b.id, q: b.q });
   const alt = wendeStufeAn(ausBestand(roh()), jetzt);
   const neu = wendeStufeAn(ausBestand(roh()), jetzt + 1);
   const teile = [];
@@ -6631,33 +6362,140 @@ function stufeVorschau(b) {
   return teile.length ? teile.join(" · ") : "nur der Name";
 }
 
-/* == Aufwerten ===========================================================
-   Aufwerten kostet keine Muenzen mehr, sondern Werkstoff aus der Tiefe. Damit
-   hat auch der Schrott einen Sinn, den man aus einer mageren Etage traegt -
-   und wer eine Waffe wirklich weit bringen will, muss dafuer tief.
-   Was ein Stueck kostet, haengt an der Zielstufe und an seiner Seltenheit:
-   ein episches Schwert zu schaerfen ist teurer als ein gewoehnliches. */
-const AUFWERT_MAX = 5;
-
-const AUFWERT_KOSTEN = [
-  { schrott: 4 },
-  { schrott: 7, eisen: 2 },
-  { schrott: 10, eisen: 4, silber: 1 },
-  { schrott: 14, eisen: 7, silber: 3, tiefenerz: 1 },
-  /* Die letzte Stufe verlangt Grabsalz, und das faellt nur in der Totenstadt.
-     Wer eine Waffe ganz hochbringen will, muss also beide Orte laufen - das
-     ist der Grund, warum es den zweiten Ort ueberhaupt gibt. */
-  { schrott: 18, eisen: 10, silber: 6, tiefenerz: 3, grabsalz: 2 },
+/* == Die Werkstatt =======================================================
+   Drei Werkbaenke, jede fuer ihre Art. Stufe I steht von Anfang an und baut
+   Gewoehnliches und Feines, II baut Seltenes, III Episches und Legendaeres.
+   Gebaut wird aus gelernten Bauplaenen: Grundstoff nach der Art des Stuecks,
+   ab Selten Ortsstoff, dazu Muenzen. Der Ortsstoff folgt dem Weg durch die
+   Orte - Seltenes will Runenstaub aus dem Schloss, Episches Grabsalz aus der
+   Totenstadt, Legendaeres von allen dreien. */
+const WERKBAENKE = [
+  { id: "schmiede",    name: "Schmiede",   was: "Waffen",
+    arten: ["weapon"],          stoffe: [["eisen", .6], ["holz", .4]] },
+  { id: "ruestkammer", name: "Rüstkammer", was: "Rüstung",
+    arten: ["armor"],           stoffe: [["leder", .4], ["stoff", .3], ["eisen", .3]] },
+  { id: "runentisch",  name: "Runentisch", was: "Amulette und Module",
+    arten: ["amulet", "modul"], stoffe: [["talg", .4], ["kraeuter", .3], ["stoff", .3]] },
+  // Die Kraeuterkueche baut keine Plaene - ihre Stufe schaltet Rezepte frei
+  { id: "kraeuterkueche", name: "Kräuterküche", was: "Tränke, Öl, Wurfgerät",
+    arten: [], stoffe: [["kraeuter", .4], ["talg", .3], ["stoff", .3]] },
 ];
+const WERKBANK_VON = Object.fromEntries(WERKBAENKE.map(w => [w.id, w]));
+const WERKBANK_MAX = 3;
+const ROEMISCH = ["", "I", "II", "III"];
+// Welche Werkbankstufe ein Stueck braucht - und was jede Stufe baut
+const WERKBANK_FUER_STUFE = { gewoehnlich: 1, fein: 1, selten: 2, episch: 3, legendaer: 3 };
+const BANK_BAUT = ["", "Gewöhnliches und Feines", "bis Seltenes", "alles bis Legendäres"];
+
+const AUSBAU_WERKBANK = {
+  2: { muenzen: 600,  grund: 20, orts: { runenstaub: 3 } },
+  // Stufe III will Ortsstoff aus zwei Orten
+  3: { muenzen: 1800, grund: 40, orts: { runenstaub: 4, grabsalz: 4 } },
+};
+
+const BAU_KOSTEN = {
+  gewoehnlich: { muenzen: 50,   grund: 10 },
+  fein:        { muenzen: 120,  grund: 18 },
+  selten:      { muenzen: 300,  grund: 26, orts: { runenstaub: 2 } },
+  episch:      { muenzen: 700,  grund: 40, orts: { grabsalz: 5 } },
+  legendaer:   { muenzen: 1500, grund: 60, orts: { runenstaub: 3, grabsalz: 3, sturmfeder: 3 } },
+};
+
+/* Aufwerten geht bis III, je Stufe so stark wie bisher. Stufe II und III
+   brauchen die Werkbank auf derselben Stufe; seltenere Stuecke kosten mehr.
+   Die letzte Stufe will Sturmfeder aus der Moorfeste. */
+const AUFWERT_MAX = 3;
+const AUFWERT_KOSTEN = [
+  { grund: 6 },
+  { grund: 12, orts: { runenstaub: 1 } },
+  { grund: 20, orts: { sturmfeder: 3 } },
+];
+
+function werkbankFuer(d) {
+  return (d && WERKBAENKE.find(w => w.arten.includes(d.kind))) || null;
+}
+
+function werkbankStufe(id) {
+  const n = ((META.werkbaenke || {})[id]) | 0;
+  return Math.max(1, Math.min(WERKBANK_MAX, n));
+}
+
+/* Verteilt eine Menge Grundstoff nach Anteilen, ohne dass beim Runden etwas
+   verloren geht oder dazukommt. */
+function grundTeile(summe, anteile) {
+  const roh = anteile.map(([id, a]) => [id, summe * a]);
+  const raus = Object.fromEntries(roh.map(([id, x]) => [id, Math.floor(x)]));
+  let rest = summe - Object.values(raus).reduce((a, b) => a + b, 0);
+  for (const [id] of roh.slice().sort((a, b) => (b[1] % 1) - (a[1] % 1))) {
+    if (rest <= 0) break;
+    raus[id]++;
+    rest--;
+  }
+  return raus;
+}
+
+function mitOrtsstoff(stoffe, orts, faktor) {
+  for (const [id, n] of Object.entries(orts || {}))
+    stoffe[id] = (stoffe[id] || 0) + Math.ceil(n * (faktor || 1));
+  return stoffe;
+}
+
+function bauKosten(id) {
+  const bank = werkbankFuer(ITEMS[id]);
+  if (!bank) return null;
+  const k = BAU_KOSTEN[seltenheitVon({ id })];
+  return { stoffe: mitOrtsstoff(grundTeile(k.grund, bank.stoffe), k.orts), muenzen: k.muenzen };
+}
+
+function ausbauKosten(bankId) {
+  const k = AUSBAU_WERKBANK[werkbankStufe(bankId) + 1];
+  if (!k) return null;
+  return { stoffe: mitOrtsstoff(grundTeile(k.grund, WERKBANK_VON[bankId].stoffe), k.orts),
+           muenzen: k.muenzen };
+}
 
 function aufwertKosten(b) {
   const stufe = b.stufe || 0;
   if (stufe >= AUFWERT_MAX) return null;
+  const bank = werkbankFuer(vorlage(b));
   const grund = AUFWERT_KOSTEN[stufe];
-  const faktor = 1 + SELTEN_RANG[b.sel || "gewoehnlich"] * .35;
-  const raus = {};
-  for (const k in grund) raus[k] = Math.ceil(grund[k] * faktor);
-  return raus;
+  const faktor = 1 + SELTEN_RANG[seltenheitVon(b)] * .35;
+  return mitOrtsstoff(grundTeile(Math.ceil(grund.grund * faktor), bank ? bank.stoffe : [["eisen", 1]]),
+                      grund.orts, faktor);
+}
+
+// Stufe II und III brauchen die Werkbank auf derselben Stufe
+function aufwertBankReicht(b) {
+  const bank = werkbankFuer(vorlage(b));
+  return !!bank && werkbankStufe(bank.id) >= (b.stufe || 0) + 1;
+}
+
+/* == Die Kraeuterkueche ==================================================
+   Traenke, Oel und Wurfgeraet aus Grundstoff. Oben stellt die Kueche sofort
+   aus dem Lager her; unten geht es aus dem Rucksack wie das Zerlegen - drei
+   Sekunden stehen bleiben, es klappert, ein Treffer bricht ab. Was man kann,
+   haengt oben wie unten an ihrer Stufe. */
+const REZEPTE = [
+  { id: "potion",      stufe: 1, stoffe: { kraeuter: 1 } },
+  { id: "oil",         stufe: 1, stoffe: { talg: 1 } },
+  { id: "wurfmesser",  stufe: 1, stoffe: { eisen: 1 } },
+  { id: "greatPotion", stufe: 2, stoffe: { kraeuter: 2, talg: 1 } },
+  { id: "bigoil",      stufe: 2, stoffe: { talg: 2, stoff: 1 } },
+  { id: "wurfoel",     stufe: 2, stoffe: { talg: 1, stoff: 1 } },
+  { id: "netz",        stufe: 2, stoffe: { stoff: 1, leder: 1 } },
+  { id: "might",       stufe: 3, stoffe: { kraeuter: 2, runenstaub: 1 } },
+  { id: "ward",        stufe: 3, stoffe: { kraeuter: 2, grabsalz: 1 } },
+  { id: "regen",       stufe: 3, stoffe: { kraeuter: 2, sturmfeder: 1 } },
+  { id: "blendpulver", stufe: 3, stoffe: { kraeuter: 1, stoff: 1 } },
+  { id: "salzbeutel",  stufe: 3, stoffe: { stoff: 1, grabsalz: 1 } },
+];
+const REZEPT_VON = Object.fromEntries(REZEPTE.map(r => [r.id, r]));
+const HERSTELLEN_DAUER = 3;
+
+// Was die Kueche auf ihrer jetzigen Stufe kann
+function rezepteOffen() {
+  const stufe = werkbankStufe("kraeuterkueche");
+  return REZEPTE.filter(r => r.stufe <= stufe);
 }
 
 /* Wie viel von einem Werkstoff im Lager liegt. */
@@ -6717,11 +6555,9 @@ function kostenText(kosten) {
 
 /* Ein Stueck als schlichter Datensatz, wie er im Lager liegt. */
 function alsBestand(e) {
-  const b = { id: e.id, ax: e.ax || null, ax2: e.ax2 || null, stufe: e.stufe || 0,
-              sel: e.sel || null,
+  const b = { id: e.id, stufe: e.stufe || 0,
               q: e.def && e.def.quest ? e.def.name : null };
   if (e.menge) b.menge = e.menge;
-  if (e.dreh) b.dreh = true;
   return b;
 }
 
@@ -6729,21 +6565,22 @@ function alsBestand(e) {
 function ausBestand(b) {
   const e = b.q
     ? { id: "relic", def: Object.assign({}, RELIC, { name: b.q }) }
-    : buildItem(b.id, b.ax, b.sel, b.ax2);
+    : buildItem(b.id);
   if (b.menge) e.menge = b.menge;
-  if (b.dreh) e.dreh = true;
   if (b.stufe) wendeStufeAn(e, b.stufe);
   return e;
 }
 
 /* Eine Aufwertung schlaegt auf die Werte durch und steht im Namen. */
 function wendeStufeAn(e, stufe) {
+  // Aufwerten geht nur noch bis III
+  stufe = Math.min(AUFWERT_MAX, stufe | 0);
   if (!stufe || !e.def.slot) return e;
   const d = Object.assign({}, e.def);
   if (d.atk) d.atk += Math.max(1, Math.round(d.atk * .22 * stufe));
   if (d.def) d.def += Math.max(1, Math.round(d.def * .25 * stufe));
   if (d.maxhp) d.maxhp += Math.round(d.maxhp * .18 * stufe);
-  d.name = `${d.name} +${stufe}`;
+  d.name = `${d.name} ${ROEMISCH[stufe]}`;
   e.def = d;
   e.stufe = stufe;
   return e;
@@ -6765,19 +6602,28 @@ function verbucheLauf(gerettet) {
     META.siege++;
     merkeBezwungen(G.ort);        // welcher Ort, nicht nur wieviele
   }
-  let stuecke = 0, verkauft = 0, erloes = 0;
+  let stuecke = 0, verkauft = 0, erloes = 0, doppelt = 0, planErloes = 0;
+  const gelernt = [];
   if (gerettet) {
     // Angelegtes bleibt am Koerper und faellt nicht in die Beute
     const amKoerper = new Set(Object.values(G.player.equipped).filter(Boolean));
-    /* Grosses zuerst, damit im vollen Lager nicht der Panzer uebrig bleibt,
-       weil vier Traenke sich quer gelegt haben. */
     const beute = G.player.bag
-      .filter(e => !(e.def && e.def.quest) && !amKoerper.has(e))
-      .sort((a, b) => {
-        const ma = kachelMass(a), mb = kachelMass(b);
-        return (mb.w * mb.h) - (ma.w * ma.h);
-      });
+      .filter(e => !(e.def && e.def.quest) && !amKoerper.has(e));
     for (const e of beute) {
+      // Ein Bauplan kommt nicht ins Lager: oben wird er gelernt, ein doppelter verkauft
+      if (e.def.kind === "bauplan") {
+        if (!META.plaene.includes(e.def.plan)) {
+          META.plaene.push(e.def.plan);
+          merkeStueck(e.def.plan);      // wer den Plan kennt, kennt das Stueck
+          gelernt.push(ITEMS[e.def.plan].name);
+        } else {
+          const preis = verkaufPreis(e);
+          planErloes += preis;
+          META.muenzen += preis;
+          doppelt++;
+        }
+        continue;
+      }
       if (insLager(alsBestand(e))) { stuecke++; continue; }
       // Kein Platz mehr: der Haendler nimmt es dir zum Verkaufspreis ab
       const preis = verkaufPreis(e);
@@ -6804,7 +6650,7 @@ function verbucheLauf(gerettet) {
       const e = G.player.equipped[slot];
       if (!e || (e.def && e.def.quest)) continue;
       const b = alsBestand(e);
-      b.gx = null; b.gy = null; b.dreh = false;
+      b.gx = null; b.gy = null;
       behalten[slot] = b;
     }
     META.anlegen = behalten;
@@ -6812,12 +6658,12 @@ function verbucheLauf(gerettet) {
     META.guertel = guertel(G.player).map(e => {
       if (!e) return null;
       const b = alsBestand(e);
-      b.gx = null; b.gy = null; b.dreh = false;
+      b.gx = null; b.gy = null;
       return b;
     });
   }
   speichereMeta(META);
-  return { stuecke, verkauft, erloes };
+  return { stuecke, verkauft, erloes, gelernt, doppelt, planErloes };
 }
 
 /* == Der Held ============================================================
@@ -6939,6 +6785,9 @@ const WASSER_TEMPO = .75;   // ~25 % langsamer
 const WASSER_LAERM = 1.5;   // ~50 % weiter zu bemerken - wie "wachsam", nur ortsgebunden
 const stehtNass = a => !!(G && G.map && G.map.nass &&
   inBounds(kachelX(a), kachelY(a)) && G.map.nass[idx(kachelX(a), kachelY(a))]);
+// Wasser und Schlamm bremsen - den Helden im Reisemantel nicht
+const wasserTempo = a =>
+  stehtNass(a) && !(a.isPlayer && equipBonus("wetterfest")) ? WASSER_TEMPO : 1;
 
 /* Kollision: der Kreis um eine Position darf keine feste Kachel berühren.
    Geprüft werden die vier Ecken des umschließenden Quadrats - für ein
@@ -7146,53 +6995,143 @@ function rollMonsterAffix(floor) {
   return weighted(MONSTER_AFFIXES.map(a => [a.key, a.weight]));
 }
 
-function makeItem(id, x, y, affixKey) {
-  const built = buildItem(id, affixKey);
-  return { id, def: built.def, ax: built.ax, x, y };
+/* == Material und Plunder ================================================
+   Grundstoffe fallen ueberall, jeder Ort gewichtet sie anders. Der Ortsstoff
+   faellt nur an seinem Ort. Plunder zerlegt man in Grundstoffe oder
+   verkauft ihn; die Wertsache darunter bringt vor allem Muenzen. */
+const GRUNDSTOFFE = ["eisen", "holz", "leder", "stoff", "kraeuter", "talg"];
+const ORTSSTOFFE = ["runenstaub", "grabsalz", "sturmfeder"];
+
+Object.assign(ORT_INHALT.schloss, {
+  ortsstoff: "runenstaub",
+  fundStufen: [["gewoehnlich", 52], ["fein", 30], ["selten", 13], ["episch", 4.5], ["legendaer", .5]],
+  grundstoffe: [["eisen", 34], ["holz", 18], ["leder", 16], ["stoff", 12], ["kraeuter", 12], ["talg", 12]],
+  plunder: [["zahnrad", 26], ["kerzenleuchter", 20], ["wandteppich", 20], ["pilzbuendel", 22],
+            ["silberbecher", 3]],
+});
+Object.assign(ORT_INHALT.totenstadt, {
+  ortsstoff: "grabsalz",
+  fundStufen: [["gewoehnlich", 45], ["fein", 30], ["selten", 17], ["episch", 7], ["legendaer", 1]],
+  grundstoffe: [["eisen", 20], ["holz", 12], ["leder", 12], ["stoff", 22], ["kraeuter", 14], ["talg", 20]],
+  plunder: [["sargnaegel", 24], ["grabkerze", 24], ["leichentuch", 22], ["grabblumen", 20],
+            ["totenmaske", 3]],
+});
+Object.assign(ORT_INHALT.moorfeste, {
+  ortsstoff: "sturmfeder",
+  fundStufen: [["gewoehnlich", 36], ["fein", 30], ["selten", 22], ["episch", 10], ["legendaer", 2]],
+  grundstoffe: [["eisen", 16], ["holz", 24], ["leder", 22], ["stoff", 12], ["kraeuter", 16], ["talg", 10]],
+  plunder: [["harpune", 22], ["aalhaut", 24], ["schilfbuendel", 24], ["moorkraut", 20],
+            ["muschelgeld", 3]],
+});
+
+/* Wie sich die Funde verteilen. Gemessen am ganzen Lauf: das Material reicht
+   fuer etwa ein Stueck, fertige Ausruestung faellt etwa einmal. */
+const BODEN_ANTEIL = .3;
+const BODEN_PLUNDER = .17, BODEN_GRUNDSTOFF = .07;
+const KISTE_ZWEITES = .1, KISTE_PLUNDER = .05, KISTE_GRUNDSTOFF = .1, KISTE_ORTSSTOFF = .01;
+// Je Gegner - und ein Lauf bis ganz oben erschlaegt 120 bis 150
+const DROP_GRUNDSTOFF = .013, DROP_PLUNDER = .01, DROP_VERBRAUCH = .024;
+const NAMENTLICH_AUSRUESTUNG = .1, NAMENTLICH_ORTSSTOFF = .3;
+const SCHATZ_AUSRUESTUNG = .1, SCHATZ_ORTSSTOFF = .2, SCHATZ_WERTSACHE = .5;
+const GEHEIM_AUSRUESTUNG = .03, GEHEIM_ORTSSTOFF = .12, GEHEIM_WERTSACHE = .25;
+const WAFFENKAMMER_KISTE = .04;
+// Fertige Ausruestung kann ueberall liegen, nur selten
+const KISTE_AUSRUESTUNG = .02, BODEN_AUSRUESTUNG = .007, DROP_AUSRUESTUNG = .0013;
+
+function stapelVon(id, menge) {
+  const st = buildItem(id);
+  st.menge = menge;
+  return st;
 }
 
-// Beute, die auf einer Etage gefunden wird - darf verzaubert sein.
-/* Welcher Werkstoff auf welcher Tiefe faellt. Schrott ueberall, Tiefenerz
-   erst ganz unten - so ist die letzte Aufwertungsstufe an die letzte Etage
-   gebunden, ohne dass es irgendwo eine Sperre braucht. */
-const WERKSTOFF_TIEFE = [
-  { id: "schrott",   ab: 1,  gewicht: 100, menge: [2, 4] },
-  { id: "eisen",     ab: 4,  gewicht: 50,  menge: [1, 3] },
-  { id: "silber",    ab: 9,  gewicht: 26,  menge: [1, 2] },
-  { id: "tiefenerz", ab: 13, gewicht: 14,  menge: [1, 2] },
-];
-
-/* In der Totenstadt faellt anderes. Grabsalz gibt es nur hier - deshalb
-   braucht die letzte Aufwertungsstufe beide Orte. */
-const WERKSTOFF_TOTENSTADT = [
-  { id: "schrott",   ab: 1, gewicht: 60,  menge: [2, 4] },
-  { id: "eisen",     ab: 1, gewicht: 44,  menge: [1, 3] },
-  { id: "silber",    ab: 3, gewicht: 30,  menge: [1, 2] },
-  { id: "tiefenerz", ab: 5, gewicht: 20,  menge: [1, 2] },
-  { id: "grabsalz",  ab: 3, gewicht: 42,  menge: [1, 2] },
-];
-
-/* Erst hier, nicht oben bei den uebrigen Tabellen: ein const ist vor seiner
-   Zeile nicht zu haben, und ein Verweis darauf laesst das ganze Skript beim
-   Laden sterben - lautlos, weil zu diesem Zeitpunkt noch kein Fehlerhorcher
-   steht. */
-ORT_INHALT.schloss.werkstoff = WERKSTOFF_TIEFE;
-ORT_INHALT.totenstadt.werkstoff = WERKSTOFF_TOTENSTADT;
-ORT_INHALT.moorfeste.werkstoff = WERKSTOFF_TIEFE;   // vorerst der des Schlosses
-
-function wuerfelWerkstoff(floor, chance) {
+function wuerfelGrundstoff(chance) {
   if (rng() > (chance == null ? 1 : chance)) return null;
-  const pool = (ort().werkstoff || WERKSTOFF_TIEFE).filter(w => w.ab <= floor);
-  if (!pool.length) return null;
-  const id = weighted(pool.map(w => [w.id, w.gewicht]));
-  const w = (ort().werkstoff || WERKSTOFF_TIEFE).find(x => x.id === id);
-  const menge = w.menge[0] + Math.floor(rng() * (w.menge[1] - w.menge[0] + 1));
-  return { id, ax: null, sel: null, menge };
+  return { id: weighted(ort().grundstoffe), menge: rng() < .2 ? 2 : 1 };
 }
 
-function makeLoot(id, x, y, floor, force) {
-  const built = rollItem(id, floor, force);
-  return { id, def: built.def, ax: built.ax, x, y };
+function wuerfelPlunder() {
+  return { id: weighted(ort().plunder), menge: 1 };
+}
+
+function wertsache() {
+  return { id: weighted(ort().plunder.filter(([id]) => ITEMS[id].wertsache)),
+           menge: 1 };
+}
+
+function ortsstoffFund(menge) {
+  return { id: ort().ortsstoff, menge: menge || 1 };
+}
+
+// Aus den Beutetabellen: Verbrauchsgut ueberall, Ausruestung nur als seltener Fund
+function verbrauchsChancen(floor) {
+  return chancesFor(ort().items, floor).filter(([id]) => !ITEMS[id].slot);
+}
+
+/* Ein gewoehnlicher Fund: Plunder, Grundstoff oder Verbrauchsgut. */
+function fundAus(plunder, grundstoff, verbrauch) {
+  const wurf = rng();
+  if (wurf < plunder) return wuerfelPlunder();
+  if (wurf < plunder + grundstoff || !verbrauch.length) return wuerfelGrundstoff();
+  return { id: weighted(verbrauch) };
+}
+
+/* Ein fertiges Stueck. Seine Stufe haengt am Ort - das Schloss gibt am
+   wenigsten her, die Moorfeste am meisten -, Episches und Legendaeres wird
+   mit der Tiefe etwas haeufiger. Gewaehlt wird zuerst aus dem, was der Ort
+   bis zu dieser Tiefe fuehrt; hat er in der Stufe nichts, aus allem. */
+function fertigerFund(floor) {
+  const gewichte = (ort().fundStufen || ORT_INHALT.schloss.fundStufen).map(([k, w]) =>
+    [k, SELTEN_RANG[k] >= SELTEN_RANG.episch ? w * (.5 + floor / 10) : w]);
+  const stufe = weighted(gewichte);
+  if (stufe === "legendaer") return { id: ziehLegende() };
+  const imOrt = chancesFor(ort().items, floor + 2).map(([id]) => id)
+    .filter(id => ITEMS[id].seltenheit);
+  const ueberall = Object.keys(ITEMS).filter(id =>
+    ITEMS[id].seltenheit && (!ITEMS[id].verflucht || imOrt.includes(id)));
+  for (let r = SELTEN_RANG[stufe]; r >= 0; r--) {
+    const key = SELTEN[r].key;
+    const hier = imOrt.filter(id => ITEMS[id].seltenheit === key);
+    const pool = hier.length ? hier : ueberall.filter(id => ITEMS[id].seltenheit === key);
+    if (pool.length) return { id: pick(pool) };
+  }
+  return null;
+}
+
+/* Bauplaene sind sehr, sehr selten: etwa einer in drei Laeufen, hoechstens
+   zwei. Welcher, folgt der Stufenverteilung des Ortes; legendaere nur von
+   Namentlichen und vom Boss. */
+const PLAENE_JE_LAUF = 2;
+const NAMENTLICH_PLAN = .08, BOSS_PLAN = .25, SCHATZ_PLAN = .015, GEHEIM_PLAN = .01, KISTE_PLAN = .003;
+
+function wuerflePlan(floor, chance, legendaerErlaubt) {
+  if ((G.plaeneImLauf || 0) >= PLAENE_JE_LAUF || rng() >= chance * fundGlueck()) return null;
+  let stueck = null;
+  for (let versuch = 0; versuch < 8 && !stueck; versuch++) {
+    const f = fertigerFund(floor);
+    if (f && (legendaerErlaubt || !ITEMS[f.id].legendaer)) stueck = f;
+  }
+  if (!stueck) return null;
+  G.plaeneImLauf = (G.plaeneImLauf || 0) + 1;
+  return { id: "plan_" + stueck.id };
+}
+
+function wuerfleLegendenPlan(chance) {
+  if ((G.plaeneImLauf || 0) >= PLAENE_JE_LAUF || rng() >= chance * fundGlueck()) return null;
+  G.plaeneImLauf = (G.plaeneImLauf || 0) + 1;
+  return { id: "plan_" + pick(LEGENDEN) };
+}
+
+// Pluenderer und Fundglueck am Koerper heben die Chance auf fertige Funde
+function fundGlueck() {
+  const p = G && G.player;
+  return 1 + ((p && p.lootLuck) || 0) + (p && p.equipped ? equipBonus("lootLuck") : 0);
+}
+
+function aufDenBoden(rec, x, y) {
+  const st = buildItem(rec.id);
+  if (rec.menge) st.menge = rec.menge;
+  G.ground.push(Object.assign(st, { x, y }));
+  return st;
 }
 
 function makeRelic(name, x, y) {
@@ -7285,7 +7224,6 @@ function makeElite(floor, x, y, festerMass) {
   m.eliteFloor = floor;
   m.skala = mass;
   m.power = e.power;
-  m.drop = e.drop;
   m.enraged = false;
   return m;
 }
@@ -7339,7 +7277,7 @@ function questProgress(kind, key) {
 function rewardText(q) {
   const parts = [];
   if (q.reward.xp) parts.push(`${q.reward.xp} Erfahrung`);
-  if (q.reward.gear) parts.push(`${ITEMS[q.reward.gear].name} (verzaubert)`);
+  for (const [id, n] of Object.entries(q.reward.stoffe || {})) parts.push(`${n} ${ITEMS[id].name}`);
   for (const id of (q.reward.items || [])) parts.push(ITEMS[id].name);
   return parts.join(" · ");
 }
@@ -7360,14 +7298,12 @@ function completeQuest() {
   if (q.reward.xp) gainXp(q.reward.xp);
 
   const given = [];
-  // Ausrüstung aus Aufträgen ist immer verzaubert - das ist der Reiz daran.
-  if (q.reward.gear) {
-    const built = rollItem(q.reward.gear, Math.max(q.floor, 2), true);
-    const r = grantItem(built);
-    given.push(r.name + (r.onGround ? " (liegt vor dir)" : ""));
+  for (const [id, n] of Object.entries(q.reward.stoffe || {})) {
+    const r = grantItem(stapelVon(id, n));
+    given.push(`${n} ${r.name}` + (r.onGround ? " (liegt vor dir)" : ""));
   }
   for (const id of (q.reward.items || [])) {
-    const r = grantItem(buildItem(id, null));
+    const r = grantItem(buildItem(id));
     given.push(r.name + (r.onGround ? " (liegt vor dir)" : ""));
   }
   if (given.length) log(`Belohnung: ${given.join(", ")}.`, "good");
@@ -8780,12 +8716,12 @@ function streueBeute(map, zones, floor) {
   const stufen = ort().maxItems || MAX_ITEMS;
   let anzahl = 1;
   for (const [ab, n] of stufen) if (floor >= ab) anzahl = n;
-  anzahl = Math.round(anzahl * (ort().beuteFaktor || 1));
+  // Mindestens zwei - sonst liegt auf einer Etage mit einer einzigen Kiste fast nichts
+  anzahl = Math.max(2, Math.round(anzahl * (ort().beuteFaktor || 1) * BODEN_ANTEIL));
   if (hatLaune("vorraete")) anzahl *= 2;
   if (hatLaune("verlassen")) anzahl += 2;
-
-  const chancen = chancesFor(ort().items, floor);
-  if (!chancen.length || anzahl <= 0) return;
+  if (anzahl <= 0) return;
+  const verbrauch = verbrauchsChancen(floor);
 
   /* Erst die Zonen - das sind die Kammern. Wo eine Etage keine hat, tut es
      jede Kachel, die das Kartenwerk als Raum fuehrt. */
@@ -8810,39 +8746,20 @@ function streueBeute(map, zones, floor) {
   for (let k = 0, versuche = 0; k < anzahl && versuche < anzahl * 40; versuche++) {
     const [x, y] = plaetze[Math.floor(rng() * plaetze.length)];
     if (belegt(x, y)) continue;
-    /* Ein Fuenftel ist Werkstoff. Er ist Kleinvieh, aber er ist die Waehrung
-       des Aufwertens - und er sieht auf dem Boden nach etwas aus. */
-    if (rng() < .2) {
-      const w = wuerfelWerkstoff(floor, .8);
-      if (w) {
-        const st = buildItem(w.id, null, null);
-        st.menge = w.menge;
-        G.ground.push(Object.assign(st, { x, y }));
-        k++;
-        continue;
-      }
-    }
-    const gebaut = rollItem(weighted(chancen), floor, 0);
-    G.ground.push(Object.assign({}, gebaut, { x, y }));
+    const fertig = rng() < BODEN_AUSRUESTUNG * fundGlueck() ? fertigerFund(floor) : null;
+    aufDenBoden(fertig || fundAus(BODEN_PLUNDER, BODEN_GRUNDSTOFF, verbrauch), x, y);
     k++;
   }
 }
 
 function stelleKisten(map, zones, floor, extra) {
   G.chests = [];
-  /* Kisten sind die Hauptquelle fuer Nachschub - aber knapp gehalten, sonst
-     schwimmt man nach drei Etagen in Traenken und trifft keine Entscheidung
-     mehr. Knapp heisst allerdings nicht gleichbleibend: die Zahl war ab Etage
-     sechs fuer immer festgenagelt, waehrend jede Etage tiefer haerter wurde.
-     Gemessen war die Truhenbeute auf Etage 13 nur das 1,7fache von Etage 2,
-     die Pluenderer dort aber das 19fache - ab der Mitte lief man an Truhen
-     vorbei und wartete auf den naechsten Soeldner. Eine Kiste mehr je vier
-     Etagen. */
-  let anzahl = 2 + (rng() < .6 ? 1 : 0) + Math.floor(floor / 4) + (extra || 0);
+  /* Kisten halten vor allem Verbrauchsgut, seltener Material oder Plunder,
+     ganz selten den Ortsstoff. Tiefer unten stehen etwas mehr. */
+  let anzahl = 1 + (rng() < .2 ? 1 : 0) + Math.floor(floor / 7) + (extra || 0);
   if (hatLaune("vorraete")) anzahl *= 2;
   if (hatLaune("verlassen")) anzahl += 2;
-  const chancen = chancesFor(ort().items, floor);
-  if (!chancen.length) return;
+  const verbrauch = verbrauchsChancen(floor);
 
   const pool = zones.slice(1);
   for (let k = 0; k < anzahl && pool.length; k++) {
@@ -8859,22 +8776,15 @@ function stelleKisten(map, zones, floor, extra) {
         !G.chests.some(c => c.x === x && c.y === y));
       if (!felder.length) continue;
       const [x, y] = felder[Math.floor(rng() * felder.length)];
-
-      /* Ein bis drei Stuecke je Kiste - ein Fund soll etwas heissen, aber
-         tief unten auch etwas mehr. Und der Seltenheitsschub steigt mit,
-         sonst hat die Tiefe nur mehr vom Gleichen. */
-      const beute = [];
-      const stueck = 1 + (rng() < .45 + Math.min(.35, floor * .025) ? 1 : 0)
-                       + (floor >= 9 && rng() < .30 ? 1 : 0);
-      const schub = .12 + Math.min(.26, floor * .016);
-      for (let i = 0; i < stueck; i++) {
-        const gebaut = rollItem(weighted(chancen), floor, schub);
-        beute.push({ id: gebaut.id, ax: gebaut.ax || null, ax2: gebaut.ax2 || null,
-                     sel: gebaut.sel || null });
+      const beute = [fundAus(KISTE_PLUNDER, KISTE_GRUNDSTOFF, verbrauch)];
+      if (rng() < KISTE_AUSRUESTUNG * fundGlueck()) {
+        const f = fertigerFund(floor);
+        if (f) beute.push(f);
       }
-      // Fast jede Kiste hat Werkstoff dabei - er ist die Waehrung des Aufwertens
-      const w = wuerfelWerkstoff(floor, .6);
-      if (w) beute.push(w);
+      if (rng() < KISTE_ZWEITES) beute.push(fundAus(KISTE_PLUNDER, KISTE_GRUNDSTOFF, verbrauch));
+      if (rng() < KISTE_ORTSSTOFF) beute.push(ortsstoffFund(1));
+      const plan = wuerflePlan(floor, KISTE_PLAN, false);
+      if (plan) beute.push(plan);
       G.chests.push({ x, y, opened: false, loot: beute });
       break;
     }
@@ -8908,8 +8818,17 @@ function oeffneKiste() {
    Banner sagt den Namen. */
 function feiereFund(e, x, y) {
   if (!e || !e.def) return;
+  if (e.def.kind === "bauplan") {
+    const wo = [x != null ? x : G.player.x, y != null ? y : G.player.y];
+    burst(wo[0], wo[1], "#E8C86A", 30);
+    ring(wo[0], wo[1], 2.8, "#E8C86A");
+    Sfx.spiel("auftrag");
+    banner("Ein Bauplan", ITEMS[e.def.plan].name, "good");
+    log(`${e.def.name}. Bring ihn lebend hinauf, dann kannst du es bauen.`, "alert");
+    return;
+  }
   const legendaer = !!e.def.legendaer;
-  const episch = e.sel === "episch";
+  const episch = seltenheitVon(e) === "episch";
   if (!legendaer && !episch) return;
 
   const farbe = legendaer ? "#E8A94B" : "#B47ADE";
@@ -8926,42 +8845,52 @@ function feiereFund(e, x, y) {
     : `${e.def.name} — episch.`, "alert");
 }
 
-/* Erschlagene Gegner lassen gelegentlich etwas fallen. */
+/* Erschlagene Gegner lassen gelegentlich etwas fallen - meist Material.
+   Namentliche tragen manchmal ein fertiges Stueck oder den Ortsstoff. */
 function beuteFallenLassen(gegner) {
-  const floor = G.floor;
-  // Namentliche tragen manchmal selbst etwas Legendaeres bei sich
-  if (gegner.elite && rng() < .35) {
-    const id = ziehLegende();
-    const tx0 = Math.floor(gegner.x), ty0 = Math.floor(gegner.y);
-    if (WALKABLE[G.map.tiles[idx(tx0, ty0)]]) {
-      const st = { id, def: ITEMS[id], x: tx0, y: ty0 };
-      G.ground.push(st);
-      floatText(gegner.x, gegner.y, ITEMS[id].name, ITEMS[id].tint);
-      log(`${gegner.spec.name} lässt ${ITEMS[id].name} fallen.`, "alert");
-      return;
-    }
-  }
-  // Werkstoff faellt oefter als Ausruestung - er ist Kleinvieh, kein Fund
-  const tx1 = Math.floor(gegner.x), ty1 = Math.floor(gegner.y);
-  if (rng() < .16 && WALKABLE[G.map.tiles[idx(tx1, ty1)]]) {
-    const w = wuerfelWerkstoff(floor, 1);
-    if (w) {
-      const st = buildItem(w.id, null, null);
-      st.menge = w.menge;
-      G.ground.push(Object.assign(st, { x: tx1, y: ty1 }));
-      floatText(gegner.x, gegner.y, `${st.def.name} ×${w.menge}`, st.def.tint);
-      return;
-    }
-  }
-  const chance = Math.min(.20, .07 + floor * .011) * (gegner.maff ? 1.6 : 1);
-  if (rng() > chance) return;
-  const chancen = chancesFor(ort().items, floor);
-  if (!chancen.length) return;
-  const gebaut = rollItem(weighted(chancen), floor, gegner.maff ? .1 : 0);
   const tx = Math.floor(gegner.x), ty = Math.floor(gegner.y);
   if (!WALKABLE[G.map.tiles[idx(tx, ty)]]) return;
-  G.ground.push(Object.assign({}, gebaut, { x: tx, y: ty }));
-  floatText(gegner.x, gegner.y, gebaut.def.name, gebaut.def.tint);
+  if (gegner.elite) {
+    if (rng() < NAMENTLICH_AUSRUESTUNG * fundGlueck()) {
+      const f = fertigerFund(G.floor);
+      if (f) {
+        const st = aufDenBoden(f, tx, ty);
+        floatText(gegner.x, gegner.y, st.def.name, st.def.tint);
+        log(`${gegner.spec.name} lässt ${st.def.name} fallen.`, "alert");
+      }
+    }
+    if (rng() < NAMENTLICH_ORTSSTOFF) {
+      const st = aufDenBoden(ortsstoffFund(1), tx, ty);
+      floatText(gegner.x, gegner.y - .5, st.def.name, st.def.tint);
+    }
+    const plan = wuerflePlan(G.floor, NAMENTLICH_PLAN, true);
+    if (plan) {
+      const st = aufDenBoden(plan, tx, ty);
+      floatText(gegner.x, gegner.y - 1, st.def.name, st.def.tint);
+      log(`${gegner.spec.name} trug ${st.def.name} bei sich.`, "alert");
+    }
+    return;
+  }
+  if (rng() < DROP_AUSRUESTUNG * fundGlueck()) {
+    const f = fertigerFund(G.floor);
+    if (f) {
+      const st = aufDenBoden(f, tx, ty);
+      floatText(gegner.x, gegner.y, st.def.name, st.def.tint);
+      return;
+    }
+  }
+  const wurf = rng() / (gegner.maff ? 1.6 : 1);
+  let rec = null;
+  if (wurf < DROP_GRUNDSTOFF) rec = wuerfelGrundstoff();
+  else if (wurf < DROP_GRUNDSTOFF + DROP_PLUNDER) rec = wuerfelPlunder();
+  else if (wurf < DROP_GRUNDSTOFF + DROP_PLUNDER + DROP_VERBRAUCH) {
+    const verbrauch = verbrauchsChancen(G.floor);
+    if (verbrauch.length) rec = { id: weighted(verbrauch) };
+  }
+  if (!rec) return;
+  const st = aufDenBoden(rec, tx, ty);
+  floatText(gegner.x, gegner.y, st.menge > 1 ? `${st.def.name} ×${st.menge}` : st.def.name,
+            st.def.tint);
 }
 
 /* == Die Konkurrenz ======================================================
@@ -8973,17 +8902,17 @@ function beuteFallenLassen(gegner) {
 
 /* Sein Geraet stammt aus derselben Tabelle wie deins. Die Liste ist nach Wert
    geordnet, also faellt tiefer unten haeufiger das Bessere. */
-function raeuberGeraet(pool, floor, glueck) {
+function raeuberGeraet(pool, floor) {
   const offen = pool.filter(([, ab]) => ab <= floor);
   if (!offen.length) return null;
   const gewichte = offen.map(([id, ab], i) => [id, 1 + i * 1.5 + Math.max(0, floor - ab) * .45]);
-  return rollItem(weighted(gewichte), floor, glueck);
+  return buildItem(weighted(gewichte));
 }
 
 function makeRaeuber(id, x, y, floor) {
   const art = RAEUBER[id];
-  const waffe = raeuberGeraet(RAEUBER_WAFFEN, floor, art.glueck);
-  const panzer = raeuberGeraet(RAEUBER_RUESTUNG, floor, art.glueck);
+  const waffe = raeuberGeraet(RAEUBER_WAFFEN, floor);
+  const panzer = raeuberGeraet(RAEUBER_RUESTUNG, floor);
   const w = waffe ? waffe.def : null;
   const r = panzer ? panzer.def : null;
 
@@ -9025,11 +8954,11 @@ function makeRaeuber(id, x, y, floor) {
   if (waffe) hab.push(waffe);
   if (panzer) hab.push(panzer);
   // Er war schon eine Weile unterwegs, als du ihm begegnest.
-  for (let i = ri(0, 2); i > 0; i--) hab.push(buildItem(pick(RAEUBER_BEUTEL), null, null));
-  const wk = wuerfelWerkstoff(floor, .5);
-  if (wk) { const st = buildItem(wk.id, null, null); st.menge = wk.menge; hab.push(st); }
+  for (let i = ri(0, 2); i > 0; i--) hab.push(buildItem(pick(RAEUBER_BEUTEL)));
+  const wk = wuerfelGrundstoff(.5);
+  if (wk) { const st = buildItem(wk.id); st.menge = wk.menge; hab.push(st); }
   // Soeldner haben manchmal schon das Stueck gefunden, fuer das du hier bist.
-  if (art.legende && rng() < art.legende) hab.push(buildItem(ziehLegende(), null, null));
+  if (art.legende && rng() < art.legende) hab.push(buildItem(ziehLegende()));
 
   return {
     id, spec, ai: "raeuber",
@@ -9455,13 +9384,25 @@ function hauKammerAus(map) {
       if (!weg) { zurueck(kopie); continue; }
 
       const [richtung, bis] = weg;
-      if (richtung === "u") for (let y = y0 + bh; y <= bis; y++) map.tiles[idx(mx, y)] = FLOOR;
-      else if (richtung === "o") for (let y = y0 - 1; y >= bis; y--) map.tiles[idx(mx, y)] = FLOOR;
-      else if (richtung === "r") for (let x = x0 + bw; x <= bis; x++) map.tiles[idx(x, my)] = FLOOR;
-      else for (let x = x0 - 1; x >= bis; x--) map.tiles[idx(x, my)] = FLOOR;
+      let tuer;
+      if (richtung === "u") { for (let y = y0 + bh; y <= bis; y++) map.tiles[idx(mx, y)] = FLOOR; tuer = [mx, y0 + bh]; }
+      else if (richtung === "o") { for (let y = y0 - 1; y >= bis; y--) map.tiles[idx(mx, y)] = FLOOR; tuer = [mx, y0 - 1]; }
+      else if (richtung === "r") { for (let x = x0 + bw; x <= bis; x++) map.tiles[idx(x, my)] = FLOOR; tuer = [x0 + bw, my]; }
+      else { for (let x = x0 - 1; x >= bis; x--) map.tiles[idx(x, my)] = FLOOR; tuer = [x0 - 1, my]; }
 
       // Die Mauer darf die Etage nicht zerschneiden
       if (!vollVerbunden(map)) { zurueck(kopie); continue; }
+
+      /* vollVerbunden laesst auch eine Verbindung gelten, die nur ueber Eck
+         zustandekommt - der Held kommt da nicht durch (siehe
+         erreichbarOhneSchleier). Haengt der neue Gang nur so an der
+         uebrigen Hoehle, waere die Tuer zwar "verbunden", aber fuer
+         stelleNamentlichen kein gueltiger Zugang, und die Kammer wuerde
+         verworfen, ohne dass ein zweiter Versuch folgt. Deshalb hier schon
+         mit derselben achsenweisen Pruefung aussieben. */
+      if (!erreichbarOhneSchleier(map, Math.floor(p.x), Math.floor(p.y), tuer)) {
+        zurueck(kopie); continue;
+      }
 
       if (bw >= 9 && bh >= 7)
         for (const [px, py] of [[x0 + 1, y0 + 1], [x0 + bw - 2, y0 + 1],
@@ -9790,7 +9731,8 @@ function entdeckeFallen() {
     if (f.entdeckt) continue;
     if (!G.map.visible[idx(f.x, f.y)]) continue;
     if (Math.hypot(mitte(f.x) - p.x, mitte(f.y) - p.y) >
-        2.6 * flamme().entdecken * (1 + skillRang("spuersinn") * .5)) continue;
+        2.6 * flamme().entdecken * (1 + skillRang("spuersinn") * .5) *
+        (equipBonus("wachsam") || 1)) continue;
     f.entdeckt = true;
     if (f.scharf) {
       log(`Du erkennst eine ${FALLEN[f.art].name} im Boden.`, "system");
@@ -9946,23 +9888,18 @@ function stelleGeheimkammern(map, zones, floor) {
       for (const [kx, ky] of kammer) map.tiles[idx(kx, ky)] = FLOOR;
       G.secrets.push({ x, y, entdeckt: false, offen: false });
 
-      // Der Lohn: eine gut gefuellte Kiste, tief im Fels
+      // Der Lohn: manchmal eine Wertsache oder der Ortsstoff, selten ein fertiges Stueck
       const [bx, by] = kammer[kammer.length - 2] || kammer[0];
-      /* Der eigentliche Lohn ist das legendaere Stueck - sonst lohnte die
-         ganze Sucherei nicht. Dazu zwei gewoehnliche Fundstuecke. */
-      const beute = [rng() < .25
-        ? { id: ziehLegende(), ax: null }
-        : (() => { const g = rollItem(weighted(chancesFor(ort().items, floor)), floor, true);
-                   return { id: g.id, ax: g.ax || null, ax2: g.ax2 || null,
-                            sel: "episch" }; })()];
-      const chancen = chancesFor(ort().items, floor);
-      for (let i = 0; i < 2 && chancen.length; i++) {
-        const gebaut = rollItem(weighted(chancen), floor, .5);
-        beute.push({ id: gebaut.id, ax: gebaut.ax || null, ax2: gebaut.ax2 || null,
-                     sel: gebaut.sel || null });
-      }
-      const wg = wuerfelWerkstoff(floor + 3, 1);
-      if (wg) beute.push(wg);
+      const beute = [];
+      if (rng() < GEHEIM_WERTSACHE) beute.push(wertsache());
+      if (rng() < GEHEIM_AUSRUESTUNG * fundGlueck()) { const f = fertigerFund(floor); if (f) beute.push(f); }
+      if (rng() < GEHEIM_ORTSSTOFF) beute.push(ortsstoffFund(1));
+      const plan = wuerflePlan(floor, GEHEIM_PLAN, false);
+      if (plan) beute.push(plan);
+      const verbrauch = verbrauchsChancen(floor);
+      // Leer ist eine Geheimkammer nie
+      if (verbrauch.length && (!beute.length || rng() < .3))
+        beute.push({ id: weighted(verbrauch) });
       G.chests.push({ x: bx, y: by, opened: false, loot: beute, geheim: true });
       return;
     }
@@ -10103,6 +10040,8 @@ function populateFloor(floor) {
   G.saeulen = {};
   G.schaechte = [];
   G.aufstieg = null;             // laufender Aufstieg, falls einer begonnen hat
+  G.zerlegen = null;
+  G.herstellen = null;
   zugGespuert = false;           // der Zug meldet sich auf jeder Etage neu
   G.player.finsternis = 0;      // eine neue Etage beginnt im Reinen
   G.player.laerm = 0;
@@ -10368,35 +10307,36 @@ function populateFloor(floor) {
     streueBeute(map, zones, floor);
   }
 
-  /* Besondere Raeume sollen auch besonders beschenken - bisher fielen die
-     Waffenkammern und der Herrensaal der Wehrgaenge bei der normalen
-     Verteilung unter den Tisch, weil sie ausserhalb der Zonenliste liegen.
-     Ein garantierter Fund je Waffenkammer, mehrere im Saal - ein Adelssitz
-     laesst nicht nur eine Truhe zurueck. */
+  /* Waffenkammern und Herrensaal der Wehrgaenge liegen ausserhalb der
+     Zonenliste. Eine Waffenkammer haelt manchmal eine Kiste mit dem, woraus
+     Waffen gemacht werden; der Saal eine mit dem, was ein Adelssitz
+     zuruecklaesst. */
   if (map.nischen || map.herrensaal) {
-    const chancen = chancesFor(ort().items, floor);
     const freiesFeld = tiles => tiles.filter(([x, y]) =>
       isWalkable(x, y) && !actorAt(x, y) &&
       !G.ground.some(i => i.x === x && i.y === y) &&
       !G.chests.some(c => c.x === x && c.y === y) &&
       !G.braziers.some(b => b.x === x && b.y === y));
 
-    if (chancen.length) {
-      for (const n of (map.nischen || [])) {
-        const frei = freiesFeld(n.tiles);
-        if (!frei.length) continue;
-        const [x, y] = frei[Math.floor(rng() * frei.length)];
-        G.chests.push({ x, y, opened: false, loot: [makeLoot(weighted(chancen), x, y, floor, true)] });
-      }
+    for (const n of (map.nischen || [])) {
+      if (rng() > WAFFENKAMMER_KISTE) continue;
+      const frei = freiesFeld(n.tiles);
+      if (!frei.length) continue;
+      const [x, y] = frei[Math.floor(rng() * frei.length)];
+      const loot = [{ id: pick(["eisen", "holz", "leder"]),
+                      menge: rng() < .4 ? 2 : 1 }];
+      G.chests.push({ x, y, opened: false, loot });
+    }
 
-      if (map.herrensaal) {
-        const truhen = 2 + Math.floor(rng() * 2);
-        for (let k = 0; k < truhen; k++) {
-          const frei = freiesFeld(map.herrensaal.tiles);
-          if (!frei.length) break;
-          const [x, y] = frei[Math.floor(rng() * frei.length)];
-          G.chests.push({ x, y, opened: false, loot: [makeLoot(weighted(chancen), x, y, floor, true)] });
-        }
+    if (map.herrensaal) {
+      const frei = freiesFeld(map.herrensaal.tiles);
+      if (frei.length) {
+        const [x, y] = frei[Math.floor(rng() * frei.length)];
+        const verbrauch = verbrauchsChancen(floor);
+        const loot = [rng() < .15 || !verbrauch.length ? wertsache()
+                      : { id: weighted(verbrauch) }];
+        if (rng() < .15) loot.push(ortsstoffFund(1));
+        G.chests.push({ x, y, opened: false, loot });
       }
     }
   }
@@ -10434,7 +10374,6 @@ function populateFloor(floor) {
      Fund ja keiner. Zwei Stueck, ergiebiger als gewoehnliche, und aus der
      Tabelle zweier Etagen tiefer. */
   if (schatzZone && G.vault) {
-    const chancen = chancesFor(ort().items, floor);
     const frei = schatzZone.tiles.filter(([x, y]) =>
       map.tiles[idx(x, y)] === FLOOR && !actorAt(x, y) &&
       !G.chests.some(c => c.x === x && c.y === y) &&
@@ -10443,20 +10382,19 @@ function populateFloor(floor) {
     for (let k = 0; k < 2 && frei.length; k++) {
       const [cx2, cy2] = frei.splice(Math.floor(rng() * frei.length), 1)[0];
       const beute = [];
-      // In der ersten Truhe liegt das, wofuer sich der Weg lohnt
-      if (k === 0) beute.push(rng() < .40
-        ? { id: ziehLegende(), ax: null }
-        : (() => { const g = rollItem(weighted(chancen), floor + 2, true);
-                   return { id: g.id, ax: g.ax || null, ax2: g.ax2 || null,
-                            sel: "episch" }; })());
-      for (let i = beute.length; i < 3 && chancen.length; i++) {
-        const gebaut = rollItem(weighted(chancen), floor + 2, .45);
-        beute.push({ id: gebaut.id, ax: gebaut.ax || null, ax2: gebaut.ax2 || null,
-                     sel: gebaut.sel || null });
+      // Die erste Truhe: oft eine Wertsache, manchmal der Ortsstoff, selten ein fertiges Stueck
+      if (k === 0) {
+        if (rng() < SCHATZ_AUSRUESTUNG * fundGlueck()) { const f = fertigerFund(floor); if (f) beute.push(f); }
+        if (rng() < SCHATZ_ORTSSTOFF) beute.push(ortsstoffFund(1));
+        if (rng() < SCHATZ_WERTSACHE) beute.push(wertsache());
+        const plan = wuerflePlan(floor, SCHATZ_PLAN, false);
+        if (plan) beute.push(plan);
+        if (!beute.length) beute.push(wuerfelGrundstoff());
+      } else {
+        const verbrauch = verbrauchsChancen(floor + 2);
+        if (verbrauch.length) beute.push({ id: weighted(verbrauch) });
+        if (rng() < .5) beute.push(wuerfelGrundstoff());
       }
-      // Die Schatzkammer traegt auch den Werkstoff der tieferen Etagen
-      const wk = wuerfelWerkstoff(floor + 4, 1);
-      if (wk) beute.push(wk);
       G.chests.push({ x: cx2, y: cy2, opened: false, loot: beute, schatz: true });
     }
 
@@ -10533,7 +10471,7 @@ function populateFloor(floor) {
      kennen muss, auf die sie zulaeuft - und damit kein spaet gebauter
      Bossraum sie einmauert. Sie startet weit weg vom Ankunftsschacht: die
      erste Begegnung soll nicht die erste Kachel sein. */
-  const wieVieleRaeuber = bossEtage ? 0 : fromTable(RAEUBER_ZAHL, floor);
+  const wieVieleRaeuber = bossEtage || !RAEUBER_AN ? 0 : fromTable(RAEUBER_ZAHL, floor);
   const raeuberChancen = chancesFor(RAEUBER_TIEFE, floor);
   if (wieVieleRaeuber > 0 && raeuberChancen.length) {
     const weit = zones.slice(1).filter(z =>
@@ -10926,7 +10864,9 @@ function notschutz() {
 function playerMaxHp() { return G.player.baseMaxHp + equipBonus("maxhp"); }
 
 const atkOf = a => a.isPlayer ? playerAtk() : a.spec.atk + statusMag(a, "Stärke");
-const defOf = a => a.isPlayer ? playerDef() : a.spec.def + statusMag(a, "Schutz");
+// Der Streitkolben bricht bis zu drei Punkte Schutz heraus
+const defOf = a => a.isPlayer ? playerDef()
+  : Math.max(0, a.spec.def + statusMag(a, "Schutz") - (a.zertruemmert || 0));
 const maxHpOf = a => a.isPlayer ? playerMaxHp() : a.maxhp;
 const nameOf = a => a.isPlayer ? "du" : a.spec.name;
 
@@ -11029,6 +10969,16 @@ function kill(target, source) {
   Sfx.spiel("gestorben");
 
   if (target.isPlayer) {
+    // Blutstein: einmal je Etage haelt er dich mit einem Leben fest
+    if (equipBonus("letzterAtem") && G.letzterAtem !== G.floor) {
+      G.letzterAtem = G.floor;
+      target.alive = true;
+      target.hp = 1;
+      ring(target.x, target.y, 2.4, "#E2608C");
+      log("Der Blutstein hält dich fest. Ein Leben bleibt.", "alert");
+      refreshUI();
+      return;
+    }
     // Zweiter Atem: einmal je Abstieg stehst du wieder auf
     if (target.revive > 0) {
       target.revive--;
@@ -11065,6 +11015,12 @@ function kill(target, source) {
     p.abilityCd = Math.max(0, p.abilityCd - skillRang("widerhall") * .5);
     refreshUI();
   }
+  // Zornmal: ein Kill treibt die Hand an
+  const rausch = equipBonus("rausch");
+  if (rausch && p.alive && (!source || source.isPlayer)) {
+    p.rauschBis = G.time + rausch;
+    floatText(p.x, p.y - .6, "Rausch", "#E2A048");
+  }
   const zurueckGabe = (p.killHeal || 0) + equipBonus("killHeal");
   if (zurueckGabe && p.alive && (!source || source.isPlayer)) {
     const zurueck = healActor(p, zurueckGabe);
@@ -11091,6 +11047,11 @@ function kill(target, source) {
     Sfx.spiel("sieg");
     if (!durchFremde) gainXp(target.spec.xp);
     questProgress("boss");
+    const plan = wuerfleLegendenPlan(BOSS_PLAN);
+    if (plan) {
+      const st = aufDenBoden(plan, Math.floor(target.x), Math.floor(target.y));
+      log(`Bei ${target.spec.name} liegt ${st.def.name}.`, "alert");
+    }
     G.won = true;
     G.siegRunden = G.turns;
     G.besiegterBoss = target.spec.name;
@@ -11113,12 +11074,7 @@ function kill(target, source) {
     ring(target.x, target.y, 3, target.spec.glow || "#E8A94B");
     burst(target.x, target.y, target.spec.glow || "#E8A94B", 26);
     if (!durchFremde) gainXp(target.spec.xp);
-    if (target.drop) {
-      // Namentliche Gegner lassen immer etwas Verzaubertes fallen
-      const loot = makeLoot(target.drop, target.x, target.y, G.floor, true);
-      G.ground.push(loot);
-      log(`${loot.def.name} fällt zu Boden.`, "good");
-    }
+    beuteFallenLassen(target);
     questProgress("elite", target.eliteFloor);
     return;
   }
@@ -11225,7 +11181,7 @@ function rettteOel(map, floor, sx, sy) {
   const platz = floor === maxFloor() ? vorkammerFeld(map, sx, sy)
                                      : freiesFeldWeitVon(map, sx, sy, 4);
   if (!platz) return;
-  const flasche = buildItem(floor >= 5 ? "bigoil" : "oil", null, null);
+  const flasche = buildItem(floor >= 5 ? "bigoil" : "oil");
   G.ground.push(Object.assign(flasche, { x: platz[0], y: platz[1] }));
 }
 
@@ -11306,7 +11262,7 @@ function addStatus(a, name, turns, mag) {
 function tickStatuses(a) {
   for (const name of Object.keys(a.statuses)) {
     const s = a.statuses[name];
-    if (name === "Gift" || name === "Blutung") {
+    if (name === "Gift" || name === "Blutung" || name === "Brand") {
       damage(a, s.mag, null);
       if (!a.alive) return;
     } else if (name === "Regeneration") {
@@ -11473,10 +11429,28 @@ function playerDodges(attacker, target) {
   return true;
 }
 
+/* Kurzschwert: wer dich im Nahkampf verfehlt, kassiert einen Gegenhieb. */
+function gegenhieb(angreifer, held) {
+  if (!held.isPlayer || angreifer.isPlayer || !angreifer.alive || !equipBonus("gegenhieb")) return;
+  if (Math.hypot(angreifer.x - held.x, angreifer.y - held.y) > REACH + .6) return;
+  floatText(held.x, held.y - .5, "Gegenhieb", "#B8C2D2");
+  attack(held, angreifer);
+}
+
 function attack(attacker, target) {
-  if (playerDodges(attacker, target)) return;
-  let [dmg, crit] = resolveDamage(atkOf(attacker), defOf(target),
-    attacker.isPlayer ? .1 + (attacker.crit || 0) + equipBonus("crit") : .1);
+  if (playerDodges(attacker, target)) { gegenhieb(attacker, target); return; }
+  // Dolch: jeder dritte Treffer in Folge ist kritisch
+  let sicherKritisch = false;
+  if (attacker.isPlayer && equipBonus("serie")) {
+    attacker.serie = (attacker.serie || 0) + 1;
+    if (attacker.serie >= equipBonus("serie")) { attacker.serie = 0; sicherKritisch = true; }
+  }
+  // Kriegsaxt: ein Teil des Schutzes zaehlt nicht
+  const schutz = attacker.isPlayer
+    ? Math.round(defOf(target) * (1 - Math.min(1, equipBonus("spaltet"))))
+    : defOf(target);
+  let [dmg, crit] = resolveDamage(atkOf(attacker), schutz,
+    sicherKritisch ? 1 : attacker.isPlayer ? .1 + (attacker.crit || 0) + equipBonus("crit") : .1);
 
   /* Richtschwert: der erste Hieb aus voller Kraft. Es belohnt den, der
      unversehrt in einen Kampf geht, und wird schwaecher, je laenger der
@@ -11562,6 +11536,19 @@ function attack(attacker, target) {
       addStatus(target, "Blutung", 4, bluten);
       if (!target.isPlayer) burst(target.x, target.y, "#C4564A", 6);
     }
+    if (attacker.isPlayer && target.alive && !target.isPlayer) {
+      const bricht = equipBonus("zertruemmert");
+      if (bricht) target.zertruemmert = Math.min(3, (target.zertruemmert || 0) + bricht);
+      // Spiess: wer getroffen wird, kommt eine Weile nur langsam heran
+      const bremst = equipBonus("bremst");
+      if (bremst) target.gebremstBis = G.time + bremst;
+      // Runenklinge: der Treffer brennt nach
+      const brand = equipBonus("brand");
+      if (brand) {
+        addStatus(target, "Brand", brand, Math.max(2, Math.round(atkOf(attacker) * .2)));
+        burst(target.x, target.y, "#E8763A", 6);
+      }
+    }
     // Verseuchte Gegner geben ihr Gift beim Zuschlagen weiter
     if (aff && aff.key === "seuche" && target.alive) {
       addStatus(target, "Gift", 6, 2);
@@ -11572,6 +11559,7 @@ function attack(attacker, target) {
         ? `Dein Schlag prallt an ${target.spec.name} ab.`
         : `${attacker.spec.name} findet keine Lücke.`,
         attacker.isPlayer ? "you" : "foe");
+    if (target.isPlayer) gegenhieb(attacker, target);
   }
 }
 
@@ -11588,15 +11576,13 @@ function pickUp() {
   /* Menge, Stufe und Seltenheit muessen mit. Sie fielen hier bisher weg: ein
      Stapel von vier Schrott wurde zu einem Stueck, ein episches Schwert vom
      Boden zu einem gewoehnlichen. */
-  const stueck = { id: item.id, def: item.def, ax: item.ax || null,
-                   ax2: item.ax2 || null,
-                   sel: item.sel || null, stufe: item.stufe || 0 };
+  const stueck = { id: item.id, def: item.def, stufe: item.stufe || 0 };
   if (item.menge) stueck.menge = item.menge;
   const hindernis = nimmAuf(G.player, stueck);
   if (hindernis) {
-    log(hindernis === "gewicht"
-      ? `${item.def.name} ist zu schwer — du trägst schon ${last(getragen())} von ${last(traglast())}.`
-      : `Im Rucksack ist keine Lücke für ${item.def.name}.`, "system");
+    // Ein Teil kann schon auf einem Stapel liegen - nur der Rest bleibt am Boden
+    if (item.menge && stueck.menge < item.menge) item.menge = stueck.menge;
+    log(`Im Rucksack ist kein Platz für ${item.def.name}.`, "system");
     Sfx.spiel("nein");
     return false;
   }
@@ -11616,8 +11602,7 @@ function dropItem(entry) {
     if (G.player.equipped[slot] === entry) G.player.equipped[slot] = null;
   bag.splice(bag.indexOf(entry), 1);
   entry.gx = entry.gy = null;
-  entry.dreh = false;
-  G.ground.push({ id: entry.id, def: entry.def, ax: entry.ax,
+  G.ground.push({ id: entry.id, def: entry.def, stufe: entry.stufe || 0, menge: entry.menge,
                   x: kachelX(G.player), y: kachelY(G.player) });
   log(`Du legst ${entry.def.name} ab.`, "you");
   return true;
@@ -11957,7 +11942,7 @@ function useAbility(dx, dy) {
     const f = p.facing || [0, 1];
     const l = Math.hypot(f[0], f[1]) || 1;
     const rx = f[0] / l, ry = f[1] / l;
-    const wucht = Math.round((5 + p.level * 1.6) * modulKraft(p));
+    const wucht = Math.round(5 + p.level * 1.6);
     let getroffen = 0;
     for (const z of G.actors) {
       if (z.isPlayer || !z.alive) continue;
@@ -11985,7 +11970,7 @@ function useAbility(dx, dy) {
     /* Nicht unsichtbar, sondern unhoerbar: wer dich sucht, verliert die Spur.
        Dieselbe Zeile wie beim Blendpulver - aber sie gilt fuer die ganze
        Etage und haelt an, solange die Stille steht. */
-    p.stilleBis = G.time + ab.dauer * modulKraft(p);
+    p.stilleBis = G.time + ab.dauer;
     let verloren = 0;
     for (const a of G.actors) {
       if (a.isPlayer || !a.alive) continue;
@@ -12339,8 +12324,10 @@ function actorTurn(a) {
       if (playerDodges(a, p)) return;
       const [dmg, crit] = resolveDamage(a.spec.ratk + statusMag(a, "Stärke"), playerDef());
       if (dmg > 0) {
-        log(`${a.spec.name} beschießt dich für ${dmg} Schaden.${crit ? " Kritisch!" : ""}`, "foe");
-        damage(p, dmg, a);
+        // Kettenhemd: Geschosse bleiben zum Teil im Geflecht haengen
+        const ab = Math.max(1, Math.round(dmg * (1 - equipBonus("geschossfest"))));
+        log(`${a.spec.name} beschießt dich für ${ab} Schaden.${crit ? " Kritisch!" : ""}`, "foe");
+        damage(p, ab, a);
       } else log(`${a.spec.name} schießt daneben.`, "foe");
       return;
     }
@@ -12439,7 +12426,7 @@ function moorKraft(a, dist) {
     const [dmg] = resolveDamage(Math.round(atkOf(a) * .8), playerDef());
     if (dmg > 0) damage(p, dmg, a);
     if (!p.alive) return true;
-    const weg = schiebeWeg(p, nx, ny, 1.9);
+    const weg = equipBonus("standfest") ? 0 : schiebeWeg(p, nx, ny, 1.9);
     log(`${spec.name} rammt dir den Schild entgegen${weg > .5 ? " und wirft dich zurück" : ""}${
       stehtNass(p) ? " — ins Wasser" : ""}.`, "bad");
     return true;
@@ -12506,7 +12493,8 @@ function moorVorzeichen(a, dist) {
     a.vorzeichen = true;
     log("Irgendwo klagt eine Frauenstimme — leise, und sie hört nicht auf.", "alert");
     moorGeraeusch("fluestern");
-  } else if (a.spec.verborgen && dist < 4.5 && seesTile(kachelX(a), kachelY(a))) {
+  } else if (a.spec.verborgen && dist < 4.5 * (equipBonus("wachsam") || 1) &&
+             seesTile(kachelX(a), kachelY(a))) {
     a.vorzeichen = true;
     log("Im Schlamm vor dir steigen Blasen auf.", "system");
     moorGeraeusch("blubb");
@@ -12530,7 +12518,8 @@ function zieheHeran(a, weite) {
   const p = G.player;
   const l = Math.hypot(a.x - p.x, a.y - p.y) || 1;
   const bis = Math.max(0, Math.min(weite, l - MONSTER_REACH * .9));
-  const weg = bis > 0 ? schiebeWeg(p, (a.x - p.x) / l, (a.y - p.y) / l, bis) : 0;
+  const weg = bis > 0 && !equipBonus("standfest")
+    ? schiebeWeg(p, (a.x - p.x) / l, (a.y - p.y) / l, bis) : 0;
   anim.shake = 7;
   Sfx.spiel("wummern");
   log(`${a.spec.name} packt dich und zieht dich heran.`, "bad");
@@ -13172,7 +13161,7 @@ function tickWetter() {
    ueberraschend: eine Boe ohne Vorwarnung waere nur Willkuer. */
 const WIND_VORWARNUNG = 1.6;   // Sekunden Ankuendigung, bevor sie wirklich schiebt
 const WIND_DAUER = 2.0;
-const WIND_PAUSE_MIN = 4, WIND_PAUSE_MAX = 8;
+const WIND_PAUSE_MIN = 12, WIND_PAUSE_MAX = 20;   // war 4-8s: kam fast pausenlos wieder
 const WIND_STAERKE = 2.4;      // Kacheln je Sekunde seitlicher Schub
 
 function tickWind(dt) {
@@ -13195,6 +13184,7 @@ function tickWind(dt) {
   const [wx, wy] = G.windRichtung;
   for (const a of G.actors) {
     if (!a.alive || !G.map.offen[idx(kachelX(a), kachelY(a))]) continue;
+    if (a.isPlayer && equipBonus("standfest")) continue;   // Plattenpanzer
     bewege(a, wx * WIND_STAERKE * dt, wy * WIND_STAERKE * dt);
   }
   if (G.time >= G.windBis) {
@@ -13296,6 +13286,7 @@ function rastTakt() {
 
   const vorher = p.laerm || 0;
   p.laerm = Math.min(100, vorher + LAERM_JE_TAKT * (1 - skillRang("leise") * .12) *
+    (1 - equipBonus("leise")) *
     (hatLaune("hallend") ? 2 : 1));
   const l = p.laerm;
 
@@ -13351,6 +13342,8 @@ function upkeep() {
   const p = G.player;
   G.turns++;
   tickAufstieg();
+  tickZerlegen();
+  tickHerstellen();
   if (!p.alive) return;
   tickStatuses(p);
   if (!p.alive) return;
@@ -13393,6 +13386,14 @@ function upkeep() {
     if (G.turns % interval === 0) {
       const healed = healActor(p, 1);
       if (healed) floatText(p.x, p.y, "+1", "rgba(124,180,150,.75)");
+    }
+    // Schuppenpanzer: ausser Kampf waechst alle zwei Sekunden Leben nach
+    const nachwachsen = equipBonus("nachwachsen");
+    if (nachwachsen && (p.zuletztGetroffen == null || G.time - p.zuletztGetroffen > 5) &&
+        G.time >= (p.nachwachsNaechste || 0)) {
+      p.nachwachsNaechste = Math.max(G.time - 1, p.nachwachsNaechste || 0) + 2;
+      const heil = healActor(p, nachwachsen);
+      if (heil) floatText(p.x, p.y, "+" + heil, "rgba(143,166,156,.8)");
     }
   }
 
@@ -13538,7 +13539,8 @@ function lenke(a, dt) {
   if (a.maff === "flink") tempo *= 1.34;
   if (a.maff === "rasend") tempo *= 1.14;
   if (a.elite) tempo *= 1.06;
-  if (stehtNass(a)) tempo *= WASSER_TEMPO;
+  tempo *= wasserTempo(a);
+  if (a.gebremstBis > G.time) tempo *= .55;
   bewege(a, (zx / l) * tempo * dt, (zy / l) * tempo * dt);
 }
 
@@ -13608,13 +13610,16 @@ function schwingen(dx, dy) {
   const [fx, fy] = p.facing;
   if (!fx && !fy) return;
 
+  // Zornmal: nach einem Kill schlaegt die Hand schneller
   p.nextSwing = G.time + SWING_TIME * (p.swingHaste || 1) *
-                Math.max(.45, 1 - equipBonus("hast"));
+                Math.max(.45, 1 - equipBonus("hast") - (p.rauschBis > G.time ? .25 : 0));
   travel = null; chase = null; resting = 0;
 
   // Getroffen wird, wer im Bogen vor dir steht - nicht wer auf einem Nachbarfeld sitzt
   const winkel = Math.atan2(fy, fx);
   const reichweite = (REACH + equipBonus("reach")) * (p.reachMult || 1);
+  // Hellebarde: der Bogen ist doppelt so breit
+  const bogen = Math.min(Math.PI * 2, ARC * Math.max(1, equipBonus("bogen")));
   const getroffen = [];
   for (const z of G.actors) {
     if (z.isPlayer || !z.alive) continue;
@@ -13623,7 +13628,7 @@ function schwingen(dx, dy) {
     if (d > reichweite + (z.radius || R_MONSTER)) continue;
     let ab = Math.abs(Math.atan2(dy, dx) - winkel);
     if (ab > Math.PI) ab = Math.PI * 2 - ab;
-    if (!(ab <= ARC / 2 || d < .75)) continue;
+    if (!(ab <= bogen / 2 || d < .75)) continue;
     if (!trefferbar(z)) continue;          // nicht durch die Wand oder den Schleier
     getroffen.push(z);
   }
@@ -13643,10 +13648,11 @@ function schwingen(dx, dy) {
       if (d > reichweite + .55) continue;
       let ab = Math.abs(Math.atan2(sy, sx) - winkel);
       if (ab > Math.PI) ab = Math.PI * 2 - ab;
-      if (ab <= ARC / 2 || d < .95) { saeule = [tx, ty]; break; }
+      if (ab <= bogen / 2 || d < .95) { saeule = [tx, ty]; break; }
     }
 
   if (!getroffen.length) {
+    p.serie = 0;                       // ins Leere geschlagen: die Serie reisst
     if (saeule) { schlageSaeule(saeule[0], saeule[1]); logBreak(); refreshUI(); return; }
     Sfx.spiel("abgeprallt");
     logBreak();
@@ -13702,8 +13708,8 @@ function schritt(dt) {
   // Zeigt die Maus ins Bild, bestimmt sie die Blickrichtung, nicht der Lauf
   if (!mausWelt) p.facing = [dx, dy];
 
-  const weite = SPEED_PLAYER * dt * (p.speedMult || 1) * lastTempo(p) *
-                klageTempo(p) * (stehtNass(p) ? WASSER_TEMPO : 1) *
+  const weite = SPEED_PLAYER * dt * (p.speedMult || 1) *
+                klageTempo(p) * wasserTempo(p) *
                 Math.max(.55, 1 + equipBonus("tempo"));
   const vorher = [Math.floor(p.x), Math.floor(p.y)];
   bewege(p, dx * weite, dy * weite);
@@ -17812,19 +17818,32 @@ function zeichneKarte(now) {
 /* ═════════════════════════════════════════════════════════ Seitenleiste */
 const $ = id => document.getElementById(id);
 
+/* Was gerade laeuft und Stehenbleiben verlangt: der Aufstieg oder das Zerlegen. */
+function laufendeHandlung() {
+  if (!G) return null;
+  if (G.aufstieg)
+    return { name: "Aufstieg", bis: G.aufstieg.bis, dauer: AUFSTIEG_DAUER, schluss: "gleich oben" };
+  if (G.zerlegen)
+    return { name: "Zerlegen", bis: G.zerlegen.bis, dauer: ZERLEGEN_DAUER, schluss: "gleich fertig" };
+  if (G.herstellen)
+    return { name: "Herstellen", bis: G.herstellen.bis, dauer: HERSTELLEN_DAUER, schluss: "gleich fertig" };
+  return null;
+}
+
 /* Der Balken laeuft im Bildtakt, nicht im Verwaltungstakt - sonst ruckelt er
    in Dritteln vor sich hin. */
 function zeigeAufstieg() {
   const kasten = $("aufstiegBalken");
   if (!kasten) return;
-  if (!G || !G.aufstieg) { kasten.hidden = true; return; }
-  const rest = Math.max(0, G.aufstieg.bis - G.time);
-  const anteil = 1 - rest / AUFSTIEG_DAUER;
+  const h = laufendeHandlung();
+  if (!h) { kasten.hidden = true; return; }
+  const rest = Math.max(0, h.bis - G.time);
   kasten.hidden = false;
-  $("abFuellung").style.width = `${Math.round(anteil * 100)}%`;
+  kasten.querySelector(".ab-wort").textContent = h.name;
+  $("abFuellung").style.width = `${Math.round((1 - rest / h.dauer) * 100)}%`;
   $("abNote").textContent = rest > .1
     ? `${rest.toFixed(1)} s — bleib stehen, ein Treffer bricht ab`
-    : "gleich oben";
+    : h.schluss;
 }
 
 /* Was die Anzeige ueberhaupt zeigt, in einer Zeichenkette. Aendert sie sich,
@@ -17839,7 +17858,7 @@ function standFingerabdruck() {
           Object.keys(p.statuses || {}).join(","),
           Math.round((p.abilityCd || 0) * 4),
           guertel(p).map(e => e ? e.id + (e.menge || 1) : "-").join(","),
-          G.aufstieg ? Math.round((G.aufstieg.bis - G.time) * 10) : "-"].join("|");
+          laufendeHandlung() ? Math.round((laufendeHandlung().bis - G.time) * 10) : "-"].join("|");
 }
 
 function zeigeStandNach() {
@@ -17868,13 +17887,12 @@ function refreshUI() {
   $("hpText").textContent = `${Math.max(0, p.hp)} / ${maxhp}`;
   const auf = $("aufstiegLeiste");
   if (auf) {
-    const laeuft = !!G.aufstieg;
-    auf.hidden = !laeuft;
-    if (laeuft) {
-      const rest = Math.max(0, G.aufstieg.bis - G.time);
-      $("aufstiegFill").style.width =
-        Math.round((1 - rest / AUFSTIEG_DAUER) * 100) + "%";
-      $("aufstiegText").textContent = `Aufstieg — ${rest.toFixed(1)} s`;
+    const h = laufendeHandlung();
+    auf.hidden = !h;
+    if (h) {
+      const rest = Math.max(0, h.bis - G.time);
+      $("aufstiegFill").style.width = Math.round((1 - rest / h.dauer) * 100) + "%";
+      $("aufstiegText").textContent = `${h.name} — ${rest.toFixed(1)} s`;
     }
   }
   $("oilFill").style.width = Math.max(0, (p.oil / oilCap()) * 100) + "%";
@@ -18136,7 +18154,7 @@ function pfeilImFenster(key) {
                          ArrowUp: [0, -1], ArrowDown: [0, 1] }[key] || [];
       if (dx === undefined) return false;
       // Naechste Kachel in dieser Richtung, gemessen am Mittelpunkt
-      const mitte = e => [e.gx + kachelMass(e).w / 2, e.gy + kachelMass(e).h / 2];
+      const mitte = e => [e.gx + .5, e.gy + .5];
       const [mx, my] = mitte(hier);
       let bestes = null, bestMass = Infinity;
       for (const e of imRucksack(p)) {
@@ -18197,6 +18215,9 @@ function closeModal() {
 function primaryLabel(entry) {
   const d = entry.def;
   if (d.quest) return "";
+  if (d.kind === "plunder") return `Zerlegen · ${ZERLEGEN_DAUER} s`;
+  if (d.kind === "material") return "";
+  if (d.kind === "bauplan") return "";
   if (!d.slot) return "Benutzen";
   return Object.values(G.player.equipped).includes(entry) ? "Abnehmen" : "Anlegen";
 }
@@ -18409,6 +18430,12 @@ const ART_BILD = {
          '8 15V10.4z" fill="currentColor"/>',
   material: '<path d="M4.6 9.4 12 5.6l7.4 3.8-7.4 3.8z" fill="currentColor" opacity=".92"/>' +
             '<path d="M4.6 13.2 12 17l7.4-3.8v3.4L12 20.4 4.6 16.6z" fill="currentColor" opacity=".55"/>',
+  bauplan: '<path d="M5 4.5h11.5c1.4 0 2.5 1.1 2.5 2.5v12.5H7.5C6.1 19.5 5 18.4 5 17z" fill="currentColor" opacity=".9"/>' +
+           '<path d="M8.5 8.5h7M8.5 11.5h7M8.5 14.5h4" stroke="#000" stroke-width="1.2" opacity=".35" fill="none"/>' +
+           '<circle cx="15.6" cy="15.4" r="2.1" fill="none" stroke="#000" stroke-width="1.2" opacity=".45"/>',
+  plunder: '<path d="M8.6 3.4h6.8l-1.3 3.4c3 1.3 5.1 4.3 5.1 7.7 0 3.9-3.2 6.7-7.2 6.7s-7.2-2.8-7.2-6.7' +
+           'c0-3.4 2.1-6.4 5.1-7.7z" fill="currentColor" opacity=".9"/>' +
+           '<path d="M9.2 6.8h5.6" stroke="#000" stroke-width="1.4" opacity=".35" fill="none"/>',
 };
 
 function kachelBild(e) {
@@ -18418,26 +18445,6 @@ function kachelBild(e) {
   const art = ART_BILD[d.kind] ? d.kind : "relic";
   return `<svg viewBox="0 0 24 24" aria-hidden="true" style="color:${d.tint}">${
     eigen || ART_BILD[art]}</svg>`;
-}
-
-/* Kurzform fuer die Kachel - der volle Name steht in der Tafel darunter. */
-function kachelName(e) {
-  const n = vorlage(e).name;
-  return n.length <= 13 ? n : n.slice(0, 12).trimEnd() + "…";
-}
-
-/* Dreht ein Stueck an Ort und Stelle, wenn es quer noch passt. Gibt zurueck,
-   ob es geklappt hat - der Aufrufer sagt es dann. */
-function dreheAn(liste, spalten, reihen, e) {
-  if (!drehbar(e)) return false;
-  const alt = !!e.dreh;
-  e.dreh = !alt;
-  if (e.gx != null && passtIn(liste, spalten, reihen, e, e.gx, e.gy)) return true;
-  // Am Platz geht es nicht - dann irgendwo anders quer hinlegen
-  const platz = suchePlatzIn(liste, spalten, reihen, e);
-  if (platz && platz.dreh === !alt) { setzeAuf(e, platz); return true; }
-  e.dreh = alt;
-  return false;
 }
 
 /* == Ein Raster fuer alles ===============================================
@@ -18452,16 +18459,13 @@ function rasterMarkup(liste, spalten, reihen, feld, gewaehlt, kachelPx) {
 
   const kacheln = liste.map((e, i) => {
     if (e.gx == null) return "";
-    const m = kachelMass(e);
     const d = vorlage(e);
     return `<button class="kachel${gewaehlt === e ? " gewaehlt" : ""}${
         d.legendaer ? " legendaer" : ""}" data-feld="${feld}" data-nr="${i}"
-      title="${escapeHtml(d.name)} — ${m.w}×${m.h}, ${last(gewicht(e))}"
-      style="grid-column:${e.gx + 1}/span ${m.w};grid-row:${e.gy + 1}/span ${m.h};
-             --tint:${seltenFarbe(e)}">
+      title="${escapeHtml(d.name)}"
+      style="grid-column:${e.gx + 1};grid-row:${e.gy + 1};--tint:${seltenFarbe(e)}">
       <span class="kachelbild">${kachelBild(e)}</span>
-      ${m.w >= 2 ? `<span class="kachelname">${escapeHtml(kachelName(e))}</span>` : ""}
-      ${e.stufe ? `<span class="kachelstufe">+${e.stufe}</span>` : ""}
+      ${e.stufe ? `<span class="kachelstufe">${ROEMISCH[e.stufe] || e.stufe}</span>` : ""}
       ${e.menge > 1 ? `<span class="kachelmenge">×${e.menge}</span>` : ""}
       ${vergleichMarke(e, META.anlegen)}
     </button>`;
@@ -18478,10 +18482,7 @@ let bagWahl = null;
 function showBag(focus) {
   const p = G.player;
   if (bagWahl && p.bag.indexOf(bagWahl) < 0) bagWahl = null;
-  openModal(bagMarkup(), key => {
-    if (key === "r") { bagDrehen(); return true; }
-    return false;
-  });
+  openModal(bagMarkup());
   const blatt = overlay.querySelector(".sheet");
   if (blatt) blatt.classList.add("weit");
   bagBinde();
@@ -18501,30 +18502,23 @@ function bagMarkup() {
   const p = G.player;
   const { spalten, reihen } = raster();
   const drin = imRucksack(p);
-  const kg = getragen(p), max = traglast();
-  const anteil = Math.min(1, kg / max);
-  const schwer = ueberladung(p) > 0;
 
-  // Untergrund: eine Zelle je Kachel, damit man das Raster auch leer sieht
+  // Untergrund: eine Zelle je Platz, damit man die Plaetze auch leer sieht
   let zellen = "";
   for (let y = 0; y < reihen; y++)
     for (let x = 0; x < spalten; x++)
       zellen += `<div class="zelle" style="grid-column:${x + 1};grid-row:${y + 1}"></div>`;
 
-  const kacheln = drin.filter(e => e.gx != null).map(e => {
-    const m = kachelMass(e);
-    return `<button class="kachel${bagWahl === e ? " gewaehlt" : ""}${
+  const kacheln = drin.filter(e => e.gx != null).map(e =>
+    `<button class="kachel${bagWahl === e ? " gewaehlt" : ""}${
         e.def.legendaer ? " legendaer" : ""}" data-kachel="${p.bag.indexOf(e)}"
-      title="${escapeHtml(e.def.name)} — ${m.w}×${m.h}, ${last(gewicht(e))}"
-      style="grid-column:${e.gx + 1}/span ${m.w};grid-row:${e.gy + 1}/span ${m.h};
-             --tint:${seltenFarbe(e)}">
+      title="${escapeHtml(e.def.name)}"
+      style="grid-column:${e.gx + 1};grid-row:${e.gy + 1};--tint:${seltenFarbe(e)}">
       <span class="kachelbild">${kachelBild(e)}</span>
-      ${m.w >= 2 ? `<span class="kachelname">${escapeHtml(kachelName(e))}</span>` : ""}
-      ${e.stufe ? `<span class="kachelstufe">+${e.stufe}</span>` : ""}
+      ${e.stufe ? `<span class="kachelstufe">${ROEMISCH[e.stufe] || e.stufe}</span>` : ""}
       ${e.menge > 1 ? `<span class="kachelmenge">×${e.menge}</span>` : ""}
       ${vergleichMarke(e)}
-    </button>`;
-  }).join("");
+    </button>`).join("");
 
   const gear = ["Waffe", "Rüstung", "Amulett", "Modul"].map(slot => {
     const e = p.equipped[slot];
@@ -18543,17 +18537,8 @@ function bagMarkup() {
   return `<h2>Rucksack</h2>
     <div class="bag-wrap">
       <div>
-        <p class="feldkopf">Raster <b>${p.bag.length - Object.values(p.equipped)
-          .filter(Boolean).length}/${spalten * reihen}</b>
-          <span class="rechts">${spalten}×${reihen} Kacheln</span></p>
+        <p class="feldkopf">Plätze <b>${drin.length}/${spalten * reihen}</b></p>
         <div class="raster" style="--sp:${spalten};--re:${reihen}">${zellen}${kacheln}</div>
-        <div class="lastbalken" style="margin-top:10px"><i class="${schwer ? "voll" : ""}"
-          style="width:${Math.round(anteil * 100)}%"></i><u style="left:80%"></u></div>
-        <p class="feldkopf${schwer ? " warn" : ""}" style="margin-top:6px">Last
-          <b>${last(kg)} / ${last(max)}</b>
-          <span class="rechts">${schwer
-            ? `schwer beladen — ${Math.round((1 - lastTempo(p)) * 100)} % langsamer`
-            : "Angelegtes wiegt nicht mit"}</span></p>
       </div>
       <aside class="gear">
         <p class="feldkopf">Am Körper <b>${Object.values(p.equipped)
@@ -18564,12 +18549,13 @@ function bagMarkup() {
       </aside>
     </div>
     <div class="tafel">${bagTafel()}</div>
+    ${herstellenLeiste()}
     <div class="ausgang" style="margin-top:12px;padding-top:10px">
     <button class="choice" id="raeumBtn">
       <span>Aufräumen</span>
-      <span class="note">packt das Sperrigste zuerst — schafft Platz für Rüstung</span></button>
+      <span class="note">sortiert nach Art und schließt die Lücken</span></button>
     </div>
-    <div class="foot"><b>Ziehen</b> verschiebt · <b>R</b> dreht · <b>Klick</b> benutzt
+    <div class="foot"><b>Ziehen</b> verschiebt · <b>Klick</b> benutzt
       oder legt an · auf einen Ausrüstungsplatz oder den Gürtel ziehen legt dorthin ·
       am Gürtel liegen sie auf <b>1</b>–<b>5</b> · <b>Esc</b> schließt</div>`;
 }
@@ -18580,13 +18566,12 @@ function bagTafel() {
   const e = bagWahl;
   if (!e) return '<p class="quiet">Wähle eine Kachel.</p>';
   const d = e.def;
-  const m = kachelMass(e);
   const an = Object.values(p.equipped).indexOf(e) >= 0;
   const tat = primaryLabel(e);
   return `<div class="tafelkopf">
       <b style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(d.name)}${
         e.menge > 1 ? ` ×${e.menge}` : ""}</b>
-      <span>${m.w}×${m.h} Kacheln · ${an ? "am Körper" : last(gewicht(e))}</span>
+      <span>${an ? "am Körper" : "im Rucksack"}</span>
     </div>
     <p class="tafeltext">${escapeHtml(d.slot ? bonusText(d) : (d.note || ""))}${
       an ? "" : compareText(e)}${d.sage ? `<em class="sage">„${escapeHtml(d.sage)}“</em>` : ""}</p>
@@ -18594,21 +18579,8 @@ function bagTafel() {
       <button class="bag-act" id="tatBtn" ${tat ? "" : "disabled"}>${tat || "—"}</button>
       ${istFlasche(d) && p.bag.includes(e) && guertelPlatzFuer(p, e) >= 0
         ? '<button class="bag-act" id="guertelBtn">An den Gürtel</button>' : ""}
-      ${!an && drehbar(e)
-        ? '<button class="bag-act" id="drehBtn">Drehen · R</button>' : ""}
       <button class="bag-act drop" id="wegBtn">Wegwerfen</button>
     </div>`;
-}
-
-/* Das gewaehlte Stueck quer legen. Passt es quer nicht, bleibt es liegen -
-   der Klick soll nichts kaputtmachen, was schon gepackt war. */
-function bagDrehen() {
-  const p = G.player;
-  if (!bagWahl || Object.values(p.equipped).indexOf(bagWahl) >= 0) { Sfx.spiel("nein"); return; }
-  const { spalten, reihen } = raster();
-  if (dreheAn(imRucksack(p), spalten, reihen, bagWahl)) Sfx.spiel("aufheben");
-  else { Sfx.spiel("nein"); log("Quer passt es nirgends hin.", "system"); }
-  bagFrisch();
 }
 
 /* ── Kacheln greifen und legen ──────────────────────────────────────────
@@ -18632,11 +18604,12 @@ function bagBinde() {
 
   const raeum = $("raeumBtn");
   if (raeum) raeum.onclick = () => { raeumeEin(p); Sfx.spiel("aufheben"); bagFrisch(); };
+  overlay.querySelectorAll("[data-herstellen-unten]").forEach(el =>
+    el.onclick = () => { closeModal(); beginneHerstellen(el.dataset.herstellenUnten); });
 
-  const tat = $("tatBtn"), weg = $("wegBtn"), dreh = $("drehBtn");
+  const tat = $("tatBtn"), weg = $("wegBtn");
   if (tat) tat.onclick = () => chooseBagItem(bagWahl, false);
   if (weg) weg.onclick = () => chooseBagItem(bagWahl, true);
-  if (dreh) dreh.onclick = () => bagDrehen();
 
   const anGuertel = $("guertelBtn");
   if (anGuertel) anGuertel.onclick = () => {
@@ -18686,8 +18659,7 @@ function bagBinde() {
         if (!geist) {                       // war doch nur ein Klick
           const hindernis = ausDemGuertel(p, nr);
           if (hindernis) {
-            log(hindernis === "gewicht" ? "Zu schwer für den Rucksack."
-              : "Im Rucksack ist keine Lücke dafür.", "system");
+            log("Im Rucksack ist kein Platz dafür.", "system");
             Sfx.spiel("nein");
           } else Sfx.spiel("aufheben");
           bagWahl = null;
@@ -18725,12 +18697,9 @@ function bagBinde() {
       const kasten = el.getBoundingClientRect();
       const griffX = ev.clientX - kasten.left, griffY = ev.clientY - kasten.top;
       const startX = ev.clientX, startY = ev.clientY;
-      const lageStart = !!e.dreh;
       let geist = null;
 
-      let letzte = ev;
       const bewegt = ev2 => {
-        letzte = ev2;
         if (!geist) {
           if (Math.abs(ev2.clientX - startX) < ZUG_SCHWELLE &&
               Math.abs(ev2.clientY - startY) < ZUG_SCHWELLE) return;
@@ -18747,27 +18716,9 @@ function bagBinde() {
         geist.classList.toggle("nein", !gut && !ueberGear(ev2, e) && !amGuertel);
       };
 
-      /* R dreht mitten im Zug. Das ist die Stelle, an der man es braucht:
-         man sieht die Luecke und merkt, dass es nur quer hineingeht. */
-      const dreht = ev2 => {
-        if (ev2.key !== "r" && ev2.key !== "R") return;
-        ev2.preventDefault();
-        if (!drehbar(e)) return;
-        e.dreh = !e.dreh;
-        Sfx.spiel("aufheben");
-        if (geist) {
-          const m = kachelMass(e);
-          const zelle = 54;
-          geist.style.width = `${m.w * zelle + (m.w - 1) * 3}px`;
-          geist.style.height = `${m.h * zelle + (m.h - 1) * 3}px`;
-        }
-        bewegt(letzte);
-      };
-
       const los = ev2 => {
         window.removeEventListener("pointermove", bewegt);
         window.removeEventListener("pointerup", los);
-        window.removeEventListener("keydown", dreht);
         if (geist) geist.remove();
         el.classList.remove("hebt");
         if (!geist) {                       // war doch nur ein Klick
@@ -18789,25 +18740,19 @@ function bagBinde() {
         const ziel = zielZelle(ev2, griffX, griffY);
         if (!ziel) { bagWahl = e; bagFrisch(); return; }
         if (amKoerper) {
-          // Vom Koerper ins Raster: das ist ein Ablegen
+          // Vom Koerper in den Rucksack: das ist ein Ablegen
           if (!passtHin(p, e, ziel.gx, ziel.gy)) { bagFrisch(); return; }
           e.gx = ziel.gx; e.gy = ziel.gy;
           chooseBagItem(e, false);
           return;
         }
         if (passtHin(p, e, ziel.gx, ziel.gy)) { e.gx = ziel.gx; e.gy = ziel.gy; }
-        else if (e.dreh !== lageStart && !passtHin(p, e, e.gx, e.gy)) {
-          /* Mitten im Zug gedreht, aber nirgends abgelegt: quer bleiben darf
-             es nur, wenn es auf seinem alten Platz auch quer passt. */
-          e.dreh = lageStart;
-        }
         bagWahl = e;
         bagFrisch();
       };
 
       window.addEventListener("pointermove", bewegt);
       window.addEventListener("pointerup", los);
-      window.addEventListener("keydown", dreht);
     };
   }
 
@@ -18819,8 +18764,7 @@ function bagBinde() {
     g.style.left = `${kasten.left}px`;
     g.style.top = `${kasten.top}px`;
     g.style.setProperty("--tint", seltenFarbe(e));
-    g.innerHTML = `<span class="kachelbild">${kachelBild(e)}</span>
-      <span class="kachelname">${escapeHtml(kachelName(e))}</span>`;
+    g.innerHTML = `<span class="kachelbild">${kachelBild(e)}</span>`;
     document.body.appendChild(g);
     return g;
   }
@@ -18861,24 +18805,23 @@ function showChest(kiste) {
   const zeilen = kiste.loot.length ? kiste.loot.map((eintrag, i) => {
     const gebaut = ausKisteBauen(eintrag);
     const d = gebaut.def;
-    const m = kachelMass(gebaut);
     const passt = nimmtNoch(p, gebaut);
     const notiz = d.slot ? bonusText(d) : (d.note || "");
     return `<div class="bag-row">
       <button class="choice bag-main" data-i="${i}" ${passt ? "" : "disabled"}>
-        <span class="key" aria-hidden="true">${m.w}×${m.h}</span>
         <span style="color:${lesbar(seltenFarbe(gebaut))}">${escapeHtml(d.name)}${
           gebaut.menge > 1 ? ` ×${gebaut.menge}` : ""}</span>
-        <span class="note">${escapeHtml(notiz)}${notiz ? " · " : ""}${last(gewicht(gebaut))}</span>
+        <span class="note">${escapeHtml(notiz)}</span>
       </button>
       <button class="bag-act" data-i="${i}" ${passt ? "" : "disabled"}>${
         passt ? "Nehmen" : "kein Platz"}</button>
     </div>`;
   }).join("") : '<p class="quiet" style="padding:14px 0">Die Kiste ist leer.</p>';
 
+  const { spalten, reihen } = raster();
   openModal(`<h2>Kiste</h2>
     <p class="feldkopf">Darin <b>${kiste.loot.length}</b>
-      <span class="rechts">du trägst ${last(getragen(p))} von ${last(traglast())}</span></p>
+      <span class="rechts">Rucksack ${imRucksack(p).length} von ${spalten * reihen} Plätzen</span></p>
     ${zeilen}
     ${kiste.loot.length ? `<button class="choice" id="allesBtn" style="margin-top:12px">
       <span>Alles nehmen</span>
@@ -18896,7 +18839,7 @@ function showChest(kiste) {
    Name steht im Eintrag, genau wie im Spielstand. */
 function ausKisteBauen(eintrag) {
   if (eintrag.q) return { id: "relic", def: Object.assign({}, RELIC, { name: eintrag.q }) };
-  const e = buildItem(eintrag.id, eintrag.ax, eintrag.sel, eintrag.ax2);
+  const e = buildItem(eintrag.id);
   if (eintrag.menge) e.menge = eintrag.menge;
   return e;
 }
@@ -18908,9 +18851,13 @@ function nimmAusKiste(kiste, i) {
   const gebaut = ausKisteBauen(eintrag);
   const hindernis = nimmAuf(p, gebaut);
   if (hindernis) {
-    log(hindernis === "gewicht"
-      ? `${gebaut.def.name} ist zu schwer — du trägst schon ${last(getragen())} von ${last(traglast())}.`
-      : `Im Rucksack ist keine Lücke für ${gebaut.def.name}.`, "system");
+    // Ein Teil kann schon auf einem Stapel liegen - nur der Rest bleibt in der Kiste
+    if (eintrag.menge && gebaut.menge < eintrag.menge) {
+      eintrag.menge = gebaut.menge;
+      refreshUI();
+      showChest(kiste);
+    }
+    log(`Im Rucksack ist kein Platz für ${gebaut.def.name}.`, "system");
     Sfx.spiel("nein");
     return;
   }
@@ -18931,7 +18878,11 @@ function nimmAllesAusKiste(kiste) {
   // Was nicht passt, bleibt liegen - der Rest wird trotzdem genommen
   while (i < kiste.loot.length) {
     const gebaut = ausKisteBauen(kiste.loot[i]);
-    if (legeAb(p, gebaut)) { i++; continue; }
+    if (legeAb(p, gebaut)) {
+      if (kiste.loot[i].menge) kiste.loot[i].menge = gebaut.menge;
+      i++;
+      continue;
+    }
     kiste.loot.splice(i, 1);
     genommen++;
     if (gebaut.def.quest) questProgress("relic");
@@ -19001,6 +18952,22 @@ function bonusText(d) {
   if (d.bluten) parts.push(`Blutung ${d.bluten}`);
   if (d.dornen) parts.push(`Dornen ${d.dornen}`);
   if (d.wende) parts.push(`Schutz bis ${signed(d.wende)}, je weniger Leben`);
+  if (d.serie) parts.push(`jeder ${d.serie}. Treffer in Folge kritisch`);
+  if (d.gegenhieb) parts.push("wer dich verfehlt, kassiert einen Gegenhieb");
+  if (d.spaltet) parts.push(`ignoriert ${Math.round(d.spaltet * 100)} % des Schutzes`);
+  if (d.zertruemmert) parts.push(`Treffer senken Schutz um ${d.zertruemmert} (bis 3×)`);
+  if (d.bremst) parts.push(`Getroffene ${d.bremst} s verlangsamt`);
+  if (d.bogen) parts.push(d.bogen === 2 ? "doppelt so breiter Bogen" : "breiterer Bogen");
+  if (d.brand) parts.push(`Treffer setzen ${d.brand} s in Brand`);
+  if (d.leise) parts.push(`Rasten und Zerlegen ${Math.round(d.leise * 100)} % leiser`);
+  if (d.geschossfest) parts.push(`Geschosse −${Math.round(d.geschossfest * 100)} % Schaden`);
+  if (d.standfest) parts.push("Wind und Rückstoß schieben nicht");
+  if (d.nachwachsen) parts.push(`außer Kampf ${d.nachwachsen} Leben alle 2 s`);
+  if (d.wetterfest) parts.push("Wasser und Schlamm bremsen nicht");
+  if (d.letzterAtem) parts.push("überlebt einmal je Etage mit 1 Leben");
+  if (d.rausch) parts.push(`Kill: ${d.rausch} s schneller schlagen`);
+  if (d.wachsam) parts.push(d.wachsam === 2 ? "Fallen und Lauernde doppelt so weit"
+                                          : "Fallen und Lauernde weiter");
   return parts.join(", ") || "keine Boni";
 }
 
@@ -19016,6 +18983,12 @@ function chooseBagItem(entry, dropping) {
     log(`${d.name} lässt sich nicht benutzen — wirf ihn weg, wenn du den Platz brauchst.`, "system");
     bagWahl = entry;
     bagFrisch();
+    return;
+  }
+
+  if (!dropping && d.kind === "plunder") {
+    closeModal();
+    beginneZerlegen(entry);
     return;
   }
 
@@ -19059,8 +19032,7 @@ function showCharacter() {
       ? `${p.oil} / ${oilCap()} <i style="font-style:normal;color:var(--vellum-faint)">· Sicht ${
           fovFromOil(p.oil).toFixed(1)}</i>`
       : '<span style="color:var(--madder-lit)">erloschen</span>'),
-    zeile("Traglast", `${last(getragen(p))} / ${last(traglast())}${ueberladung(p) > 0
-      ? ' <i style="font-style:normal" class="schwerbeladen">· schwer beladen</i>' : ""}`),
+    zeile("Rucksack", `${imRucksack(p).length} / ${raster().spalten * raster().reihen} Plätze`),
     zeile("Etage", `${G.floor} <i style="font-style:normal;color:var(--vellum-faint)">· ${
       escapeHtml(theme().name)} · tiefste ${G.deepest}</i>`),
     zeile("Runden", G.turns),
@@ -19335,7 +19307,7 @@ const ZWEIGE = {
   klinge: { name: "Klinge",      farbe: "#D8C070", text: "Was du austeilst." },
   schritt:{ name: "Gewandtheit", farbe: "#7FD0E8", text: "Was dich nicht trifft." },
   flamme: { name: "Flamme",      farbe: "#E8A94B", text: "Was du siehst." },
-  last:   { name: "Traglast",    farbe: "#9BB08A", text: "Was du herausträgst." },
+  last:   { name: "Beute",       farbe: "#9BB08A", text: "Was du herausträgst." },
   zunft:  { name: "Zunft",       farbe: "#B47ADE", text: "Was du nebenbei kannst." },
 };
 
@@ -19402,15 +19374,9 @@ const SKILLS = [
   { key: "spuersinn", zweig: "flamme", name: "Spürsinn", max: 2, braucht: ["falke", 3],
     text: r => `Fallen und Risse zeigen sich ${r * 50} % weiter`, wirk: () => {} },
 
-  // ── Traglast ────────────────────────────────────────────────────────────
-  { key: "ruecken", zweig: "last", name: "Starker Rücken", max: 6,
-    text: r => `+${r * 4} Traglast`, wirk: () => {} },
-  { key: "geraeumig", zweig: "last", name: "Geräumig", max: 4, braucht: ["ruecken", 2],
-    text: r => `Rucksack ${r} ${r === 1 ? "Reihe" : "Reihen"} höher`, wirk: () => {} },
-  { key: "packen", zweig: "last", name: "Gut gepackt", max: 3, braucht: ["ruecken", 3],
-    text: r => `Alles wiegt ${r * 8} % weniger`, wirk: () => {} },
-  { key: "pluender", zweig: "last", name: "Plünderer", max: 4, braucht: ["geraeumig", 2],
-    text: r => `Verzaubertes ${r * 5} % häufiger`,
+  // ── Beute ───────────────────────────────────────────────────────────────
+  { key: "pluender", zweig: "last", name: "Plünderer", max: 4,
+    text: r => `Fertige Funde ${r * 5} % häufiger`,
     wirk: (p, r) => { p.lootLuck = (p.lootLuck || 0) + r * .05; } },
   { key: "feilscher", zweig: "last", name: "Feilscher", max: 5, braucht: ["pluender", 2],
     text: r => `${r * 6} % mehr beim Verkauf`, wirk: () => {} },
@@ -19545,6 +19511,68 @@ function schachtHier() {
   return null;
 }
 
+/* == Zerlegen ============================================================
+   Unten dauert es und klappert: wer sich bewegt oder getroffen wird, bricht
+   ab, und das Stueck bleibt ganz. Oben im Lager geht es sofort. */
+const ZERLEGEN_DAUER = 3;
+const ZERLEGEN_LAERM = 6;        // je Verwaltungstakt
+const ZERLEGEN_WECKT = 9;        // so weit hoert man es
+
+function beginneZerlegen(eintrag) {
+  const p = G.player;
+  if (mode.kind !== "play" || !p.alive || !eintrag || eintrag.def.kind !== "plunder") return false;
+  if (G.aufstieg || G.zerlegen || G.herstellen) return false;
+  if (p.zuletztGetroffen != null && G.time - p.zuletztGetroffen < 3) {
+    log("Nicht mitten im Kampf.", "bad");
+    Sfx.spiel("nein");
+    return false;
+  }
+  G.zerlegen = { bis: G.time + ZERLEGEN_DAUER, x: p.x, y: p.y, eintrag };
+  Sfx.spiel("aufheben");
+  log(`Du zerlegst ${eintrag.def.name}. ${ZERLEGEN_DAUER} Sekunden — und es klappert.`, "system");
+  return true;
+}
+
+function brichZerlegenAb(warum) {
+  if (!G.zerlegen) return;
+  G.zerlegen = null;
+  log(warum, "bad");
+  Sfx.spiel("nein");
+}
+
+function tickZerlegen() {
+  const z = G.zerlegen, p = G.player;
+  if (!z) return;
+  if (p.bag.indexOf(z.eintrag) < 0) { G.zerlegen = null; return; }
+  if (Math.hypot(p.x - z.x, p.y - z.y) > .6)
+    return brichZerlegenAb("Du legst es beiseite — das Zerlegen bricht ab.");
+  if (p.zuletztGetroffen != null && G.time - p.zuletztGetroffen < .5)
+    return brichZerlegenAb("Ein Treffer — du lässt es fallen.");
+  p.laerm = Math.min(100, (p.laerm || 0) + ZERLEGEN_LAERM * (1 - equipBonus("leise")));
+  for (const a of G.actors) {
+    if (a.isPlayer || !a.alive || a.wach) continue;
+    if (Math.hypot(a.x - p.x, a.y - p.y) > ZERLEGEN_WECKT) continue;
+    a.wach = true;
+  }
+  if (G.time >= z.bis) { G.zerlegen = null; vollendeZerlegen(z.eintrag); }
+}
+
+function vollendeZerlegen(eintrag) {
+  const p = G.player, d = eintrag.def;
+  if ((eintrag.menge || 1) > 1) eintrag.menge--;
+  else p.bag.splice(p.bag.indexOf(eintrag), 1);
+  const teile = [];
+  for (const [id, n] of Object.entries(d.zerlegt)) {
+    const st = stapelVon(id, n);
+    // Was keinen Platz mehr findet, faellt vor die Fuesse
+    if (legeAb(p, st)) G.ground.push(Object.assign(st, { x: kachelX(p), y: kachelY(p) }));
+    teile.push(`${n} ${ITEMS[id].name}`);
+  }
+  Sfx.spiel("ausruesten");
+  log(`Aus ${d.name} werden ${teile.join(", ")}.`, "good");
+  refreshUI();
+}
+
 /* Wie lange ein Aufstieg dauert. Lang genug, dass die Etage aufwacht und
    ankommt - das ist der Preis dafuer, dass man geht. */
 const AUFSTIEG_DAUER = 8;
@@ -19616,11 +19644,15 @@ function vollendeAufstieg() {
         bilanz.stuecke === 1 ? "Stück" : "Stücke"}</span></div>${bilanz.verkauft
         ? `<div class="line"><span>Lager voll</span><span>${bilanz.verkauft} ${
             bilanz.verkauft === 1 ? "Stück" : "Stücke"} sofort verkauft · ${
-            bilanz.erloes} Münzen</span></div>` : ""}
+            bilanz.erloes} Münzen</span></div>` : ""}${bilanz.gelernt.length
+        ? `<div class="line"><span>Baupläne gelernt</span><span style="color:var(--verdigris-lit)">${
+            escapeHtml(bilanz.gelernt.join(", "))}</span></div>` : ""}${bilanz.doppelt
+        ? `<div class="line"><span>Doppelte Baupläne</span><span>${bilanz.doppelt} verkauft · ${
+            bilanz.planErloes} Münzen</span></div>` : ""}
     </div>
     <button class="choice" id="lagerBtn" style="margin-top:12px">
       <span class="key">L</span><span>Zum Händler</span>
-      <span class="note">verkaufen, kaufen, aufwerten</span></button>
+      <span class="note">verkaufen, kaufen, bauen</span></button>
     <button class="choice" id="againBtn" style="margin-top:4px">
       <span class="key">N</span><span>Wieder hinabsteigen</span><span class="note"></span></button>`,
     key => {
@@ -19683,7 +19715,7 @@ function showVictory() {
       <div class="line"><span>Stufe</span><span>${G.player.level}</span></div>
       <div class="line"><span>Runden</span><span>${G.turns}</span></div>
       <div class="line"><span>Im Rucksack</span><span style="color:var(--torch)">${
-        imRucksack(G.player).length} Stücke · ${last(getragen(G.player))}</span></div>
+        imRucksack(G.player).length} Stücke</span></div>
       <div class="line"><span>Der Schacht</span><span>${schacht && schacht.bekannt
         ? "steht auf deiner Karte" : "noch zu finden"}</span></div>
     </div>
@@ -19703,9 +19735,7 @@ function showVictory() {
 }
 
 function loescheFortschritt() {
-  META = { muenzen: 180, lager: [], umsatz: 0, laeufe: 0, beste: 0, siege: 0,
-           mitnahme: [], anlegen: {}, gesehen: [], laden: null, ladenRang: -1,
-           stufe: 1, xp: 0, punkte: 0, skills: {}, erweiterungen: [] };
+  META = ladeMetaAus(null);
   speichereMeta(META);
   Sfx.spiel("nein");
 }
@@ -19729,6 +19759,9 @@ function merkeStueck(id) {
    nichts stehen, was nicht stimmt. */
 function fundorteVon(id) {
   const raus = [];
+  if (ITEMS[id].kind === "bauplan")
+    return [ITEMS[ITEMS[id].plan].legendaer ? "von Namentlichen und Bossen, sehr selten"
+                                          : "überall, sehr selten"];
   for (const key of Object.keys(ORT_INHALT)) {
     const o = ORT_INHALT[key];
     let ab = null;
@@ -19745,10 +19778,13 @@ function fundorteVon(id) {
         break;
       }
   }
-  if (RAEUBER_BEUTEL.indexOf(id) >= 0) raus.push("bei Plünderern");
-  if (ITEMS[id].legendaer) raus.push("in Geheim- und Schatzkammern");
-  for (const w of [...WERKSTOFF_TIEFE, ...WERKSTOFF_TOTENSTADT])
-    if (w.id === id && !raus.length) raus.push(`ab Etage ${w.ab || 1}`);
+  if (RAEUBER_AN && RAEUBER_BEUTEL.indexOf(id) >= 0) raus.push("bei Plünderern");
+  if (ITEMS[id].legendaer) raus.push("überall, sehr selten");
+  if (GRUNDSTOFFE.includes(id)) raus.push("überall");
+  for (const key of Object.keys(ORT_INHALT)) {
+    const o = ORT_INHALT[key];
+    if (o.ortsstoff === id || (o.plunder || []).some(([p]) => p === id)) raus.push(o.name || key);
+  }
   return raus;
 }
 
@@ -19758,7 +19794,7 @@ const HANDBUCH_FAECHER = [
   ["weapon", "Waffen"], ["armor", "Rüstung"], ["amulet", "Amulette"],
   ["modul", "Module"], ["potion", "Tränke"], ["oil", "Öl"],
   ["wurf", "Wurfgerät"], ["scroll", "Karten"], ["seil", "Seile"],
-  ["material", "Werkstoff"],
+  ["material", "Material"], ["plunder", "Plunder"],
 ];
 
 /* Das Handbuch bekommt die volle Breite, so wie der Fertigkeitenbaum. In der
@@ -19773,6 +19809,31 @@ function showHandbuch() {
   lagerBindePillen();
 }
 
+/* Die Bauplaene im Handbuch: alle nach Werkbank, gelernte farbig mit Haken,
+   gesehene Stuecke grau, nie gesehene als Luecke. */
+function planUebersicht() {
+  const gelernt = META.plaene || [];
+  const ziele = Object.keys(ITEMS).filter(id => ITEMS[id].kind === "bauplan").map(id => ITEMS[id].plan);
+  const baenke = WERKBAENKE.map(bank => {
+    const ids = ziele.filter(id => werkbankFuer(ITEMS[id]) === bank)
+      .sort((a, b) => SELTEN_RANG[seltenheitVon({ id: a })] - SELTEN_RANG[seltenheitVon({ id: b })]);
+    if (!ids.length) return "";
+    const marken = ids.map(id => {
+      if (gelernt.includes(id) && kenntStueck(id))
+        return `<span class="planmarke gelernt" style="color:${lesbar(seltenFarbe({ id }))}">✓ <b>${
+          escapeHtml(ITEMS[id].name)}</b></span>`;
+      if (kenntStueck(id)) return `<span class="planmarke">· ${escapeHtml(ITEMS[id].name)}</span>`;
+      return '<span class="planmarke leer">?</span>';
+    }).join("");
+    return `<p class="feldkopf">${escapeHtml(bank.name)}
+        <span class="rechts">${ids.filter(id => gelernt.includes(id)).length} von ${ids.length}</span></p>
+      <div class="planreihe">${marken}</div>`;
+  }).join("");
+  return `<p class="feldkopf">Baupläne
+      <span class="rechts">${ziele.filter(id => gelernt.includes(id)).length} von ${ziele.length} gelernt</span></p>
+    ${baenke}`;
+}
+
 function handbuchBereich() {
   const faecher = HANDBUCH_FAECHER.map(([art, wort]) => {
     const ids = Object.keys(ITEMS).filter(id => ITEMS[id].kind === art && !ITEMS[id].quest);
@@ -19784,15 +19845,15 @@ function handbuchBereich() {
         return `<div class="hbkarte leer"><span class="hbbild">?</span>
           <span class="hbname">Noch nicht gefunden</span>
           <span class="hbwerte">${escapeHtml(wort)}</span></div>`;
-      const e = buildItem(id, null, null);
-      const m = kachelMass(e);
+      const e = buildItem(id);
       const orte = fundorteVon(id);
       return `<div class="hbkarte"${d.legendaer ? ' data-legendaer="1"' : ""}>
         <span class="hbbild" style="color:${lesbar(d.tint)}">${kachelBild(e)}</span>
         <span class="hbname" style="color:${lesbar(d.tint)}">${escapeHtml(d.name)}</span>
         <span class="hbwerte">${escapeHtml(d.slot ? bonusText(d) : (d.note || "—"))}</span>
-        <span class="hbmass">${m.w}×${m.h} · ${last(gewicht(e))} · kauft ${
-          kaufPreis(e)} M · gibt ${verkaufPreis(e)} M</span>
+        <span class="hbmass">kauft ${
+          kaufPreis(e)} M · gibt ${verkaufPreis(e)} M${
+          d.slot && (META.plaene || []).includes(id) ? " · Bauplan gelernt" : ""}</span>
         <span class="hbort">${orte.length ? escapeHtml(orte.join(" · ")) : "—"}</span>
       </div>`;
     }).join("");
@@ -19801,13 +19862,14 @@ function handbuchBereich() {
       <div class="hbtafel">${karten}</div>`;
   }).join("");
 
-  const alle = Object.keys(ITEMS).filter(id => !ITEMS[id].quest);
+  const alle = Object.keys(ITEMS).filter(id => !ITEMS[id].quest && ITEMS[id].kind !== "bauplan");
   const wieviele = alle.filter(kenntStueck).length;
   return `<p class="feldkopf">Handbuch
       <span class="rechts">${wieviele} von ${alle.length} Stücken gefunden</span></p>
     <p class="quiet" style="padding:2px 0 12px">Was einmal durch deine Hände ging,
       steht hier mit allem, was es kann. Was du noch nie gesehen hast, bleibt eine
       Lücke — du siehst, dass es etwas gibt, aber nicht was.</p>
+    ${planUebersicht()}
     ${faecher}`;
 }
 
@@ -19842,6 +19904,7 @@ function adminAllesFrei() {
   merkeBezwungen("totenstadt");
   META.gesehen = Object.keys(ORT_INHALT);
   META.erweiterungen = Object.keys(ERWEITERUNGEN);
+  META.werkbaenke = Object.fromEntries(WERKBAENKE.map(w => [w.id, WERKBANK_MAX]));
   // Alle vier Haendler auf den hoechsten Rang
   META.umsaetze = Object.fromEntries(
     HAENDLER.map(h => [h.id, RANG_SCHWELLEN[RANG_SCHWELLEN.length - 1]]));
@@ -19853,12 +19916,14 @@ function adminAllesFrei() {
   const rein = [];
   for (const id of Object.keys(ITEMS)) {
     const d = ITEMS[id];
-    if (d.quest) continue;
-    const e = buildItem(id, null, d.slot && !d.legendaer ? "episch" : null);
+    if (d.quest || d.kind === "bauplan") continue;
+    const e = buildItem(id);
     if (d.stapel) e.menge = d.stapel;
     rein.push(alsBestand(e));
   }
-  const seile = alsBestand(buildItem("seil", null, null));
+  // Und alle Bauplaene gelernt - gebaut wird ab Schritt vier an den Werkbaenken
+  META.plaene = Object.keys(ITEMS).filter(id => ITEMS[id].kind === "bauplan").map(id => ITEMS[id].plan);
+  const seile = alsBestand(buildItem("seil"));
   seile.menge = 20;
   rein.push(seile);
   META.lager = (META.lager || []).concat(rein);
@@ -19879,26 +19944,18 @@ function adminAllesFrei() {
    den man ihm bringt. Die Waren werden einmal je Rang gewuerfelt und bleiben
    dann stehen, damit man sparen kann statt auf Glueck zu warten. */
 const SORTIMENTE = {
+  /* Fertiges fuehren Schmied, Ruestmeisterin und Runenschneider nur noch in
+     Gewoehnlich und Fein - Seltenes und Besseres baut man aus Bauplaenen.
+     Dafuer verkaufen sie den Grundstoff ihres Handwerks, im Buendel zu fuenf. */
   schmied: {
-    0: ["dagger"],
-    1: ["sword", "meuchelklinge"],
+    0: ["dagger", "eisen", "holz"],
+    1: ["sword"],
     2: ["spiess"],
-    3: ["axe", "aderlass"],
-    4: ["kolben", "richtschwert"],
-    5: ["runeblade", "hellebarde", "morgenstern"],
-    6: ["grabklinge", "totenaxt"],     // was es sonst nur in der Tiefe gibt
   },
   ruestung: {
-    /* Sie fuehrte auf dem hoechsten Rang sieben Stuecke, der Kraemer
-       vierzehn - fuer sie hochzuarbeiten lohnte sich kaum. Jetzt steht auf
-       jedem Rang eine Entscheidung statt nur der naechstgroesseren Zahl. */
-    0: ["leather"],
-    1: ["leather", "pilgermantel"],
+    0: ["leather", "leder", "stoff"],
+    1: ["reisemantel"],
     2: ["chain"],
-    3: ["reisemantel", "dornenpanzer"],
-    4: ["plate"],
-    5: ["schuppen", "bleiharnisch"],
-    6: ["salzpanzer", "knochenhemd", "totenwacht"],
   },
   kraemer: {
     /* Alles, was man trinkt oder wirft. Die Traenke der Staerke, der Wacht
@@ -19914,14 +19971,9 @@ const SORTIMENTE = {
     6: [],                              // sein Rang zeigt sich im Preis, nicht in neuer Ware
   },
   runen: {
-    // Nur Module und Amulette - dasselbe, was er auch ankauft
-    0: ["modWall"],
+    0: ["modWall", "talg", "kraeuter"],
     1: ["modSchatten"],
-    2: ["guard"],
-    3: ["modLanze", "modSplitter"],
-    4: ["vitality", "modDonner"],
-    5: ["wrath", "modZoll", "modStille"],
-    6: ["grabmal", "modZehr"],
+    2: ["guard", "modLanze"],
   },
 };
 
@@ -19938,8 +19990,11 @@ function ladenWaren(id) {
   if (!META.laeden || typeof META.laeden !== "object") META.laeden = {};
   const rang = haendlerRang(id);
   const stand = META.laeden[id];
-  if (!stand || stand.rang !== rang) {
-    META.laeden[id] = { rang, waren: sortimentFuer(id, rang).map(w => ({ id: w, ax: null })) };
+  const soll = sortimentFuer(id, rang);
+  // Auch wenn sich das Sortiment geaendert hat - sonst stuende alte Ware weiter da
+  if (!stand || stand.rang !== rang || stand.waren.length !== soll.length ||
+      stand.waren.some(w => !soll.includes(w.id))) {
+    META.laeden[id] = { rang, waren: soll.map(w => ({ id: w })) };
     speichereMeta(META);
   }
   return META.laeden[id].waren;
@@ -20160,6 +20215,7 @@ let lagerReiter = "verkaufen";
 
 /* Welche Kachel im Verkaufsraum gewaehlt ist. */
 let verkaufWahl = null;
+let werkbankWahl = "schmiede";   // welche Werkbank in der Werkstatt offen ist
 let kaufWahl = "schmied";        // welcher Haendler im Kaufen-Reiter offen ist
 
 function verkaufTafel() {
@@ -20167,16 +20223,16 @@ function verkaufTafel() {
   if (!b) return '<p class="quiet">Kachel anklicken · <b>Rechtsklick verkauft sofort</b></p>';
   const e = ausBestand(b);
   const d = e.def;
-  const m = kachelMass(b);
   const werkstoff = d.kind === "material";
   return `<div class="tafelkopf">
       <b style="color:${lesbar(seltenFarbe(b))}">${escapeHtml(d.name)}${
         b.menge > 1 ? ` \u00d7${b.menge}` : ""}</b>
-      <span>${seltenName(b)} \u00b7 ${m.w}\u00d7${m.h} \u00b7 ${last(gewicht(b))}</span>
+      <span>${seltenName(b)}</span>
     </div>
     <p class="tafeltext">${escapeHtml(d.slot ? bonusText(d) : (d.note || ""))}${
-      werkstoff ? '<em class="sage">Werkstoff \u2014 den brauchst du zum Aufwerten.</em>' : ""}</p>
+      werkstoff ? '<em class="sage">Material \u2014 zum Aufwerten und Bauen.</em>' : ""}</p>
     <div class="tafeltaten">
+      ${d.kind === "plunder" ? '<button class="bag-act" id="zerlegBtn">Zerlegen</button>' : ""}
       <button class="bag-act drop" id="verkaufBtn">Verkaufen \u00b7 ${verkaufPreis(e)} M</button>
     </div>`;
 }
@@ -20189,7 +20245,7 @@ const LAGER_REITER = [
   ["aufbruch",  "Aufbruch"],
   ["verkaufen", "Verkaufen"],
   ["kaufen",    "Kaufen"],
-  ["aufwerten", "Aufwerten"],
+  ["werkstatt", "Werkstatt"],
   ["rucksack",  "Ausbauten"],
   ["koennen",   "Fertigkeiten"],
   ["handbuch",  "Handbuch"],
@@ -20233,7 +20289,7 @@ function lagerSpalte(gewaehlt, kachelPx) {
   const frei = belegungIn(META.lager, lm.spalten, lm.reihen).filter(x => !x).length;
   return `<section class="lagerseite">
       <p class="feldkopf">Lager <b>${META.lager.length}</b>
-        <span class="rechts">${frei} Kacheln frei</span></p>
+        <span class="rechts">${frei} Plätze frei</span></p>
       ${rasterMarkup(META.lager, lm.spalten, lm.reihen, "lager", gewaehlt, kachelPx || 44)}
     </section>`;
 }
@@ -20250,15 +20306,12 @@ function lagerFuss(tasten, tat) {
 /* Hinabsteigen steht auf jedem Reiter - man soll nicht erst zum Aufbruch
    zurueckwechseln muessen, um loszuziehen. */
 function lagerAufbruchTat() {
-  const kg = mitnahmeGewicht(), max = traglast();
-  const zuSchwer = kg > max;
   const dabei = (META.mitnahme || []).length +
                 LADE_PLAETZE.filter(sl => META.anlegen[sl]).length +
                 (META.guertel || []).filter(Boolean).length;
-  return `<button class="haupttat" id="abBtn" ${zuSchwer ? "disabled" : ""}>
+  return `<button class="haupttat" id="abBtn">
       Hinabsteigen
-      <em>${zuSchwer ? "zu schwer beladen" : `${dabei} ${
-        dabei === 1 ? "Stück" : "Stücke"} dabei · ${last(kg)}`}</em>
+      <em>${dabei} ${dabei === 1 ? "Stück" : "Stücke"} dabei</em>
     </button>`;
 }
 
@@ -20303,6 +20356,8 @@ function uebersichtBereich() {
           ${zeile("Abstiege", META.laeufe | 0)}
           ${zeile("Tiefste Etage", META.beste | 0, true)}
           ${zeile("Siege", META.siege | 0)}
+          ${zeile("Baupläne", `${(META.plaene || []).length} von ${
+            Object.keys(ITEMS).filter(id => ITEMS[id].kind === "bauplan").length}`)}
           ${zeile("Umsatz", `${umsatz} M`)}
           ${zeile("Händlerrang", rangName(rang))}
         </div>
@@ -20577,7 +20632,6 @@ function showKarte() {
 
   const seile = seilVorrat();
   if (einstiegTiefe > seile + 1) einstiegTiefe = seile + 1;
-  const kg = mitnahmeGewicht();
   const dabei = (META.mitnahme || []).length +
                 LADE_PLAETZE.filter(sl => META.anlegen[sl]).length +
                 (META.guertel || []).filter(Boolean).length;
@@ -20613,7 +20667,6 @@ function showKarte() {
           <div class="zahlenliste">
             <div class="zahlenzeile"><span>Dabei</span><b>${dabei} ${
               dabei === 1 ? "Stück" : "Stücke"}</b></div>
-            <div class="zahlenzeile"><span>Last</span><b>${last(kg)}</b></div>
             <div class="zahlenzeile gold"><span>Tiefste Etage bisher</span><b>${
               META.beste | 0}</b></div>
           </div>
@@ -20894,12 +20947,13 @@ function showCamp(reiter) {
   Sfx.musik_an(true);
   Sfx.stoppeAtmo();
   Sfx.stoppeRegen();
-  if (reiter) lagerReiter = reiter;
+  // Aufwerten ist in die Werkstatt gezogen
+  if (reiter) lagerReiter = reiter === "aufwerten" ? "werkstatt" : reiter;
   const rang = haendlerRang();
   const naechste = RANG_SCHWELLEN[rang + 1];
   const bestand = META.lager.map((b, i) => ({ b, i, e: ausBestand(b) }));
   const waren = HAENDLER.flatMap(h =>
-    ladenWaren(h.id).map(w => ({ w, e: buildItem(w.id, w.ax) })));
+    ladenWaren(h.id).map(w => ({ w, e: ladenStueck(w.id) })));
 
   const zeile = (links, note, knopf, aus) => `
     <div class="bag-row">
@@ -20925,7 +20979,7 @@ function showCamp(reiter) {
         <div class="tafel">${verkaufTafel()}</div>
         <button class="choice" id="allesBtn" style="margin-top:12px">
           <span class="key" aria-hidden="true">·</span><span>Alles verkaufen</span>
-          <span class="note">${wert} Münzen — Werkstoff bleibt liegen</span></button>`
+          <span class="note">${wert} Münzen — Material bleibt liegen</span></button>`
       : '<p class="quiet" style="padding:14px 0">Dein Lager ist leer. Bring etwas herauf.</p>';
   } else if (lagerReiter === "kaufen") {
     /* Vier Haendler nebeneinander, jeder mit seinem Rang. Wer noch nichts bei
@@ -20945,12 +20999,13 @@ function showCamp(reiter) {
 
     const naechste = RANG_SCHWELLEN[rangH + 1];
     const bisher = umsatzVon(h.id);
-    const seine = ladenWaren(h.id).map(w => ({ w, e: buildItem(w.id, w.ax) }));
+    const seine = ladenWaren(h.id).map(w => ({ w, e: ladenStueck(w.id) }));
 
     inhalt = `<div class="haendlerreihe">${reihe}</div>
       <p class="feldkopf">${escapeHtml(h.zeile)}
         <span class="rechts">${naechste
-          ? `${bisher} von ${naechste} M — dann führt er mehr`
+          ? (sortimentFuer(h.id, rangH + 1).length > seine.length
+            ? `${bisher} von ${naechste} M — dann führt er mehr` : "mehr führt er nicht")
           : "höchster Rang"}</span></p>` +
       (seine.length ? seine.map(({ w, e }) => {
         const preis = kaufPreis(e);
@@ -20967,25 +21022,26 @@ function showCamp(reiter) {
   } else if (lagerReiter === "handbuch") {
     inhalt = handbuchBereich();
   } else if (lagerReiter === "zugang") {
-    const stoffe = [...WERKSTOFF_TIEFE, ...WERKSTOFF_TOTENSTADT];
+    const stoffe = [...GRUNDSTOFFE, ...ORTSSTOFFE];
     inhalt = `<p class="feldkopf">Zugang zum Ausprobieren
         <span class="rechts">Tippe „zugang“, um ihn wieder zu schließen</span></p>
       <p class="quiet" style="padding:2px 0 12px">Ein Knopf, und du kannst alles
         anfassen: Münzen, Talentpunkte, alle Orte, alle vier Händler auf dem
         höchsten Rang, zwanzig Seile für den Einstieg auf jeder Etage — und je
-        ein Stück von allem, was es gibt, episch gewürfelt.</p>` +
+        ein Stück von allem, was es gibt.</p>` +
       zeile("<span>Alles freischalten</span>",
             "gibt nur dazu, nimmt nichts weg",
             '<button class="bag-act" id="adminAlles">Freischalten</button>', false) +
       zeile("<span>Was im Spiel steckt</span>",
             `${Object.keys(ITEMS).length} Gegenstände · ${Object.keys(MONSTERS).length} Wesen · ` +
-            `${SKILLS.length} Talente · ${stoffe.length} Werkstoffe · ` +
+            `${SKILLS.length} Talente · ${stoffe.length} Stoffe · ` +
             `${Object.keys(ORT_INHALT).length} Orte`,
             "", true);
   } else if (lagerReiter === "rucksack") {
     const { spalten, reihen } = raster();
+    const lm = lagerRaster();
     inhalt = `<p class="quiet" style="padding:2px 0 10px">Dein Rucksack fasst
-      ${spalten}×${reihen} Kacheln und ${last(traglast())}. Erweiterungen bleiben dir
+      ${spalten * reihen} Plätze, dein Lager ${lm.spalten * lm.reihen}. Erweiterungen bleiben dir
       für immer — auch wenn du unten liegen bleibst.</p>` +
       Object.entries(ERWEITERUNGEN).map(([k, w]) => {
         const hat = hatErweiterung(k);
@@ -21003,37 +21059,8 @@ function showCamp(reiter) {
           <span class="key" aria-hidden="true">×</span><span id="loeschWort">Fortschritt löschen</span>
           <span class="note" id="loeschNote">Münzen, Lager, Stufe, Fertigkeiten — alles</span></button>
       </div>`;
-  } else if (lagerReiter === "aufwerten") {
-    const passend = bestand.filter(({ e }) => e.def.slot && !e.def.quest);
-    /* Der Vorrat ist die Zahl, an der hier alles haengt - er stand als
-       kursive Fussnote im schwaechsten Ton der Palette. Jetzt sind es Marken,
-       in denen die Zahl gross ist und die Farbe den Werkstoff bezeichnet. */
-    /* Alle Werkstoffe, die es gibt - auch die, die nur der zweite Ort
-       hergibt; sonst sieht man nicht, was zur letzten Stufe fehlt. */
-    const alleStoffe = [...WERKSTOFF_TIEFE,
-      ...WERKSTOFF_TOTENSTADT.filter(w => !WERKSTOFF_TIEFE.some(x => x.id === w.id))];
-    const vorrat = alleStoffe.map(w => {
-      const n = werkstoffVorrat(w.id);
-      return `<span class="stoffmarke${n ? "" : " leer"}"
-        style="--tint:${ITEMS[w.id].tint}">${escapeHtml(ITEMS[w.id].name)}<b>${n}</b></span>`;
-    }).join("");
-    inhalt = `<p class="feldkopf">Werkstoff im Lager
-        <span class="rechts">kostet Werkstoff aus der Tiefe, keine Münzen</span></p>
-      <div class="stoffreihe">${vorrat}</div>` +
-      (passend.length ? passend.map(({ e, b, i }) => {
-        const voll = (b.stufe || 0) >= AUFWERT_MAX;
-        const kosten = aufwertKosten(b);
-        const geht = !voll && kostenGedeckt(kosten);
-        return zeile(
-          `<span style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(e.def.name)}</span>`,
-          voll ? "voll ausgereizt"
-               : `<span class="sprung">${stufeVorschau(b)}</span><span
-                    class="stoffpreis">${kostenText(kosten)}</span>`,
-          voll ? '<button class="bag-act" disabled>—</button>'
-               : `<button class="bag-act" data-aufwert="${i}" ${geht ? "" : "disabled"}>+1</button>`,
-          !geht);
-      }).join("")
-        : '<p class="quiet" style="padding:14px 0">Nichts im Lager, was sich schärfen ließe.</p>');
+  } else if (lagerReiter === "werkstatt") {
+    inhalt = werkstattBereich(bestand, zeile);
   }
 
   const tasten = lagerReiter === "verkaufen"
@@ -21065,6 +21092,13 @@ function showCamp(reiter) {
     if (i >= 0) verkaufe(i);
     showCamp();
   };
+  const zl = $("zerlegBtn");
+  if (zl) zl.onclick = () => {
+    const i = META.lager.indexOf(verkaufWahl);
+    Sfx.spiel(i >= 0 && zerlegeImLager(i) ? "ausruesten" : "nein");
+    if (!META.lager.includes(verkaufWahl)) verkaufWahl = null;
+    showCamp();
+  };
   overlay.querySelectorAll("[data-kauf]").forEach(b =>
     b.onclick = () => { kaufe(b.dataset.kauf); showCamp(); });
   const adminKnopf = $("adminAlles");
@@ -21077,6 +21111,14 @@ function showCamp(reiter) {
     b.onclick = () => kaufeErweiterung(b.dataset.erw));
   overlay.querySelectorAll("[data-aufwert]").forEach(b =>
     b.onclick = () => { werteAuf(+b.dataset.aufwert); showCamp(); });
+  overlay.querySelectorAll("[data-bank]").forEach(b =>
+    b.onclick = () => { werkbankWahl = b.dataset.bank; Sfx.spiel("aufheben"); showCamp(); });
+  overlay.querySelectorAll("[data-bauen]").forEach(b =>
+    b.onclick = () => { baue(b.dataset.bauen); showCamp(); });
+  overlay.querySelectorAll("[data-ausbau]").forEach(b =>
+    b.onclick = () => { baueWerkbankAus(b.dataset.ausbau); showCamp(); });
+  overlay.querySelectorAll("[data-herstellen]").forEach(b =>
+    b.onclick = () => { stelleHer(b.dataset.herstellen); showCamp(); });
   const alles = $("allesBtn");
   if (alles) alles.onclick = () => { verkaufeAlles(); showCamp(); };
 
@@ -21109,6 +21151,25 @@ function verkaufe(i) {
   speichereMeta(META);
 }
 
+/* Oben geht Zerlegen sofort. Passt das Material nicht mehr ins Lager,
+   bleibt alles, wie es war. */
+function zerlegeImLager(i) {
+  const b = META.lager[i];
+  const d = b && ITEMS[b.id];
+  if (!d || d.kind !== "plunder") return false;
+  const vorher = JSON.stringify(META.lager);
+  if ((b.menge || 1) > 1) b.menge--;
+  else META.lager.splice(i, 1);
+  for (const [id, n] of Object.entries(d.zerlegt))
+    if (!insLager(alsBestand(stapelVon(id, n)))) {
+      META.lager = JSON.parse(vorher);
+      log("Im Lager ist kein Platz für das Material.", "system");
+      return false;
+    }
+  speichereMeta(META);
+  return true;
+}
+
 /* Alles bis auf den Werkstoff - der ist die Waehrung des Aufwertens und
    waere mit einem Klick weg, ohne dass es jemand gewollt haette. */
 function verkaufeAlles() {
@@ -21116,8 +21177,15 @@ function verkaufeAlles() {
     if (ITEMS[META.lager[i].id] && ITEMS[META.lager[i].id].kind !== "material") verkaufe(i);
 }
 
+// Grundstoff gibt es beim Haendler im Buendel zu fuenf
+function ladenStueck(id) {
+  const e = buildItem(id);
+  if (e.def.kind === "material") e.menge = 5;
+  return e;
+}
+
 function kaufe(id) {
-  const e = buildItem(id, null);
+  const e = ladenStueck(id);
   const preis = kaufPreis(e);
   if (META.muenzen < preis) return;
   META.muenzen -= preis;
@@ -21149,13 +21217,257 @@ function werteAuf(i) {
   const b = META.lager[i];
   if (!b || (b.stufe || 0) >= AUFWERT_MAX) return;
   const kosten = aufwertKosten(b);
-  if (!kosten || !kostenGedeckt(kosten)) { Sfx.spiel("nein"); return; }
+  if (!kosten || !aufwertBankReicht(b) || !kostenGedeckt(kosten)) { Sfx.spiel("nein"); return false; }
   /* Der Werkstoff geht zuerst weg. Das Stueck selbst kann durch das Ausbuchen
      verrutschen, deshalb wird es vorher festgehalten. */
   zahleWerkstoff(kosten);
   b.stufe = (b.stufe || 0) + 1;
   Sfx.spiel("ausruesten");
   speichereMeta(META);
+  return true;
+}
+
+/* Was einem Bau im Weg steht - leer, wenn nichts. */
+function bauHindernis(id) {
+  const bank = werkbankFuer(ITEMS[id]);
+  if (!bank) return "an keiner Werkbank";
+  if (!(META.plaene || []).includes(id)) return "Bauplan fehlt";
+  const noetig = WERKBANK_FUER_STUFE[seltenheitVon({ id })];
+  if (werkbankStufe(bank.id) < noetig) return `braucht ${bank.name} ${ROEMISCH[noetig]}`;
+  if (lagerVoll()) return "Lager voll";
+  const k = bauKosten(id);
+  if (!kostenGedeckt(k.stoffe)) return "zu wenig Material";
+  if (META.muenzen < k.muenzen) return "zu wenig Münzen";
+  return "";
+}
+
+/* Baut ein Stueck aus einem gelernten Plan ins Lager. */
+function baue(id) {
+  if (bauHindernis(id)) { Sfx.spiel("nein"); return false; }
+  const k = bauKosten(id);
+  zahleWerkstoff(k.stoffe);
+  META.muenzen -= k.muenzen;
+  // Das Lager hatte eine Luecke, und Bezahlen macht nur Platz frei
+  insLager(alsBestand(buildItem(id)));
+  Sfx.spiel("ausruesten");
+  banner("Gebaut", ITEMS[id].name, "good");
+  speichereMeta(META);
+  return true;
+}
+
+function baueWerkbankAus(bankId) {
+  const k = ausbauKosten(bankId);
+  if (!k || !kostenGedeckt(k.stoffe) || META.muenzen < k.muenzen) { Sfx.spiel("nein"); return false; }
+  zahleWerkstoff(k.stoffe);
+  META.muenzen -= k.muenzen;
+  META.werkbaenke = Object.assign({}, META.werkbaenke, { [bankId]: werkbankStufe(bankId) + 1 });
+  Sfx.spiel("kauf");
+  speichereMeta(META);
+  return true;
+}
+
+// Material und Muenzen in einer Zeile; was fehlt, steht in Rot
+/* Oben: die Kueche stellt sofort aus dem Lager her. */
+function herstellHindernisOben(id) {
+  const r = REZEPT_VON[id];
+  if (!r) return "kein Rezept";
+  if (werkbankStufe("kraeuterkueche") < r.stufe) return `braucht Kräuterküche ${ROEMISCH[r.stufe]}`;
+  if (!kostenGedeckt(r.stoffe)) return "zu wenig Material";
+  const stapelFrei = META.lager.some(b => b.id === id && (b.menge || 1) < (ITEMS[id].stapel || 1));
+  if (lagerVoll() && !stapelFrei) return "Lager voll";
+  return "";
+}
+
+function stelleHer(id) {
+  if (herstellHindernisOben(id)) { Sfx.spiel("nein"); return false; }
+  zahleWerkstoff(REZEPT_VON[id].stoffe);
+  insLager(alsBestand(stapelVon(id, 1)));
+  Sfx.spiel("ausruesten");
+  speichereMeta(META);
+  return true;
+}
+
+/* Unten: aus dem Rucksack, wie das Zerlegen. Das Material geht erst weg, wenn
+   es fertig ist - wer abbricht, verliert nichts. */
+function rucksackVorrat(id) {
+  return G.player.bag.reduce((a, e) => a + (e.id === id ? (e.menge || 1) : 0), 0);
+}
+
+function herstellHindernisUnten(id) {
+  const r = REZEPT_VON[id];
+  if (!r) return "kein Rezept";
+  if (werkbankStufe("kraeuterkueche") < r.stufe) return `braucht Kräuterküche ${ROEMISCH[r.stufe]}`;
+  for (const st in r.stoffe) if (rucksackVorrat(st) < r.stoffe[st]) return "zu wenig Material";
+  return "";
+}
+
+function beginneHerstellen(id) {
+  const p = G.player;
+  if (mode.kind !== "play" || !p.alive || G.aufstieg || G.zerlegen || G.herstellen) return false;
+  if (herstellHindernisUnten(id)) { Sfx.spiel("nein"); return false; }
+  if (p.zuletztGetroffen != null && G.time - p.zuletztGetroffen < 3) {
+    log("Nicht mitten im Kampf.", "bad");
+    Sfx.spiel("nein");
+    return false;
+  }
+  G.herstellen = { bis: G.time + HERSTELLEN_DAUER, x: p.x, y: p.y, id };
+  Sfx.spiel("aufheben");
+  log(`Du stellst ${ITEMS[id].name} her. ${HERSTELLEN_DAUER} Sekunden — und es klappert.`, "system");
+  return true;
+}
+
+function tickHerstellen() {
+  const h = G.herstellen, p = G.player;
+  if (!h) return;
+  const abbruch = warum => { G.herstellen = null; log(warum, "bad"); Sfx.spiel("nein"); };
+  if (Math.hypot(p.x - h.x, p.y - h.y) > .6) return abbruch("Du gehst weiter — das Herstellen bricht ab.");
+  if (p.zuletztGetroffen != null && G.time - p.zuletztGetroffen < .5)
+    return abbruch("Ein Treffer — alles fällt dir aus der Hand.");
+  p.laerm = Math.min(100, (p.laerm || 0) + ZERLEGEN_LAERM * (1 - equipBonus("leise")));
+  for (const a of G.actors) {
+    if (a.isPlayer || !a.alive || a.wach) continue;
+    if (Math.hypot(a.x - p.x, a.y - p.y) > ZERLEGEN_WECKT) continue;
+    a.wach = true;
+  }
+  if (G.time < h.bis) return;
+  G.herstellen = null;
+  if (herstellHindernisUnten(h.id)) return abbruch("Dir fehlt das Material dafür.");
+  const r = REZEPT_VON[h.id];
+  for (const st in r.stoffe) {
+    let offen = r.stoffe[st];
+    for (let i = p.bag.length - 1; i >= 0 && offen > 0; i--) {
+      const e = p.bag[i];
+      if (e.id !== st) continue;
+      const nimmt = Math.min(offen, e.menge || 1);
+      e.menge = (e.menge || 1) - nimmt;
+      offen -= nimmt;
+      if (e.menge <= 0) p.bag.splice(i, 1);
+    }
+  }
+  const fertig = stapelVon(h.id, 1);
+  // Was keinen Platz mehr findet, faellt vor die Fuesse
+  if (legeAb(p, fertig)) G.ground.push(Object.assign(fertig, { x: kachelX(p), y: kachelY(p) }));
+  Sfx.spiel("ausruesten");
+  log(`${ITEMS[h.id].name} ist fertig.`, "good");
+  refreshUI();
+}
+
+/* Im Rucksack: was die Kueche kann, mit dem Material aus dem Rucksack. */
+function herstellenLeiste() {
+  const offen = rezepteOffen();
+  if (!offen.length) return "";
+  const knoepfe = offen.map(r => {
+    const preis = Object.entries(r.stoffe).map(([st, n]) => `${n} ${ITEMS[st].name}`).join(" + ");
+    return `<button class="bag-act" data-herstellen-unten="${r.id}" ${
+      herstellHindernisUnten(r.id) ? "disabled" : ""}>${escapeHtml(ITEMS[r.id].name)} · ${escapeHtml(preis)}</button>`;
+  }).join("");
+  return `<p class="feldkopf" style="margin-top:12px">Herstellen
+      <span class="rechts">${HERSTELLEN_DAUER} s, macht Lärm · Material aus dem Rucksack</span></p>
+    <div class="tafeltaten" style="flex-wrap:wrap">${knoepfe}</div>`;
+}
+
+function preisText(k) {
+  const farbe = META.muenzen >= k.muenzen ? "var(--vellum-dim)" : "var(--madder-lit)";
+  return `${kostenText(k.stoffe)} · <span style="color:${farbe}">${k.muenzen} M</span>`;
+}
+
+/* == Die Werkstatt im Lager ==============================================
+   Oben die Werkbaenke nebeneinander wie die Haendler, darunter die gewaehlte:
+   ihr Ausbau, der Vorrat, was sich aus gelernten Plaenen bauen laesst und was
+   im Lager aufgewertet werden kann. */
+function werkstattBereich(bestand, zeile) {
+  const bank = WERKBANK_VON[werkbankWahl] || WERKBAENKE[0];
+  const stufe = werkbankStufe(bank.id);
+  const farbig = e => `<span style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(e.def.name)}</span>`;
+  const reihe = WERKBAENKE.map(w => `<button class="haendlerpille${w.id === bank.id ? " an" : ""}"
+      data-bank="${w.id}">
+      <b>${escapeHtml(w.name)}</b>
+      <span>${escapeHtml(w.was)}</span>
+      <em>Stufe ${ROEMISCH[werkbankStufe(w.id)]}</em>
+    </button>`).join("");
+
+  const ausbau = ausbauKosten(bank.id);
+  const ausbauGeht = !!ausbau && kostenGedeckt(ausbau.stoffe) && META.muenzen >= ausbau.muenzen;
+  const ausbauZeile = ausbau
+    ? zeile(`<span>Ausbau auf Stufe ${ROEMISCH[stufe + 1]}</span>`,
+        `<span class="sprung">${bank.id === "kraeuterkueche"
+          ? `schaltet ${REZEPTE.filter(r => r.stufe === stufe + 1).length} Rezepte frei`
+          : `baut dann ${BANK_BAUT[stufe + 1]}`}</span><span
+          class="stoffpreis">${preisText(ausbau)}</span>`,
+        `<button class="bag-act" data-ausbau="${bank.id}" ${ausbauGeht ? "" : "disabled"}>Ausbauen</button>`,
+        !ausbauGeht)
+    : "";
+
+  const vorrat = [...GRUNDSTOFFE, ...ORTSSTOFFE].map(id => {
+    const n = werkstoffVorrat(id);
+    return `<span class="stoffmarke${n ? "" : " leer"}"
+      style="--tint:${ITEMS[id].tint}">${escapeHtml(ITEMS[id].name)}<b>${n}</b></span>`;
+  }).join("");
+
+  // Die Kraeuterkueche baut keine Plaene, sie stellt nach Rezept her
+  if (bank.id === "kraeuterkueche") {
+    const rezepte = REZEPTE.map(r => {
+      const e = buildItem(r.id);
+      const warum = herstellHindernisOben(r.id);
+      return zeile(`<span style="color:${lesbar(e.def.tint)}">${escapeHtml(e.def.name)}</span>`,
+        `<span class="sprung">${escapeHtml(e.def.note || "")}</span><span class="stoffpreis">${
+          warum.startsWith("braucht") ? escapeHtml(warum) : kostenText(r.stoffe)}</span>`,
+        `<button class="bag-act" data-herstellen="${r.id}" ${warum ? "disabled" : ""}>Herstellen</button>`,
+        !!warum);
+    }).join("");
+    return `<div class="haendlerreihe">${reihe}</div>
+      <p class="feldkopf">${escapeHtml(bank.name)} · Stufe ${ROEMISCH[stufe]}
+        <span class="rechts">${rezepteOffen().length} von ${REZEPTE.length} Rezepten, oben wie unten</span></p>
+      ${ausbauZeile}
+      <p class="feldkopf">Material im Lager</p>
+      <div class="stoffreihe">${vorrat}</div>
+      <p class="feldkopf">Herstellen <span class="rechts">sofort, aus dem Lager</span></p>
+      ${rezepte}`;
+  }
+
+  const alle = Object.keys(ITEMS).filter(id => ITEMS[id].kind === "bauplan" &&
+    werkbankFuer(ITEMS[ITEMS[id].plan]) === bank).map(id => ITEMS[id].plan);
+  const gelernt = alle.filter(id => (META.plaene || []).includes(id))
+    .sort((a, b) => SELTEN_RANG[seltenheitVon({ id: a })] - SELTEN_RANG[seltenheitVon({ id: b })]);
+  const bauen = gelernt.length ? gelernt.map(id => {
+    const e = buildItem(id);
+    const warum = bauHindernis(id);
+    return zeile(farbig(e),
+      `<span class="sprung">${escapeHtml(bonusText(e.def))}</span><span class="stoffpreis">${
+        warum.startsWith("braucht") ? escapeHtml(warum) : preisText(bauKosten(id))}</span>`,
+      `<button class="bag-act" data-bauen="${id}" ${warum ? "disabled" : ""}>Bauen</button>`,
+      !!warum);
+  }).join("")
+    : '<p class="quiet" style="padding:6px 0 14px">Noch kein Bauplan gelernt — bring einen lebend hinauf.</p>';
+
+  const passend = bestand.filter(({ e }) => e.def.slot && !e.def.quest && werkbankFuer(e.def) === bank);
+  const aufwerten = passend.length ? passend.map(({ e, b, i }) => {
+    const voll = (b.stufe || 0) >= AUFWERT_MAX;
+    const kosten = aufwertKosten(b);
+    const reicht = aufwertBankReicht(b);
+    const geht = !voll && reicht && kostenGedeckt(kosten);
+    const ziel = ROEMISCH[(b.stufe || 0) + 1];
+    return zeile(farbig(e),
+      voll ? "voll ausgereizt"
+           : `<span class="sprung">${stufeVorschau(b)}</span><span class="stoffpreis">${
+               reicht ? kostenText(kosten) : `braucht ${escapeHtml(bank.name)} ${ziel}`}</span>`,
+      voll ? '<button class="bag-act" disabled>—</button>'
+           : `<button class="bag-act" data-aufwert="${i}" ${geht ? "" : "disabled"}>${ziel}</button>`,
+      !geht);
+  }).join("")
+    : '<p class="quiet" style="padding:6px 0 14px">Nichts im Lager, was diese Werkbank schärfen könnte.</p>';
+
+  return `<div class="haendlerreihe">${reihe}</div>
+    <p class="feldkopf">${escapeHtml(bank.name)} · Stufe ${ROEMISCH[stufe]}
+      <span class="rechts">baut ${BANK_BAUT[stufe]}</span></p>
+    ${ausbauZeile}
+    <p class="feldkopf">Material im Lager</p>
+    <div class="stoffreihe">${vorrat}</div>
+    <p class="feldkopf">Bauen
+      <span class="rechts">${gelernt.length} von ${alle.length} Bauplänen gelernt</span></p>
+    ${bauen}
+    <p class="feldkopf">Aufwerten <span class="rechts">Stufe I bis III</span></p>
+    ${aufwerten}`;
 }
 
 
@@ -21181,15 +21493,6 @@ function ladeMass(feld) {
   return feld === "lager" ? lagerRaster() : raster();
 }
 
-/* Was der Rucksack im Aufbruch wiegt - Angelegtes zaehlt nicht mit, genau wie
-   unten im Verlies. */
-/* Der Guertel wiegt auch im Aufbruchsfenster mit - sonst zeigte die Waage
-   dort etwas anderes an als unten im Verlies. */
-function mitnahmeGewicht() {
-  return (META.mitnahme || []).reduce((a, b) => a + gewicht(b), 0) +
-         (META.guertel || []).reduce((a, b) => a + (b ? gewicht(b) : 0), 0);
-}
-
 /* Der Guertel im Lager arbeitet auf Bestandssaetzen, nicht auf gebauten
    Stuecken - dieselbe Regel, andere Datenform: gleiche Sorte auf den Stapel,
    sonst der erste freie Platz. */
@@ -21199,7 +21502,7 @@ function guertelPlatzImLager(b) {
   const g = META.guertel || (META.guertel = Array(GUERTEL_PLAETZE).fill(null));
   for (let i = 0; i < GUERTEL_PLAETZE; i++) {
     const x = g[i];
-    if (x && x.id === b.id && (x.sel || null) === (b.sel || null) &&
+    if (x && x.id === b.id &&
         (x.menge || 1) < (vorlage(x).stapel || 1)) return i;
   }
   for (let i = 0; i < GUERTEL_PLAETZE; i++) if (!g[i]) return i;
@@ -21225,7 +21528,7 @@ function ladeAnGuertel(b, vonFeld) {
   }
   const i = quelle.indexOf(b);
   if (i >= 0) quelle.splice(i, 1);
-  b.gx = null; b.gy = null; b.dreh = false;
+  b.gx = null; b.gy = null;
   g[nr] = b;
   return true;
 }
@@ -21272,11 +21575,10 @@ function showLoadout() {
       !LADE_PLAETZE.some(sl => META.anlegen[sl] === ladeWahl)) ladeWahl = null;
   openModal(lagerSchirm("aufbruch", ladeMarkup(), {
     wahl: ladeWahl,
-    tasten: [["Ziehen", "verschieben"], ["Klick", "wählen"], ["R", "drehen"],
+    tasten: [["Ziehen", "verschieben"], ["Klick", "wählen"],
              ["N", "Notausrüstung"], ["↵", "hinab"]],
   }), key => {
     if (key === "enter") { showKarte(); return true; }
-    if (key === "r") { ladeDrehen(); return true; }
     if (key === "n") { ladeNotaufbruch(); return true; }
     return false;
   });
@@ -21290,7 +21592,7 @@ function ladeFrisch() {
   if (!schirm) { showLoadout(); return; }
   schirm.outerHTML = lagerSchirm("aufbruch", ladeMarkup(), {
     wahl: ladeWahl,
-    tasten: [["Ziehen", "verschieben"], ["Klick", "wählen"], ["R", "drehen"],
+    tasten: [["Ziehen", "verschieben"], ["Klick", "wählen"],
              ["N", "Notausrüstung"], ["↵", "hinab"]],
   });
   lagerBindePillen();
@@ -21298,10 +21600,7 @@ function ladeFrisch() {
 }
 
 function ladeMarkup() {
-  const lm = lagerRaster(), rm = raster();
-  const kg = mitnahmeGewicht(), max = traglast();
-  const schwer = kg > max * .8;
-  const zuSchwer = kg > max;
+  const rm = raster();
 
   const plaetze = LADE_PLAETZE.map(slot => {
     const b = META.anlegen[slot];
@@ -21324,11 +21623,6 @@ function ladeMarkup() {
         <p class="feldkopf">Rucksack <b>${META.mitnahme.length}/${rm.spalten * rm.reihen}</b>
           <span class="rechts">geht mit hinab</span></p>
         ${rasterMarkup(META.mitnahme, rm.spalten, rm.reihen, "mit", ladeWahl, 50)}
-        <div class="lastbalken" style="margin-top:10px"><i class="${zuSchwer ? "voll" : ""}"
-          style="width:${Math.round(Math.min(1, kg / max) * 100)}%"></i><u style="left:80%"></u></div>
-        <p class="feldkopf${zuSchwer ? " warn" : ""}" style="margin-top:6px">Last
-          <b>${last(kg)} / ${last(max)}</b>
-          <span class="rechts">${zuSchwer ? "zu schwer" : schwer ? "schwer beladen" : ""}</span></p>
         <div class="tafel" style="margin-top:14px">${ladeTafel()}</div>
       </section>
 
@@ -21340,8 +21634,8 @@ function ladeMarkup() {
         <p class="feldkopf" style="margin-top:18px">Gürtel
           <b>${(META.guertel || []).filter(Boolean).length}/${GUERTEL_PLAETZE}</b></p>
         ${guertelReihe(META.guertel || [], "gplatz")}
-        <p class="quiet" style="margin:8px 0 0">Flaschen, Tasten 1–5. Belegt keine
-          Kachel, wiegt aber mit.</p>
+        <p class="quiet" style="margin:8px 0 0">Flaschen, Tasten 1–5. Belegt keinen
+          Platz im Rucksack.</p>
 
         <div class="ausgang" style="margin-top:18px;padding-top:14px">
           <button class="choice" id="notBtn">
@@ -21349,7 +21643,7 @@ function ladeMarkup() {
             <span class="note">rostiger Dolch und ein Ölfläschchen</span></button>
           <button class="choice" id="ladeRaeum">
             <span class="key" aria-hidden="true">↺</span><span>Lager aufräumen</span>
-            <span class="note">packt das Sperrigste zuerst</span></button>
+            <span class="note">sortiert nach Art und schließt die Lücken</span></button>
         </div>
       </section>
     </div>`;
@@ -21360,14 +21654,13 @@ function ladeTafel() {
   if (!b) return '<p class="quiet">Wähle eine Kachel. Ziehen bewegt sie, ein Klick zeigt sie hier.</p>';
   const e = ausBestand(b);
   const d = e.def;
-  const m = kachelMass(b);
   const imLager = META.lager.includes(b);
   const angelegt = LADE_PLAETZE.find(sl => META.anlegen[sl] === b);
   const kannAnlegen = d.slot && !angelegt;
   return `<div class="tafelkopf">
       <b style="color:${lesbar(seltenFarbe(b))}">${escapeHtml(d.name)}${
         b.menge > 1 ? ` ×${b.menge}` : ""}</b>
-      <span>${seltenName(b)} · ${m.w}×${m.h} · ${last(gewicht(b))} · ${verkaufPreis(e)} M</span>
+      <span>${seltenName(b)} · ${verkaufPreis(e)} M</span>
     </div>
     <p class="tafeltext">${escapeHtml(d.slot ? bonusText(d) : (d.note || ""))}${
       d.sage ? `<em class="sage">„${escapeHtml(d.sage)}“</em>` : ""}</p>
@@ -21375,8 +21668,6 @@ function ladeTafel() {
       ${angelegt
         ? '<button class="bag-act" id="tafelAb">Abnehmen</button>'
         : `<button class="bag-act" id="tafelHin">${imLager ? "In den Rucksack" : "Ins Lager"}</button>`}
-      ${!angelegt && drehbar(b)
-        ? '<button class="bag-act" id="tafelDreh">Drehen · R</button>' : ""}
       ${kannAnlegen ? '<button class="bag-act" id="tafelAn">Anlegen</button>' : ""}
       ${!angelegt && istFlasche(d) && guertelPlatzImLager(b) >= 0
         ? '<button class="bag-act" id="tafelGuertel">An den Gürtel</button>' : ""}
@@ -21436,20 +21727,6 @@ function ladeAblegen(b, feld) {
   return true;
 }
 
-/* Das gewaehlte Stueck quer legen - in dem Behaelter, in dem es liegt. */
-function ladeDrehen() {
-  if (!ladeWahl || LADE_PLAETZE.some(sl => META.anlegen[sl] === ladeWahl)) {
-    Sfx.spiel("nein"); return;
-  }
-  const feld = META.lager.includes(ladeWahl) ? "lager" : "mit";
-  const m = ladeMass(feld);
-  if (dreheAn(ladeListe(feld), m.spalten, m.reihen, ladeWahl)) {
-    speichereMeta(META);
-    Sfx.spiel("aufheben");
-  } else Sfx.spiel("nein");
-  ladeFrisch();
-}
-
 /* Alles zurueck ins Lager und mit dem Notbehelf hinab. Wer nichts zu
    verlieren hat, verliert auch nichts - das ist der Weg zurueck aus einer
    Pechstraehne, ohne dass man dafuer erst muehsam alles auspacken muss. */
@@ -21458,7 +21735,6 @@ function ladeDrehen() {
 let einstiegTiefe = 1;
 
 function ladeAufbruch() {
-  if (mitnahmeGewicht() > traglast()) { Sfx.spiel("nein"); return; }
   /* So tief, wie die Seile reichen. Vorher wurde bei zu wenig Seil gar nichts
      getan - man drueckte auf Hinabsteigen und es passierte nichts, ohne dass
      irgendwo stand, warum. */
@@ -21616,7 +21892,6 @@ function ladeBinde() {
     ladeWahl = null;
     ladeFrisch();
   });
-  knopf("tafelDreh", () => ladeDrehen());
   knopf("tafelWeg", () => {
     const i = META.lager.indexOf(ladeWahl);
     if (i >= 0) { verkaufe(i); ladeWahl = null; }
@@ -21630,28 +21905,19 @@ function ladeBinde() {
       const kasten = el.getBoundingClientRect();
       const griffX = ev.clientX - kasten.left, griffY = ev.clientY - kasten.top;
       const startX = ev.clientX, startY = ev.clientY;
-      const lageStart = !!b.dreh;
       let geist = null;
 
-      let letzte = ev;
-      const geistMass = () => {
-        if (!geist) return;
-        const m = kachelMass(b);
-        const zelle = feld === "lager" ? 44 : 50;
-        geist.style.width = `${m.w * zelle + (m.w - 1) * 3}px`;
-        geist.style.height = `${m.h * zelle + (m.h - 1) * 3}px`;
-      };
       const bewegt = ev2 => {
-        letzte = ev2;
         if (!geist) {
           if (Math.abs(ev2.clientX - startX) < 4 && Math.abs(ev2.clientY - startY) < 4) return;
           geist = document.createElement("div");
           geist.className = "kachelgeist";
           geist.style.setProperty("--tint", seltenFarbe(b));
-          geist.innerHTML = `<span class="kachelbild">${kachelBild(b)}</span>
-            <span class="kachelname">${escapeHtml(kachelName(b))}</span>`;
+          const zelle = feld === "lager" ? 44 : 50;
+          geist.style.width = `${zelle}px`;
+          geist.style.height = `${zelle}px`;
+          geist.innerHTML = `<span class="kachelbild">${kachelBild(b)}</span>`;
           document.body.appendChild(geist);
-          geistMass();
           el.classList.add("hebt");
         }
         geist.style.left = `${ev2.clientX - griffX}px`;
@@ -21663,21 +21929,9 @@ function ladeBinde() {
         geist.classList.toggle("nein", !z && !ueberPlatz(ev2, b) && !amGuertel);
       };
 
-      // R dreht mitten im Zug - dort merkt man ja erst, dass es quer hineingeht
-      const dreht = ev2 => {
-        if (ev2.key !== "r" && ev2.key !== "R") return;
-        ev2.preventDefault();
-        if (!drehbar(b)) return;
-        b.dreh = !b.dreh;
-        Sfx.spiel("aufheben");
-        geistMass();
-        bewegt(letzte);
-      };
-
       const los = ev2 => {
         window.removeEventListener("pointermove", bewegt);
         window.removeEventListener("pointerup", los);
-        window.removeEventListener("keydown", dreht);
         if (geist) geist.remove();
         el.classList.remove("hebt");
         ladeWahl = b;
@@ -21701,7 +21955,7 @@ function ladeBinde() {
         if (z) {
           if (feld === "platz") {
             if (ladeAblegen(b, z.feld)) {
-              // Genau dort ablegen, wohin gezogen wurde, wenn es passt
+              // Genau dort ablegen, wohin gezogen wurde, wenn der Platz frei ist
               const liste = ladeListe(z.feld).filter(x => x !== b);
               const m = ladeMass(z.feld);
               if (passtIn(liste, m.spalten, m.reihen, b, z.gx, z.gy)) { b.gx = z.gx; b.gy = z.gy; }
@@ -21709,14 +21963,13 @@ function ladeBinde() {
             } else Sfx.spiel("nein");
           } else if (ladeSchiebe(b, feld, z.feld, z.gx, z.gy)) {
             speichereMeta(META);
-          } else { b.dreh = lageStart; Sfx.spiel("nein"); }
-        } else if (b.dreh !== lageStart) b.dreh = lageStart;
+          } else Sfx.spiel("nein");
+        }
         ladeFrisch();
       };
 
       window.addEventListener("pointermove", bewegt);
       window.addEventListener("pointerup", los);
-      window.addEventListener("keydown", dreht);
     };
   }
 
@@ -21867,7 +22120,7 @@ function startNewGame() {
   let mitgenommen = 0;
   for (const b of (META.mitnahme || [])) {
     const e = ausBestand(b);
-    e.gx = b.gx; e.gy = b.gy; e.dreh = !!b.dreh;
+    e.gx = b.gx; e.gy = b.gy;
     p.bag.push(e);
     mitgenommen++;
   }
@@ -21875,7 +22128,7 @@ function startNewGame() {
     const b = (META.anlegen || {})[slot];
     if (!b) continue;
     const e = ausBestand(b);
-    e.gx = e.gy = null; e.dreh = false;
+    e.gx = e.gy = null;
     p.bag.push(e);
     p.equipped[slot] = e;
     mitgenommen++;
@@ -21886,7 +22139,7 @@ function startNewGame() {
     const b = (META.guertel || [])[i];
     if (!b) { gband[i] = null; continue; }
     const e = ausBestand(b);
-    e.gx = e.gy = null; e.dreh = false;
+    e.gx = e.gy = null;
     gband[i] = e;
     mitgenommen++;
   }
@@ -21895,7 +22148,7 @@ function startNewGame() {
   /* Wer nichts mitgenommen hat, steigt nicht mit blossen Haenden hinab -
      aber auch nicht mit etwas, das man behalten wollte. */
   if (!mitgenommen) {
-    for (const id of NOTAUSRUESTUNG) legeAb(p, buildItem(id, null, null));
+    for (const id of NOTAUSRUESTUNG) legeAb(p, buildItem(id));
   }
   /* Wer ohne Vorbereitung aufbricht, bekommt das Netz wenigstens angelegt -
      wer selbst gepackt hat, behaelt genau das, was er gewaehlt hat. */
@@ -21912,11 +22165,11 @@ function startNewGame() {
   // Erst anlegen, was passt - dann bleibt der Rucksack frei fuer die Beute.
   raeumeEin(p);
 
-  /* Was jetzt noch ohne Kachel dasteht, haette der Held nie tragen koennen.
+  /* Was jetzt noch ohne Platz dasteht, haette der Held nie tragen koennen.
      Es faellt nicht ins Nichts, sondern zurueck ins Lager. */
   let blieb = 0;
   for (const e of imRucksack(p).slice()) {
-    if (e.gx != null && getragen(p) <= traglast()) continue;
+    if (e.gx != null) continue;
     p.bag.splice(p.bag.indexOf(e), 1);
     META.lager.push(alsBestand(e));
     blieb++;
