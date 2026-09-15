@@ -1216,6 +1216,12 @@ body {
   color: var(--vellum);
 }
 
+/* Loeschen steht leise rechts in derselben Zeile und wird erst beim ersten
+   Klick rot - der zweite loescht. */
+.zugangknopf.gefahr { margin-left: auto; }
+.zugangknopf.gefahr:hover, .zugangknopf.gefahr:focus-visible,
+.zugangknopf.gefahr.scharf { border-color: var(--madder); color: var(--madder-lit); }
+
 /* Das Handbuch: eine Karte je Stueck, in Spalten, die sich der Breite
    anpassen. Eine Luecke sieht anders aus als ein Fund - sonst haette das
    Sammeln kein Ziel. */
@@ -1271,6 +1277,57 @@ body {
 }
 
 .hbkarte.leer .hbname { color: var(--vellum-faint); }
+
+/* Die Ausbauten: eine Karte je Ausbau. Oben Name und Stufenpunkte, darunter
+   was die naechste Stufe bringt, dann der Bedarf mit Haben und Brauchen. */
+.ausbautafel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin: 2px 0 18px;
+}
+
+.ausbaukarte {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--stone-700);
+  border-radius: 8px;
+  background: var(--stone-900);
+}
+
+.ausbaukarte.fertig { border-color: color-mix(in srgb, var(--verdigris) 45%, var(--stone-700)); }
+
+.ausbaukopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ausbaukopf b { font-family: var(--rubric); font-size: 13.5px; letter-spacing: .03em; color: var(--vellum); }
+
+.stufenpunkte { display: inline-flex; gap: 4px; }
+.stufenpunkte i { width: 9px; height: 9px; border: 1px solid var(--stone-600); border-radius: 2px; }
+.stufenpunkte i.an { border-color: var(--torch-deep); background: var(--torch); }
+
+.ausbauwas { margin: 0; font-size: 12px; color: var(--vellum-dim); }
+.ausbauwas .pfeil { color: var(--vellum-faint); }
+.ausbauwas b.up { color: #8FD79B; }
+.ausbauwo { margin: -4px 0 0; font-size: 11.5px; color: var(--vellum-faint); }
+
+.bedarf { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.bedarf li { display: flex; justify-content: space-between; gap: 10px; color: var(--vellum-dim); }
+.bedarf li b { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--vellum); }
+.bedarf li.fehlt, .bedarf li.fehlt b { color: var(--madder-lit); }
+
+/* Der Knopf sagt, was fehlt - das darf umbrechen, statt aus der Karte zu laufen */
+.ausbaukarte .bag-act { margin-top: auto; width: 100%; white-space: normal; line-height: 1.35; text-align: center; }
+.ausbaufertig { margin: auto 0 0; font-size: 12px; color: var(--verdigris-lit); }
+.ausbaukopf b { margin-right: auto; }
+/* Ein schwarzer Rabe auf der fast schwarzen Karte braucht einen hellen Grund */
+.huginbild {
+  width: 44px;
+  height: 44px;
+  margin: -10px 0 -8px -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 58%, #4A5570, #1D2230 72%);
+}
 
 /* Die vier Haendler nebeneinander. Jeder zeigt, was er nimmt und was er von
    einem haelt - das ist die ganze Entscheidung, und sie soll auf einen Blick
@@ -1353,6 +1410,18 @@ body {
 
 .kachelmarke.auf { color: #8FD79B; }
 .kachelmarke.ab  { color: #D98A80; }
+
+.kachelhugin {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  width: 12px;
+  height: 12px;
+  color: var(--verdigris-lit);
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.85));
+  pointer-events: none;
+}
+.kachelhugin svg { display: block; width: 100%; height: 100%; }
 
 /* Was eine Aufwertung bringt, neben dem, was sie kostet. */
 .sprung {
@@ -5161,15 +5230,35 @@ for (const d of Object.values(ITEMS))
 const RASTER_SPALTEN = 5;
 const RASTER_REIHEN = 3;
 
+/* Rucksack und Lager wachsen wie die Werkbaenke: in fester Reihenfolge, mit
+   Muenzen und Grundstoff nach Sache, die grossen Stufen mit Ortsstoff. */
 const ERWEITERUNGEN = {
-  seitentaschen: { name: "Seitentaschen", reihen: 1, preis: 220,
+  seitentaschen: { name: "Seitentaschen", leiste: "rucksack", reihen: 1, muenzen: 250,
+                   stoffe: { leder: 6, stoff: 6, runenstaub: 2 },
                    note: "fünf Plätze mehr im Rucksack" },
-  regalbrett:    { name: "Regalbrett",    lagerReihen: 1, preis: 180,
+  regalbrett:    { name: "Regalbrett",    leiste: "lager", lagerReihen: 1, muenzen: 100,
+                   stoffe: { holz: 8 },
                    note: "zehn Plätze mehr im Lager" },
-  wandhaken:     { name: "Wandhaken",     lagerReihen: 1, preis: 260,
+  wandhaken:     { name: "Wandhaken",     leiste: "lager", lagerReihen: 1, muenzen: 200,
+                   stoffe: { eisen: 8, holz: 4 },
                    note: "zehn Plätze mehr im Lager" },
-  kellergewoelbe:{ name: "Kellergewölbe", lagerReihen: 2, preis: 1400,
+  kellergewoelbe:{ name: "Kellergewölbe", leiste: "lager", lagerReihen: 2, muenzen: 800,
+                   stoffe: { holz: 16, eisen: 12, grabsalz: 3 },
                    note: "zwanzig Plätze mehr im Lager" },
+};
+
+/* == Hugin ===============================================================
+   Der Rabe auf dem Hof fliegt aus, waehrend du unten bist. Nach jedem Lauf -
+   auch nach dem Tod - bringt er Grundstoff fuer die einfachen Traenke: auf
+   Stufe n je n Kraeuter und n Talg. Ausgebaut wird er nicht mit Muenzen,
+   sondern mit dem, was Raben moegen - Glaenzendes und Nestzeug, eine Stufe
+   je Ort weiter. */
+const HUGIN_MAX = 5;
+const HUGIN_AUSBAU = {
+  2: { pilzbuendel: 3, wandteppich: 3 },
+  3: { kerzenleuchter: 4, silberbecher: 1 },
+  4: { leichentuch: 4, grabkerze: 4, totenmaske: 1 },
+  5: { aalhaut: 5, schilfbuendel: 5, muschelgeld: 1 },
 };
 
 /* == Der Guertel =========================================================
@@ -5275,6 +5364,54 @@ function erweiterungsSumme(feld) {
   let n = 0;
   for (const k in ERWEITERUNGEN) if (hatErweiterung(k)) n += ERWEITERUNGEN[k][feld] || 0;
   return n;
+}
+
+// Der naechste Ausbau einer Leiste - null, wenn sie fertig ist
+function naechsteErweiterung(leiste) {
+  return Object.keys(ERWEITERUNGEN)
+    .find(k => ERWEITERUNGEN[k].leiste === leiste && !hatErweiterung(k)) || null;
+}
+
+/* Was einem Ausbau im Weg steht - leer, wenn nichts. */
+function erweiterungHindernis(key) {
+  const w = ERWEITERUNGEN[key];
+  if (!w) return "gibt es nicht";
+  if (hatErweiterung(key)) return "schon gebaut";
+  const dran = naechsteErweiterung(w.leiste);
+  if (dran !== key) return `erst ${ERWEITERUNGEN[dran].name}`;
+  if (!kostenGedeckt(w.stoffe)) return "zu wenig Material";
+  if (META.muenzen < w.muenzen) return "zu wenig Münzen";
+  return "";
+}
+
+function huginStufe() {
+  return Math.max(1, Math.min(HUGIN_MAX, META.hugin | 0));
+}
+
+// Was Hugin auf einer Stufe nach jedem Lauf bringt
+function huginBringt(stufe) {
+  return { kraeuter: stufe, talg: stufe };
+}
+
+// Der Plunder, den er fuer seine naechste Stufe will - leer auf der letzten
+function huginWill() {
+  return HUGIN_AUSBAU[huginStufe() + 1] || {};
+}
+
+/* Legt ins Lager, was Hugin bringt. Was keinen Platz mehr findet, laesst er
+   fallen - er ist ein Rabe, kein Haendler. Zurueck kommt, was wirklich ankam. */
+function huginKehrtHeim() {
+  const angekommen = {};
+  for (const [id, n] of Object.entries(huginBringt(huginStufe()))) {
+    const b = alsBestand(stapelVon(id, n));
+    const da = insLager(b) ? n : n - (b.menge || 0);
+    if (da > 0) angekommen[id] = da;
+  }
+  return angekommen;
+}
+
+function stoffZeile(stoffe) {
+  return Object.entries(stoffe).map(([id, n]) => `${n} ${ITEMS[id].name}`).join(" · ");
 }
 
 function raster() {
@@ -6145,7 +6282,7 @@ function ladeMetaAus(roh) {
                  laeufe: 0, beste: 0, siege: 0,
                  mitnahme: [], anlegen: {}, guertel: Array(GUERTEL_PLAETZE).fill(null),
                  gesehen: [], bezwungen: [], kennt: [], stufe: 1, xp: 0, punkte: 0,
-                 skills: {}, erweiterungen: [], plaene: [], werkbaenke: {} };
+                 skills: {}, erweiterungen: [], plaene: [], werkbaenke: {}, hugin: 1 };
   if (!roh || typeof roh !== "object") return leer;
   const liste = x => (Array.isArray(x) ? x : []);
   const talente = skillsNachStand(roh.skills, roh.punkte);
@@ -6170,6 +6307,7 @@ function ladeMetaAus(roh) {
     lager: mengenNachtragen(nurBekanntes(roh.lager)),
     umsatz: roh.umsatz | 0,
     erweiterungen: liste(roh.erweiterungen),
+    hugin: Math.max(1, Math.min(HUGIN_MAX, roh.hugin | 0)),
     // Werkbankstufen II und III; was fehlt, steht auf I
     werkbaenke: (() => {
       const w = {}, r = roh.werkbaenke;
@@ -6662,8 +6800,11 @@ function verbucheLauf(gerettet) {
       return b;
     });
   }
+  // Hugin kommt nach jedem Lauf zurueck, auch wenn du unten geblieben bist
+  const hugin = huginKehrtHeim();
+  huginAnflug = { fund: hugin, ab: null };
   speichereMeta(META);
-  return { stuecke, verkauft, erloes, gelernt, doppelt, planErloes };
+  return { stuecke, verkauft, erloes, gelernt, doppelt, planErloes, hugin };
 }
 
 /* == Der Held ============================================================
@@ -18451,6 +18592,9 @@ function kachelBild(e) {
    Rucksack und Lager sind dasselbe Ding in zwei Groessen. Der Zeichner nimmt
    deshalb nur eine Liste, ein Mass und einen Namen fuer das Feld - wer die
    Liste haelt, ist ihm gleich. */
+// Eine Feder: Plunder, den Hugin fuer seine naechste Stufe will
+const FEDER_BILD = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M10.6 1.2C6.4 1 3.2 4.1 2.6 8.3L1.3 10.6l.8.5 1.2-2.1c4.2-.4 7.5-3.5 7.3-7.8zM4.2 8 7.6 4.3" fill="currentColor" stroke="rgba(6,8,12,.7)" stroke-width=".6"/></svg>';
+
 function rasterMarkup(liste, spalten, reihen, feld, gewaehlt, kachelPx) {
   let zellen = "";
   for (let y = 0; y < reihen; y++)
@@ -18467,6 +18611,7 @@ function rasterMarkup(liste, spalten, reihen, feld, gewaehlt, kachelPx) {
       <span class="kachelbild">${kachelBild(e)}</span>
       ${e.stufe ? `<span class="kachelstufe">${ROEMISCH[e.stufe] || e.stufe}</span>` : ""}
       ${e.menge > 1 ? `<span class="kachelmenge">×${e.menge}</span>` : ""}
+      ${e.id in huginWill() ? `<span class="kachelhugin" title="für Hugin">${FEDER_BILD}</span>` : ""}
       ${vergleichMarke(e, META.anlegen)}
     </button>`;
   }).join("");
@@ -19629,6 +19774,13 @@ function tickAufstieg() {
   if (G.time >= G.aufstieg.bis) { G.aufstieg = null; vollendeAufstieg(); }
 }
 
+// Was Hugin mitgebracht hat, als Zeile der Bilanz
+function huginZeile(fund) {
+  if (!fund || !Object.keys(fund).length) return "";
+  return `<div class="line"><span>Hugin bringt</span><span style="color:var(--verdigris-lit)">${
+    escapeHtml(stoffZeile(fund))}</span></div>`;
+}
+
 function vollendeAufstieg() {
   Sfx.spiel("sieg");
   const bilanz = verbucheLauf(true);
@@ -19648,7 +19800,7 @@ function vollendeAufstieg() {
         ? `<div class="line"><span>Baupläne gelernt</span><span style="color:var(--verdigris-lit)">${
             escapeHtml(bilanz.gelernt.join(", "))}</span></div>` : ""}${bilanz.doppelt
         ? `<div class="line"><span>Doppelte Baupläne</span><span>${bilanz.doppelt} verkauft · ${
-            bilanz.planErloes} Münzen</span></div>` : ""}
+            bilanz.planErloes} Münzen</span></div>` : ""}${huginZeile(bilanz.hugin)}
     </div>
     <button class="choice" id="lagerBtn" style="margin-top:12px">
       <span class="key">L</span><span>Zum Händler</span>
@@ -19669,7 +19821,7 @@ function vollendeAufstieg() {
 function showDeath() {
   mode = { kind: "dead" };
   const verloren = G.player.bag.length;
-  verbucheLauf(false);
+  const bilanz = verbucheLauf(false);
   openModal(`<h2>Hier endet die Reise</h2>
     <p class="epitaph">Die Fackel erlischt auf Etage ${G.deepest}. Was du getragen
       hast, bleibt bei dir liegen — ${verloren} ${verloren === 1 ? "Stück" : "Stücke"},
@@ -19678,7 +19830,7 @@ function showDeath() {
       <div class="line"><span>Tiefste Etage</span><span>${G.deepest}</span></div>
       <div class="line"><span>Stufe</span><span>${G.player.level}</span></div>
       <div class="line"><span>Verloren</span><span style="color:var(--madder-lit)">${verloren} ${
-        verloren === 1 ? "Stück" : "Stücke"}</span></div>
+        verloren === 1 ? "Stück" : "Stücke"}</span></div>${huginZeile(bilanz.hugin)}
     </div>
     <p class="sub" style="margin-top:14px">An jeder Treppe hättest du umkehren können.
       Das nächste Mal vielleicht früher.</p>
@@ -19905,6 +20057,7 @@ function adminAllesFrei() {
   META.gesehen = Object.keys(ORT_INHALT);
   META.erweiterungen = Object.keys(ERWEITERUNGEN);
   META.werkbaenke = Object.fromEntries(WERKBAENKE.map(w => [w.id, WERKBANK_MAX]));
+  META.hugin = HUGIN_MAX;
   // Alle vier Haendler auf den hoechsten Rang
   META.umsaetze = Object.fromEntries(
     HAENDLER.map(h => [h.id, RANG_SCHWELLEN[RANG_SCHWELLEN.length - 1]]));
@@ -20230,7 +20383,8 @@ function verkaufTafel() {
       <span>${seltenName(b)}</span>
     </div>
     <p class="tafeltext">${escapeHtml(d.slot ? bonusText(d) : (d.note || ""))}${
-      werkstoff ? '<em class="sage">Material \u2014 zum Aufwerten und Bauen.</em>' : ""}</p>
+      werkstoff ? '<em class="sage">Material \u2014 zum Aufwerten und Bauen.</em>' : ""}${
+      b.id in huginWill() ? '<em class="sage">Hugin will ihn für seine nächste Stufe.</em>' : ""}</p>
     <div class="tafeltaten">
       ${d.kind === "plunder" ? '<button class="bag-act" id="zerlegBtn">Zerlegen</button>' : ""}
       <button class="bag-act drop" id="verkaufBtn">Verkaufen \u00b7 ${verkaufPreis(e)} M</button>
@@ -20246,7 +20400,7 @@ const LAGER_REITER = [
   ["verkaufen", "Verkaufen"],
   ["kaufen",    "Kaufen"],
   ["werkstatt", "Werkstatt"],
-  ["rucksack",  "Ausbauten"],
+  ["ausbauten", "Ausbauten"],
   ["koennen",   "Fertigkeiten"],
   ["handbuch",  "Handbuch"],
 ];
@@ -20332,6 +20486,17 @@ function showUebersicht() {
   lagerBindePillen();
   const zugangKnopf = $("zugangSchalter");
   if (zugangKnopf) zugangKnopf.onclick = () => { adminSchalten(); showUebersicht(); };
+  // Loeschen will zwei Klicks - der erste fragt nur
+  const loesch = $("loeschBtn");
+  if (loesch) loesch.onclick = () => {
+    if (!loesch.classList.contains("scharf")) {
+      loesch.classList.add("scharf");
+      loesch.textContent = "Wirklich alles löschen? Noch einmal klicken";
+      return;
+    }
+    loescheFortschritt();
+    showUebersicht();
+  };
   kulisseLeinwand = document.getElementById("kulisse");
 }
 
@@ -20391,6 +20556,8 @@ function uebersichtBereich() {
       <span>${adminAn()
         ? "der Reiter „Zugang“ steht oben"
         : "schaltet alles frei — oder tippe „zugang“"}</span>
+      <button class="zugangknopf gefahr" id="loeschBtn"
+        title="Münzen, Lager, Stufe, Fertigkeiten — alles">Fortschritt löschen</button>
     </p>`;
 }
 
@@ -20409,6 +20576,257 @@ function kulisseHeld() {
   }
   return { equipped: angelegt, gehen: 0, gang: 0, facing: [0, 1], blick: 1,
            hieb: null, statuses: {}, flash: 0, oil: 96 };
+}
+
+/* == Hugin auf dem Startbildschirm =======================================
+   Ein Kolkrabe auf seiner Stange rechts im Raum, gemalt wie die Wesen:
+   Tropfenkoerper, angelegte Schwingen mit hellen Kanten, Keilschwanz,
+   schwerer Schnabel. Seine Stufe sieht man ihm an - auf 1 stumpf und
+   zerzaust, mit jedem Ausbau mehr blauer Glanz, auf 5 ein Silberring im
+   Schnabel. Nach jedem Lauf fliegt er herein, sobald die Uebersicht wieder
+   steht, und legt sein Buendel ab. */
+let huginAnflug = null;          // { fund, ab } - verbucheLauf legt ihn an
+const HUGIN_ANFLUG = 1.8;        // Sekunden bis zur Landung
+
+function huginFarben(stufe) {
+  const g = (Math.max(1, Math.min(HUGIN_MAX, stufe)) - 1) / (HUGIN_MAX - 1);
+  return { schwarz: "#16171E", tief: "#0A0B0F",
+           glanz: mix("#2B2C33", "#4D5C98", g), kante: mix("#45474F", "#9FB2F0", g) };
+}
+
+// Sitzend. x, y ist der Punkt, an dem die Fuesse greifen, s die Hoehe.
+function zeichneHugin(c, x, y, s, t, stufe) {
+  const f = huginFarben(stufe);
+  const schief = Math.sin(t * .8) > .75 ? -.3 : 0;
+  const atem = Math.sin(t * 2.1) * s * .012;
+  c.save();
+  c.translate(x, y);
+
+  c.strokeStyle = "#2B2723";
+  c.lineWidth = Math.max(1, s * .03);
+  c.lineCap = "round";
+  for (const d of [-1, 1]) {
+    c.beginPath();
+    c.moveTo(d * s * .06, -s * .18); c.lineTo(d * s * .07, 0); c.lineTo(d * s * .13, s * .02);
+    c.stroke();
+  }
+
+  c.fillStyle = f.tief;
+  c.beginPath();
+  c.moveTo(s * .02, -s * .34); c.lineTo(s * .16, -s * .30);
+  c.lineTo(s * .30, -s * .04); c.lineTo(s * .22, -s * .02);
+  c.closePath(); c.fill();
+
+  const kg = c.createLinearGradient(-s * .22, -s * .78, s * .18, -s * .16);
+  kg.addColorStop(0, f.glanz); kg.addColorStop(.5, f.schwarz); kg.addColorStop(1, f.tief);
+  c.fillStyle = kg;
+  c.beginPath();
+  c.moveTo(-s * .04, -s * .76 + atem);
+  c.bezierCurveTo(-s * .30, -s * .66, -s * .22, -s * .24, -s * .02, -s * .17);
+  c.bezierCurveTo(s * .16, -s * .15, s * .22, -s * .40, s * .12, -s * .60);
+  c.quadraticCurveTo(s * .06, -s * .74, -s * .04, -s * .76 + atem);
+  c.fill();
+
+  c.fillStyle = f.schwarz;
+  c.beginPath();
+  c.moveTo(-s * .02, -s * .64 + atem);
+  c.quadraticCurveTo(s * .22, -s * .56, s * .24, -s * .22);
+  c.lineTo(s * .06, -s * .30);
+  c.closePath(); c.fill();
+  c.strokeStyle = f.kante;
+  c.lineWidth = Math.max(1, s * .012);
+  for (let k = 0; k < 3; k++) {
+    c.beginPath();
+    c.moveTo(s * (.06 + k * .05), -s * (.54 - k * .04) + atem);
+    c.lineTo(s * (.12 + k * .05), -s * (.28 - k * .01));
+    c.stroke();
+  }
+
+  // Auf Stufe 1 stehen ihm die Federn ab
+  if (stufe <= 1) {
+    c.strokeStyle = f.schwarz;
+    c.lineWidth = Math.max(1, s * .022);
+    for (const [ax, ay, bx, by] of [[-.21, -.56, -.28, -.59], [-.22, -.42, -.29, -.41],
+                                    [.17, -.40, .24, -.42]]) {
+      c.beginPath(); c.moveTo(s * ax, s * ay + atem); c.lineTo(s * bx, s * by + atem); c.stroke();
+    }
+  }
+
+  c.save();
+  c.translate(-s * .08, -s * .80 + atem);
+  c.rotate(schief);
+  c.fillStyle = f.schwarz;
+  c.beginPath(); c.arc(0, 0, s * .125, 0, 6.283); c.fill();
+  if (stufe <= 1) {
+    c.strokeStyle = f.schwarz;
+    c.lineWidth = Math.max(1, s * .02);
+    for (const [ax, bx, by] of [[-.02, -.04, -.18], [.05, .08, -.18]]) {
+      c.beginPath(); c.moveTo(s * ax, -s * .10); c.lineTo(s * bx, s * by); c.stroke();
+    }
+  }
+  c.fillStyle = "#24242B";
+  c.beginPath();
+  c.moveTo(-s * .07, -s * .045);
+  c.quadraticCurveTo(-s * .30, -s * .035, -s * .33, s * .035);
+  c.quadraticCurveTo(-s * .20, s * .05, -s * .07, s * .045);
+  c.closePath(); c.fill();
+  c.fillStyle = f.tief;
+  c.beginPath();
+  c.moveTo(-s * .02, s * .07); c.lineTo(-s * .09, s * .19); c.lineTo(s * .05, s * .10);
+  c.closePath(); c.fill();
+  c.fillStyle = "#E6D6A4";
+  c.beginPath(); c.arc(-s * .05, -s * .035, s * .022, 0, 6.283); c.fill();
+  c.fillStyle = "#040406";
+  c.beginPath(); c.arc(-s * .055, -s * .035, s * .012, 0, 6.283); c.fill();
+  // Auf der letzten Stufe ein Silberring im Schnabel, der ab und zu aufblitzt
+  if (stufe >= HUGIN_MAX) {
+    c.strokeStyle = "#D9DFEA";
+    c.lineWidth = Math.max(1.5, s * .022);
+    c.beginPath(); c.arc(-s * .25, s * .09, s * .045, 0, 6.283); c.stroke();
+    const blitz = Math.max(0, Math.sin(t * 2.7)) ** 10;
+    c.fillStyle = `rgba(255,255,255,${.4 + blitz * .6})`;
+    c.beginPath(); c.arc(-s * .28, s * .06, s * (.012 + blitz * .014), 0, 6.283); c.fill();
+  }
+  c.restore();
+
+  // Warmer Rand von der Schale rechts
+  c.globalCompositeOperation = "lighter";
+  c.strokeStyle = "rgba(232,150,70,.22)";
+  c.lineWidth = Math.max(1, s * .02);
+  c.beginPath();
+  c.moveTo(s * .10, -s * .62 + atem);
+  c.quadraticCurveTo(s * .22, -s * .42, s * .14, -s * .20);
+  c.stroke();
+  c.restore();
+}
+
+/* Im Flug wie die Sturmkraehe: ausgebreitete Schwingen, der Kopf oben; winkel
+   neigt ihn in die Flugrichtung (0 heisst aufrecht). */
+function zeichneHuginFlug(c, x, y, s, t, stufe, winkel) {
+  const f = huginFarben(stufe);
+  const schlag = Math.sin(t * 15) * .6;
+  c.save();
+  c.translate(x, y);
+  c.rotate(winkel || 0);
+  for (const d of [-1, 1]) {
+    c.fillStyle = f.schwarz;
+    c.beginPath();
+    c.moveTo(d * s * .05, 0);
+    c.quadraticCurveTo(d * s * .30, -s * (.22 + schlag * .25), d * s * .60, -s * schlag * .32);
+    for (let k = 0; k < 5; k++) {
+      const q = 1 - k / 5;
+      c.lineTo(d * s * .56 * q, s * (.07 + k * .015) - s * schlag * .26 * q);
+      c.lineTo(d * s * .48 * q, s * .02 - s * schlag * .22 * q);
+    }
+    c.closePath(); c.fill();
+    c.strokeStyle = f.kante;
+    c.lineWidth = Math.max(1, s * .012);
+    c.beginPath(); c.moveTo(d * s * .12, s * .02); c.lineTo(d * s * .56, -s * schlag * .32); c.stroke();
+  }
+  c.fillStyle = f.tief;
+  c.beginPath(); c.moveTo(-s * .08, s * .13); c.lineTo(0, s * .38); c.lineTo(s * .08, s * .13); c.closePath(); c.fill();
+  c.fillStyle = f.schwarz;
+  c.beginPath(); c.ellipse(0, s * .02, s * .11, s * .17, 0, 0, 6.283); c.fill();
+  c.beginPath(); c.arc(0, -s * .17, s * .085, 0, 6.283); c.fill();
+  c.fillStyle = "#24242B";
+  c.beginPath(); c.moveTo(-s * .03, -s * .22); c.lineTo(0, -s * .36); c.lineTo(s * .03, -s * .22); c.closePath(); c.fill();
+  c.restore();
+}
+
+// Hugins Stange: ein Pfahl mit Querholz und zwei Streben
+function zeichneStange(c, x, boden, hoehe) {
+  c.fillStyle = "rgba(0,0,0,.45)";
+  c.beginPath(); c.ellipse(x, boden + 2, 40, 8, 0, 0, 6.283); c.fill();
+  const holz = c.createLinearGradient(x - 6, 0, x + 6, 0);
+  holz.addColorStop(0, "#241B14"); holz.addColorStop(.55, "#4A3826"); holz.addColorStop(1, "#1E1711");
+  c.fillStyle = holz;
+  c.fillRect(x - 5, boden - hoehe, 10, hoehe + 2);
+  c.strokeStyle = "#2C2118";
+  c.lineWidth = 5;
+  c.lineCap = "round";
+  c.beginPath();
+  c.moveTo(x - 24, boden); c.lineTo(x - 3, boden - 30);
+  c.moveTo(x + 24, boden); c.lineTo(x + 3, boden - 30);
+  c.stroke();
+  c.fillStyle = "#3C2E21";
+  c.fillRect(x - 44, boden - hoehe - 7, 88, 9);
+  c.fillStyle = "rgba(255,190,120,.16)";
+  c.fillRect(x - 44, boden - hoehe - 7, 88, 2);
+}
+
+// Sein Buendel: ein Sack mit Kraeutern obenauf und einem Klumpen Talg
+function zeichneBuendel(c, x, y, s) {
+  c.fillStyle = "rgba(0,0,0,.4)";
+  c.beginPath(); c.ellipse(x, y + 2, s * .55, s * .13, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#86B474";
+  for (const d of [-.18, 0, .16]) {
+    c.beginPath(); c.ellipse(x + d * s, y - s * .44, s * .07, s * .17, d * 2, 0, 6.283); c.fill();
+  }
+  c.fillStyle = "#8C7A5E";
+  c.beginPath();
+  c.moveTo(x - s * .40, y);
+  c.quadraticCurveTo(x - s * .46, y - s * .38, x - s * .12, y - s * .36);
+  c.lineTo(x + s * .14, y - s * .36);
+  c.quadraticCurveTo(x + s * .46, y - s * .36, x + s * .40, y);
+  c.closePath(); c.fill();
+  c.strokeStyle = "#5A4A36";
+  c.lineWidth = Math.max(1, s * .05);
+  c.beginPath(); c.moveTo(x - s * .15, y - s * .33); c.lineTo(x + s * .13, y - s * .30); c.stroke();
+  c.fillStyle = "#E4D4A4";
+  c.beginPath(); c.ellipse(x + s * .34, y - s * .07, s * .14, s * .10, 0, 0, 6.283); c.fill();
+}
+
+// Ein Schild ueber ihm: was er gebracht hat
+function huginSchild(c, x, y, text, deckung) {
+  c.save();
+  c.globalAlpha = deckung;
+  c.font = '600 21px "Spectral", Georgia, serif';
+  const b = c.measureText(text).width + 30;
+  const links = Math.max(12, Math.min(x - b / 2, c.canvas.width - b - 12));
+  c.fillStyle = "rgba(8,9,12,.85)";
+  roundRect(c, links, y - 19, b, 36, 9);
+  c.fill();
+  c.strokeStyle = "rgba(232,169,75,.6)";
+  c.lineWidth = 1.5;
+  c.stroke();
+  c.fillStyle = "#F0D9A8";
+  c.textBaseline = "middle";
+  c.fillText(text, links + 15, y);
+  c.restore();
+}
+
+/* Stange, Buendel, Hugin - sitzend oder im Anflug - und das Schild. */
+function zeichneHuginSzene(c, W, H, boden, now, t) {
+  const x = W * .72, hoehe = 150;
+  const sitzY = boden - hoehe - 7;
+  const stufe = huginStufe();
+  const s = 100 * (.9 + stufe * .045);
+  zeichneStange(c, x, boden, hoehe);
+  const a = huginAnflug;
+  if (!a) { zeichneHugin(c, x, sitzY, s, t, stufe); return; }
+  if (a.ab == null) a.ab = now;
+  const sek = (now - a.ab) / 1000;
+  const traegt = !!a.fund && Object.keys(a.fund).length > 0;
+  if (sek < HUGIN_ANFLUG) {
+    const e = 1 - (1 - sek / HUGIN_ANFLUG) ** 2;
+    // Hoch ueber der Fackel herein, erst ueber der Stange hinab
+    const x0 = W * 1.1, y0 = -H * .05, xc = W * .86, yc = H * .02, x1 = x, y1 = sitzY - s * .55;
+    const bx = (1 - e) ** 2 * x0 + 2 * (1 - e) * e * xc + e * e * x1;
+    const by = (1 - e) ** 2 * y0 + 2 * (1 - e) * e * yc + e * e * y1;
+    if (traegt) zeichneBuendel(c, bx, by + s * .5, 30);
+    // Aufrecht, nur leicht geneigt - auf die Flugrichtung gedreht las er sich als Strich
+    zeichneHuginFlug(c, bx, by, s * .95, t, stufe, -.28 * (1 - e * e));
+    return;
+  }
+  // Gelandet: das Buendel faellt vor die Stange und bleibt dort liegen
+  if (traegt) {
+    const fall = Math.min(1, (sek - HUGIN_ANFLUG) / .3);
+    zeichneBuendel(c, x + 58, sitzY + (boden + 6 - sitzY) * fall * fall, 30);
+  }
+  zeichneHugin(c, x, sitzY, s, t, stufe);
+  const nach = sek - HUGIN_ANFLUG;
+  const deckung = Math.max(0, Math.min(1, (nach - .3) / .4, (6.5 - nach) / 1));
+  if (traegt && deckung > 0) huginSchild(c, x, sitzY - s * 1.12, `Hugin bringt ${stoffZeile(a.fund)}`, deckung);
 }
 
 function zeichneKulisse(now) {
@@ -20512,6 +20930,9 @@ function zeichneKulisse(now) {
   zc.ellipse(W / 2, horizont + 12, 96, 20, 0, 0, 6.283);
   zc.fill();
   zc.restore();
+
+  // --- Hugin auf seiner Stange - oder im Anflug, wenn gerade ein Lauf zu Ende ging
+  zeichneHuginSzene(zc, W, H, horizont + 22, now, t);
 
   const rand = zc.createRadialGradient(W / 2, H * .5, H * .28, W / 2, H * .5, H * .92);
   rand.addColorStop(0, "rgba(0,0,0,0)");
@@ -20947,8 +21368,8 @@ function showCamp(reiter) {
   Sfx.musik_an(true);
   Sfx.stoppeAtmo();
   Sfx.stoppeRegen();
-  // Aufwerten ist in die Werkstatt gezogen
-  if (reiter) lagerReiter = reiter === "aufwerten" ? "werkstatt" : reiter;
+  // Aufwerten ist in die Werkstatt gezogen, die Ausbauten heissen nicht mehr nach dem Rucksack
+  if (reiter) lagerReiter = ({ aufwerten: "werkstatt", rucksack: "ausbauten" })[reiter] || reiter;
   const rang = haendlerRang();
   const naechste = RANG_SCHWELLEN[rang + 1];
   const bestand = META.lager.map((b, i) => ({ b, i, e: ausBestand(b) }));
@@ -20970,7 +21391,7 @@ function showCamp(reiter) {
        sieht dieselben Kacheln wie im Aufbruch und weiss deshalb sofort, was
        man weggibt - und was danach an Platz frei wird. */
     const lm = lagerRaster();
-    const wert = bestand.filter(x => vorlage(x.b).kind !== "material")
+    const wert = bestand.filter(x => !bleibtBeimVerkaufen(x.b))
       .reduce((a, x) => a + verkaufPreis(x.e), 0);
     /* Das Raster steht links in der Huelle - hier rechts steht nur noch, was
        an der gewaehlten Kachel haengt. */
@@ -20979,7 +21400,7 @@ function showCamp(reiter) {
         <div class="tafel">${verkaufTafel()}</div>
         <button class="choice" id="allesBtn" style="margin-top:12px">
           <span class="key" aria-hidden="true">·</span><span>Alles verkaufen</span>
-          <span class="note">${wert} Münzen — Material bleibt liegen</span></button>`
+          <span class="note">${wert} Münzen — Material und Hugins Plunder bleiben liegen</span></button>`
       : '<p class="quiet" style="padding:14px 0">Dein Lager ist leer. Bring etwas herauf.</p>';
   } else if (lagerReiter === "kaufen") {
     /* Vier Haendler nebeneinander, jeder mit seinem Rang. Wer noch nichts bei
@@ -21037,28 +21458,8 @@ function showCamp(reiter) {
             `${SKILLS.length} Talente · ${stoffe.length} Stoffe · ` +
             `${Object.keys(ORT_INHALT).length} Orte`,
             "", true);
-  } else if (lagerReiter === "rucksack") {
-    const { spalten, reihen } = raster();
-    const lm = lagerRaster();
-    inhalt = `<p class="quiet" style="padding:2px 0 10px">Dein Rucksack fasst
-      ${spalten * reihen} Plätze, dein Lager ${lm.spalten * lm.reihen}. Erweiterungen bleiben dir
-      für immer — auch wenn du unten liegen bleibst.</p>` +
-      Object.entries(ERWEITERUNGEN).map(([k, w]) => {
-        const hat = hatErweiterung(k);
-        return zeile(
-          `<span style="color:${hat ? "var(--verdigris)" : "var(--vellum)"}">${
-            escapeHtml(w.name)}</span>`,
-          escapeHtml(w.note),
-          hat ? '<button class="bag-act" disabled>gekauft</button>'
-              : `<button class="bag-act" data-erw="${k}" ${
-                  META.muenzen < w.preis ? "disabled" : ""}>${w.preis} M</button>`,
-          hat);
-      }).join("") +
-      `<div class="ausgang" style="margin-top:18px">
-        <button class="choice gefahr" id="loeschBtn">
-          <span class="key" aria-hidden="true">×</span><span id="loeschWort">Fortschritt löschen</span>
-          <span class="note" id="loeschNote">Münzen, Lager, Stufe, Fertigkeiten — alles</span></button>
-      </div>`;
+  } else if (lagerReiter === "ausbauten") {
+    inhalt = ausbautenBereich();
   } else if (lagerReiter === "werkstatt") {
     inhalt = werkstattBereich(bestand, zeile);
   }
@@ -21108,7 +21509,9 @@ function showCamp(reiter) {
   overlay.querySelectorAll("[data-haendler]").forEach(b =>
     b.onclick = () => { kaufWahl = b.dataset.haendler; Sfx.spiel("aufheben"); showCamp(); });
   overlay.querySelectorAll("[data-erw]").forEach(b =>
-    b.onclick = () => kaufeErweiterung(b.dataset.erw));
+    b.onclick = () => { kaufeErweiterung(b.dataset.erw); showCamp(); });
+  overlay.querySelectorAll("[data-hugin]").forEach(b =>
+    b.onclick = () => { baueHuginAus(); showCamp(); });
   overlay.querySelectorAll("[data-aufwert]").forEach(b =>
     b.onclick = () => { werteAuf(+b.dataset.aufwert); showCamp(); });
   overlay.querySelectorAll("[data-bank]").forEach(b =>
@@ -21121,20 +21524,6 @@ function showCamp(reiter) {
     b.onclick = () => { stelleHer(b.dataset.herstellen); showCamp(); });
   const alles = $("allesBtn");
   if (alles) alles.onclick = () => { verkaufeAlles(); showCamp(); };
-
-  let sicher = false;
-  const loesch = $("loeschBtn");
-  if (loesch) loesch.onclick = () => {
-    if (!sicher) {
-      sicher = true;
-      $("loeschWort").textContent = "Wirklich alles löschen?";
-      $("loeschNote").innerHTML = '<b style="color:var(--madder-lit)">Noch einmal klicken — das lässt sich nicht rückgängig machen</b>';
-      $("loeschBtn").classList.add("scharf");
-      return;
-    }
-    loescheFortschritt();
-    showCamp();
-  };
 }
 
 /* Verkaufen hebt zugleich den Rang - aber nur bei dem, der es nimmt. Das ist
@@ -21174,7 +21563,13 @@ function zerlegeImLager(i) {
    waere mit einem Klick weg, ohne dass es jemand gewollt haette. */
 function verkaufeAlles() {
   for (let i = META.lager.length - 1; i >= 0; i--)
-    if (ITEMS[META.lager[i].id] && ITEMS[META.lager[i].id].kind !== "material") verkaufe(i);
+    if (!bleibtBeimVerkaufen(META.lager[i])) verkaufe(i);
+}
+
+// Material bleibt liegen, und der Plunder, den Hugin als Naechstes will
+function bleibtBeimVerkaufen(b) {
+  const d = ITEMS[b.id];
+  return !d || d.kind === "material" || b.id in huginWill();
 }
 
 // Grundstoff gibt es beim Haendler im Buendel zu fuenf
@@ -21202,15 +21597,32 @@ function kaufe(id) {
 /* Erweiterungen sind einmalig und ueberdauern jeden Tod - sie sind der
    zweite Weg zu mehr Platz neben dem Talent Geraeumig. */
 function kaufeErweiterung(key) {
+  if (erweiterungHindernis(key)) { Sfx.spiel("nein"); return false; }
   const w = ERWEITERUNGEN[key];
-  if (!w || hatErweiterung(key) || META.muenzen < w.preis) { Sfx.spiel("nein"); return; }
-  META.muenzen -= w.preis;
+  zahleWerkstoff(w.stoffe);
+  META.muenzen -= w.muenzen;
   META.erweiterungen = (META.erweiterungen || []).concat(key);
   // Ausbauten baut der Kraemer - er hat den Karren dafuer
-  bucheUmsatz("kraemer", w.preis);
+  bucheUmsatz("kraemer", w.muenzen);
   speichereMeta(META);
   Sfx.spiel("kauf");
-  showCamp();
+  return true;
+}
+
+/* Hugin will keine Muenzen, sondern Plunder - der geht aus dem Lager. */
+function huginHindernis() {
+  if (huginStufe() >= HUGIN_MAX) return "höchste Stufe";
+  if (!kostenGedeckt(huginWill())) return "zu wenig Plunder";
+  return "";
+}
+
+function baueHuginAus() {
+  if (huginHindernis()) { Sfx.spiel("nein"); return false; }
+  zahleWerkstoff(huginWill());
+  META.hugin = huginStufe() + 1;
+  Sfx.spiel("kauf");
+  speichereMeta(META);
+  return true;
 }
 
 function werteAuf(i) {
@@ -21371,6 +21783,105 @@ function preisText(k) {
   return `${kostenText(k.stoffe)} · <span style="color:${farbe}">${k.muenzen} M</span>`;
 }
 
+/* == Die Ausbauten =======================================================
+   Alles, was oben waechst, an einem Ort: die vier Werkbaenke, Rucksack und
+   Lager, und Hugin. Eine Karte je Ausbau - was die naechste Stufe bringt, was
+   sie verlangt und was davon schon da ist. Fehlendes steht rot, und der Knopf
+   sagt, was noch fehlt, statt nur grau zu sein. */
+// Hugins Bild fuer die Karte - einmal je Stufe gemalt und dann gemerkt
+const huginBilder = {};
+function huginBild(stufe) {
+  if (!huginBilder[stufe]) {
+    const lw = document.createElement("canvas");
+    lw.width = lw.height = 88;
+    zeichneHugin(lw.getContext("2d"), 50, 80, 70, 0, stufe);
+    huginBilder[stufe] = lw.toDataURL("image/png");
+  }
+  return huginBilder[stufe];
+}
+
+function ausbauKarte(k) {
+  const fertig = k.stufe >= k.max;
+  const punkte = Array.from({ length: k.max }, (_, i) =>
+    `<i${i < k.stufe ? ' class="an"' : ""}></i>`).join("");
+  const zeilen = fertig ? "" : k.bedarf.map(([wort, hat, soll]) => {
+    const da = hat >= soll;
+    return `<li class="${da ? "da" : "fehlt"}"><span>${da ? "✓" : "✗"} ${
+      escapeHtml(wort)}</span><b>${hat} / ${soll}</b></li>`;
+  }).join("");
+  const fehlt = k.bedarf.filter(([, hat, soll]) => hat < soll)
+    .map(([wort, hat, soll]) => wort === "Münzen" ? `${soll - hat} M` : `${soll - hat} ${wort}`);
+  const knopf = fertig
+    ? '<p class="ausbaufertig">fertig ausgebaut</p>'
+    : `<button class="bag-act" ${k.daten} ${fehlt.length ? "disabled" : ""}>${escapeHtml(fehlt.length
+        ? `fehlt: ${fehlt.slice(0, 2).join(" · ")}${fehlt.length > 2 ? " …" : ""}` : "Ausbauen")}</button>`;
+  return `<article class="ausbaukarte${fertig ? " fertig" : ""}">
+      <header class="ausbaukopf">${k.bild || ""}<b>${escapeHtml(k.titel)}</b>
+        <span class="stufenpunkte" role="img" aria-label="Stufe ${k.stufe} von ${k.max}">${punkte}</span></header>
+      <p class="ausbauwas">${k.was}</p>
+      ${k.wo ? `<p class="ausbauwo">${escapeHtml(k.wo)}</p>` : ""}
+      ${zeilen ? `<ul class="bedarf">${zeilen}</ul>` : ""}
+      ${knopf}
+    </article>`;
+}
+
+function ausbautenBereich() {
+  const pfeil = (alt, neu) => `${alt} <span class="pfeil">→</span> <b class="up">${neu}</b>`;
+  const bedarf = (stoffe, muenzen) => [
+    ...Object.entries(stoffe || {}).map(([id, n]) => [ITEMS[id].name, werkstoffVorrat(id), n]),
+    ...(muenzen ? [["Münzen", META.muenzen, muenzen]] : []),
+  ];
+
+  const baenke = WERKBAENKE.map(w => {
+    const stufe = werkbankStufe(w.id);
+    const k = ausbauKosten(w.id);
+    const kueche = w.id === "kraeuterkueche";
+    const was = !k
+      ? escapeHtml(kueche ? `alle ${REZEPTE.length} Rezepte` : `baut ${BANK_BAUT[stufe]}`)
+      : `Stufe ${pfeil(ROEMISCH[stufe], ROEMISCH[stufe + 1])} · ${escapeHtml(kueche
+          ? `schaltet ${REZEPTE.filter(r => r.stufe === stufe + 1).length} Rezepte frei`
+          : `baut dann ${BANK_BAUT[stufe + 1]}`)}`;
+    return ausbauKarte({ titel: w.name, stufe, max: WERKBANK_MAX, was,
+                         bedarf: k ? bedarf(k.stoffe, k.muenzen) : [], daten: `data-ausbau="${w.id}"` });
+  }).join("");
+
+  // Rucksack und Lager: eine Leiste je Sache, gebaut wird immer der naechste Schritt
+  const leiste = (key, titel, plaetze, jeReihe, feld) => {
+    const schritte = Object.keys(ERWEITERUNGEN).filter(k => ERWEITERUNGEN[k].leiste === key);
+    const dran = naechsteErweiterung(key);
+    const w = dran && ERWEITERUNGEN[dran];
+    return ausbauKarte({
+      titel, stufe: schritte.filter(hatErweiterung).length, max: schritte.length,
+      was: w ? `${escapeHtml(w.name)} · ${pfeil(plaetze, plaetze + w[feld] * jeReihe)} Plätze`
+             : `${plaetze} Plätze`,
+      bedarf: w ? bedarf(w.stoffe, w.muenzen) : [], daten: `data-erw="${dran}"` });
+  };
+  const rs = raster(), lm = lagerRaster();
+  const plaetze = leiste("rucksack", "Rucksack", rs.spalten * rs.reihen, rs.spalten, "reihen") +
+                  leiste("lager", "Lager", lm.spalten * lm.reihen, lm.spalten, "lagerReihen");
+
+  const hs = huginStufe();
+  const will = huginWill();
+  const ersterWunsch = Object.keys(will)[0];
+  const hugin = ausbauKarte({
+    titel: "Hugin", stufe: hs, max: HUGIN_MAX,
+    bild: `<img class="huginbild" src="${huginBild(hs)}" alt="">`,
+    was: `bringt nach jedem Lauf ${hs < HUGIN_MAX
+      ? pfeil(escapeHtml(stoffZeile(huginBringt(hs))), escapeHtml(stoffZeile(huginBringt(hs + 1))))
+      : escapeHtml(stoffZeile(huginBringt(hs)))}`,
+    wo: ersterWunsch ? `will Plunder aus ${fundorteVon(ersterWunsch).join(", ")}` : "",
+    bedarf: Object.entries(will).map(([id, n]) => [ITEMS[id].name, werkstoffVorrat(id), n]),
+    daten: "data-hugin" });
+
+  return `<p class="quiet" style="padding:2px 0 12px">Ausbauten bleiben dir für immer — auch wenn du unten liegen bleibst.</p>
+    <p class="feldkopf">Werkbänke <span class="rechts">jede Stufe schaltet Stärkeres frei</span></p>
+    <div class="ausbautafel">${baenke}</div>
+    <p class="feldkopf">Rucksack und Lager <span class="rechts">Schritt für Schritt</span></p>
+    <div class="ausbautafel">${plaetze}</div>
+    <p class="feldkopf">Der Hof <span class="rechts">Hugin fliegt, während du unten bist — auch wenn du nicht wiederkommst</span></p>
+    <div class="ausbautafel">${hugin}</div>`;
+}
+
 /* == Die Werkstatt im Lager ==============================================
    Oben die Werkbaenke nebeneinander wie die Haendler, darunter die gewaehlte:
    ihr Ausbau, der Vorrat, was sich aus gelernten Plaenen bauen laesst und was
@@ -21386,16 +21897,12 @@ function werkstattBereich(bestand, zeile) {
       <em>Stufe ${ROEMISCH[werkbankStufe(w.id)]}</em>
     </button>`).join("");
 
-  const ausbau = ausbauKosten(bank.id);
-  const ausbauGeht = !!ausbau && kostenGedeckt(ausbau.stoffe) && META.muenzen >= ausbau.muenzen;
-  const ausbauZeile = ausbau
-    ? zeile(`<span>Ausbau auf Stufe ${ROEMISCH[stufe + 1]}</span>`,
-        `<span class="sprung">${bank.id === "kraeuterkueche"
-          ? `schaltet ${REZEPTE.filter(r => r.stufe === stufe + 1).length} Rezepte frei`
-          : `baut dann ${BANK_BAUT[stufe + 1]}`}</span><span
-          class="stoffpreis">${preisText(ausbau)}</span>`,
-        `<button class="bag-act" data-ausbau="${bank.id}" ${ausbauGeht ? "" : "disabled"}>Ausbauen</button>`,
-        !ausbauGeht)
+  // Ausgebaut wird im Reiter Ausbauten - hier steht nur der Weg dorthin
+  const ausbauZeile = ausbauKosten(bank.id)
+    ? `<p class="quiet" style="padding:0 0 12px">Stufe ${ROEMISCH[stufe + 1]} ${bank.id === "kraeuterkueche"
+        ? `schaltet ${REZEPTE.filter(r => r.stufe === stufe + 1).length} Rezepte frei`
+        : `baut ${BANK_BAUT[stufe + 1]}`}
+        <button class="zugangknopf" data-reiter="ausbauten">Ausbauen</button></p>`
     : "";
 
   const vorrat = [...GRUNDSTOFFE, ...ORTSSTOFFE].map(id => {
@@ -22074,6 +22581,7 @@ function freshState() {
 }
 
 function startNewGame() {
+  huginAnflug = null;             // das Buendel vom letzten Mal ist abgeholt
   overlay._noEscape = false;
   closeModal();
   seed = (Math.random() * 2 ** 32) >>> 0;
