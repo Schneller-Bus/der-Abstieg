@@ -1025,8 +1025,8 @@ body {
   width: 152px;
   height: 74px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "rang name" "rang text";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "name" "rang" "text";
   gap: 1px 8px;
   align-items: center;
   padding: 8px 10px;
@@ -1073,6 +1073,13 @@ body {
 
 .knoten.zu .knotenrang { color: var(--vellum-dim); }
 .knotenrang i { font-style: normal; font-size: 11px; color: var(--vellum-faint); }
+
+/* Die Raenge als Punkte wie bei den Ausbauten, in der Farbe des Astes - der
+   Knoten liest sich damit als kleine Karte: Name oben, Punkte rechts. */
+.knoten { border-radius: 8px; }
+.knotenrang.stufenpunkte { justify-self: start; gap: 3px; margin: 1px 0; }
+.knotenrang.stufenpunkte i { width: 7px; height: 7px; border-radius: 2px; }
+.knotenrang.stufenpunkte i.an { border-color: var(--ast); background: var(--ast); }
 
 .knotenname {
   grid-area: name;
@@ -1280,14 +1287,14 @@ body {
 
 /* Die Ausbauten: eine Karte je Ausbau. Oben Name und Stufenpunkte, darunter
    was die naechste Stufe bringt, dann der Bedarf mit Haben und Brauchen. */
-.ausbautafel {
+.kartentafel {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 10px;
   margin: 2px 0 18px;
 }
 
-.ausbaukarte {
+.karte {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1297,19 +1304,19 @@ body {
   background: var(--stone-900);
 }
 
-.ausbaukarte.fertig { border-color: color-mix(in srgb, var(--verdigris) 45%, var(--stone-700)); }
+.karte.fertig { border-color: color-mix(in srgb, var(--verdigris) 45%, var(--stone-700)); }
 
-.ausbaukopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.ausbaukopf b { font-family: var(--rubric); font-size: 13.5px; letter-spacing: .03em; color: var(--vellum); }
+.kartenkopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.kartenkopf b { font-family: var(--rubric); font-size: 13.5px; letter-spacing: .03em; color: var(--vellum); }
 
 .stufenpunkte { display: inline-flex; gap: 4px; }
 .stufenpunkte i { width: 9px; height: 9px; border: 1px solid var(--stone-600); border-radius: 2px; }
 .stufenpunkte i.an { border-color: var(--torch-deep); background: var(--torch); }
 
-.ausbauwas { margin: 0; font-size: 12px; color: var(--vellum-dim); }
-.ausbauwas .pfeil { color: var(--vellum-faint); }
-.ausbauwas b.up { color: #8FD79B; }
-.ausbauwo { margin: -4px 0 0; font-size: 11.5px; color: var(--vellum-faint); }
+.kartenwas { margin: 0; font-size: 12px; color: var(--vellum-dim); }
+.kartenwas .pfeil { color: var(--vellum-faint); }
+.kartenwas b.up { color: #8FD79B; }
+.kartenwo { margin: -4px 0 0; font-size: 11.5px; color: var(--vellum-faint); }
 
 .bedarf { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
 .bedarf li { display: flex; justify-content: space-between; gap: 10px; color: var(--vellum-dim); }
@@ -1317,9 +1324,74 @@ body {
 .bedarf li.fehlt, .bedarf li.fehlt b { color: var(--madder-lit); }
 
 /* Der Knopf sagt, was fehlt - das darf umbrechen, statt aus der Karte zu laufen */
-.ausbaukarte .bag-act { margin-top: auto; width: 100%; white-space: normal; line-height: 1.35; text-align: center; }
-.ausbaufertig { margin: auto 0 0; font-size: 12px; color: var(--verdigris-lit); }
-.ausbaukopf b { margin-right: auto; }
+.karte .bag-act { margin-top: auto; width: 100%; white-space: normal; line-height: 1.35; text-align: center; }
+.kartenfertig { margin: auto 0 0; font-size: 12px; color: var(--verdigris-lit); }
+
+/* Das Bild eines Stuecks im Kartenkopf, auf einem ruhigen Grund */
+.kartenbild {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  margin: -4px 0 -4px -2px;
+  border-radius: 7px;
+  background: var(--stone-850);
+  line-height: 0;
+}
+.kartenbild svg { width: 24px; height: 24px; }
+.kartenstufe {
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--vellum-faint);
+}
+
+/* Zwei Knoepfe nebeneinander, und beim Verkaufen etwas breitere Karten */
+.kartentaten { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.kartentaten .bag-act { flex: 1 1 120px; }
+.verkauftafel { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* Der Aufbruch: jeder Platz am Koerper ist eine Karte, auf die man zieht */
+.gear-slot.slotkarte {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin-bottom: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--stone-700);
+  border-radius: 8px;
+  background: var(--stone-900);
+  text-align: left;
+}
+.gear .gear-slot.slotkarte + .gear-slot.slotkarte { margin-top: 8px; }
+.gear-slot.slotkarte.belegt { border-color: var(--stone-600); background: var(--stone-900); }
+.gear-slot.slotkarte:not(:disabled):hover { border-color: var(--stone-600); background: var(--stone-850); }
+.slotkarte .kartenwas { display: block; }
+.slotkarte .gear-box { width: 34px; height: 34px; flex: none; }
+.slotkarte .gear-box svg { width: 22px; height: 22px; }
+.ladekarten { margin-top: 18px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.ladekarten .karte.breit { grid-column: 1 / -1; }
+
+/* Unten im Rucksack: das gewaehlte Stueck breit, Aufraeumen daneben */
+.beuteltafel { margin-top: 12px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+@media (max-width: 620px) { .beuteltafel { grid-template-columns: minmax(0, 1fr); } }
+
+/* Der Heldenbogen: Werte als Karten, das Wort links, der Wert rechts */
+.heldtafel { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin: 10px 0 6px; }
+.heldtafel .karte.breit { grid-column: 1 / -1; }
+.wertliste li { align-items: baseline; }
+.wertliste .wert { text-align: right; color: var(--vellum); }
+.wertliste .teile { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 0 6px; }
+.wertliste .teile i { display: inline; }
+.wertliste .wertnotiz { display: block; font-size: 11.5px; color: var(--vellum-dim); }
+
+/* In der schmalen Spalte des Rucksacks steht der Platzname ueber dem Stueck */
+.gear .slotkarte .kartenkopf { flex-wrap: wrap; row-gap: 4px; }
+.gear .slotkarte .kartenstufe { order: -1; flex-basis: 100%; }
+.kartenkopf b { margin-right: auto; }
 /* Ein schwarzer Rabe auf der fast schwarzen Karte braucht einen hellen Grund */
 .huginbild {
   width: 44px;
@@ -1368,6 +1440,9 @@ body {
   border-color: var(--torch);
   background: var(--stone-800);
 }
+
+/* Der Weg zum naechsten Rang, schmal unter dem Namen */
+.haendlerpille .rangbalken { height: 4px; margin: 5px 0 0; }
 
 @media (max-width: 620px) {
   .haendlerreihe { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1897,6 +1972,17 @@ body {
 }
 
 .zahlenzeile.gold b { color: var(--tat); }
+
+/* Die Zahlen der Uebersicht als kleine Karten - das Wort klein oben, die Zahl
+   darunter; was vor dem Aufbruch fehlt, steht rot. */
+.zahlkarten { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.zahlkarte { gap: 2px; padding: 10px 12px; }
+.zahlkarte > span { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--vellum-faint); }
+.zahlkarte > b { font-size: 19px; font-weight: 600; color: var(--vellum); font-variant-numeric: tabular-nums; }
+.zahlkarte.gold > b { color: var(--tat); }
+.zahlkarte.warn > b { color: var(--madder-lit); }
+.zahlkarte.breit { grid-column: 1 / -1; }
+.zahlkarte .rangbalken { margin-top: 6px; }
 
 /* Der Fortschritt zum naechsten Haendlerrang. */
 .rangbalken {
@@ -18665,19 +18751,8 @@ function bagMarkup() {
       ${vergleichMarke(e)}
     </button>`).join("");
 
-  const gear = ["Waffe", "Rüstung", "Amulett", "Modul"].map(slot => {
-    const e = p.equipped[slot];
-    const farbe = e ? e.def.tint : "var(--stone-600)";
-    return `<button class="gear-slot" data-gear="${slot}" ${e ? "" : "disabled"}>
-      <span class="gear-box ${e ? "" : "leer"}">${slotBild(slot, farbe)}</span>
-      <span class="gear-text">
-        <span class="art">${slot}</span>
-        <b style="color:${e ? lesbar(seltenFarbe(e)) : "var(--vellum-faint)"}">${
-          e ? escapeHtml(e.def.name) : "nichts"}</b>
-        <span>${e ? escapeHtml(bonusText(e.def)) : "—"}</span>
-      </span>
-    </button>`;
-  }).join("");
+  const gear = ["Waffe", "Rüstung", "Amulett", "Modul"].map(slot =>
+    slotKarte(slot, p.equipped[slot], `data-gear="${slot}"`, "zieh ein Stück hierher", true)).join("");
 
   return `<h2>Rucksack</h2>
     <div class="bag-wrap">
@@ -18693,13 +18768,12 @@ function bagMarkup() {
         ${guertelReihe(guertel(p), "gband")}
       </aside>
     </div>
-    <div class="tafel">${bagTafel()}</div>
-    ${herstellenLeiste()}
-    <div class="ausgang" style="margin-top:12px;padding-top:10px">
-    <button class="choice" id="raeumBtn">
-      <span>Aufräumen</span>
-      <span class="note">sortiert nach Art und schließt die Lücken</span></button>
+    <div class="kartentafel beuteltafel">
+      ${bagTafel()}
+      ${karte({ titel: "Aufräumen", was: "sortiert nach Art und schließt die Lücken",
+                knoepfe: '<button class="bag-act" id="raeumBtn">Aufräumen</button>' })}
     </div>
+    ${herstellenLeiste()}
     <div class="foot"><b>Ziehen</b> verschiebt · <b>Klick</b> benutzt
       oder legt an · auf einen Ausrüstungsplatz oder den Gürtel ziehen legt dorthin ·
       am Gürtel liegen sie auf <b>1</b>–<b>5</b> · <b>Esc</b> schließt</div>`;
@@ -18709,23 +18783,20 @@ function bagMarkup() {
 function bagTafel() {
   const p = G.player;
   const e = bagWahl;
-  if (!e) return '<p class="quiet">Wähle eine Kachel.</p>';
+  if (!e) return karte({ titel: "Nichts gewählt", knoepfe: "", was: "Wähle eine Kachel." });
   const d = e.def;
   const an = Object.values(p.equipped).indexOf(e) >= 0;
   const tat = primaryLabel(e);
-  return `<div class="tafelkopf">
-      <b style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(d.name)}${
-        e.menge > 1 ? ` ×${e.menge}` : ""}</b>
-      <span>${an ? "am Körper" : "im Rucksack"}</span>
-    </div>
-    <p class="tafeltext">${escapeHtml(d.slot ? bonusText(d) : (d.note || ""))}${
-      an ? "" : compareText(e)}${d.sage ? `<em class="sage">„${escapeHtml(d.sage)}“</em>` : ""}</p>
-    <div class="tafeltaten">
-      <button class="bag-act" id="tatBtn" ${tat ? "" : "disabled"}>${tat || "—"}</button>
-      ${istFlasche(d) && p.bag.includes(e) && guertelPlatzFuer(p, e) >= 0
-        ? '<button class="bag-act" id="guertelBtn">An den Gürtel</button>' : ""}
-      <button class="bag-act drop" id="wegBtn">Wegwerfen</button>
-    </div>`;
+  const rechts = [e.menge > 1 ? `×${e.menge}` : "", an ? "am Körper" : "im Rucksack"].filter(Boolean).join(" · ");
+  return karte(Object.assign(stueckKopf(e, `<span class="kartenstufe">${rechts}</span>`), {
+    was: escapeHtml(d.slot ? bonusText(d) : (d.note || "")) + (an ? "" : compareText(e)),
+    wo: d.sage ? `„${d.sage}“` : "",
+    knoepfe: `<div class="kartentaten">
+        <button class="bag-act" id="tatBtn" ${tat ? "" : "disabled"}>${tat || "—"}</button>
+        ${istFlasche(d) && p.bag.includes(e) && guertelPlatzFuer(p, e) >= 0
+          ? '<button class="bag-act" id="guertelBtn">An den Gürtel</button>' : ""}
+        <button class="bag-act drop" id="wegBtn">Wegwerfen</button>
+      </div>` }));
 }
 
 /* ── Kacheln greifen und legen ──────────────────────────────────────────
@@ -18947,30 +19018,27 @@ function bagBinde() {
 function showChest(kiste) {
   const p = G.player;
 
-  const zeilen = kiste.loot.length ? kiste.loot.map((eintrag, i) => {
+  const inhalt = kiste.loot.length ? `<div class="kartentafel">${kiste.loot.map((eintrag, i) => {
     const gebaut = ausKisteBauen(eintrag);
     const d = gebaut.def;
     const passt = nimmtNoch(p, gebaut);
-    const notiz = d.slot ? bonusText(d) : (d.note || "");
-    return `<div class="bag-row">
-      <button class="choice bag-main" data-i="${i}" ${passt ? "" : "disabled"}>
-        <span style="color:${lesbar(seltenFarbe(gebaut))}">${escapeHtml(d.name)}${
-          gebaut.menge > 1 ? ` ×${gebaut.menge}` : ""}</span>
-        <span class="note">${escapeHtml(notiz)}</span>
-      </button>
-      <button class="bag-act" data-i="${i}" ${passt ? "" : "disabled"}>${
-        passt ? "Nehmen" : "kein Platz"}</button>
-    </div>`;
-  }).join("") : '<p class="quiet" style="padding:14px 0">Die Kiste ist leer.</p>';
+    return karte(Object.assign(
+      stueckKopf(gebaut, gebaut.menge > 1 ? `<span class="kartenstufe">×${gebaut.menge}</span>` : undefined), {
+        was: escapeHtml(d.slot ? bonusText(d) : (d.note || "")),
+        knoepfe: `<button class="bag-act" data-i="${i}" ${passt ? "" : "disabled"}>${
+          passt ? "Nehmen" : "kein Platz"}</button>` }));
+  }).join("")}</div>` : '<p class="quiet" style="padding:14px 0">Die Kiste ist leer.</p>';
 
   const { spalten, reihen } = raster();
   openModal(`<h2>Kiste</h2>
     <p class="feldkopf">Darin <b>${kiste.loot.length}</b>
       <span class="rechts">Rucksack ${imRucksack(p).length} von ${spalten * reihen} Plätzen</span></p>
-    ${zeilen}
-    ${kiste.loot.length ? `<button class="choice" id="allesBtn" style="margin-top:12px">
-      <span>Alles nehmen</span>
-      <span class="note"></span></button>` : ""}
+    ${inhalt}
+    ${kiste.loot.length ? `<div class="kartentafel" style="margin-top:10px">${karte({
+      titel: "Alles nehmen",
+      rechts: `<span class="kartenstufe">${kiste.loot.length} ${kiste.loot.length === 1 ? "Stück" : "Stücke"}</span>`,
+      was: "was nicht in den Rucksack passt, bleibt in der Kiste",
+      knoepfe: '<button class="bag-act" id="allesBtn">Alles nehmen</button>' })}</div>` : ""}
     <div class="foot">Was du liegen lässt, bleibt in der Kiste · <b>Esc</b> schließt</div>`);
 
   overlay.querySelectorAll("[data-i]").forEach(btn => {
@@ -19149,9 +19217,11 @@ function chooseBagItem(entry, dropping) {
 
 function showCharacter() {
   const p = G.player;
-  const zeile = (name, wert) =>
-    `<div class="line"><span>${name}</span><span>${wert}</span></div>`;
-  const kopf = t => `<p class="abschnitt">${t}</p>`;
+  // Eine Zeile einer Wertekarte: das Wort links, der Wert rechts
+  const zeile = (name, wert) => `<li><span>${name}</span><span class="wert">${wert}</span></li>`;
+  const leise = text => `<i style="font-style:normal;color:var(--vellum-faint)">${text}</i>`;
+  const werteKarte = (titel, zeilen, rest) =>
+    karte(Object.assign({ titel, knoepfe: "", inhalt: `<ul class="bedarf wertliste">${zeilen.join("")}</ul>` }, rest));
 
   /* Ein Wert aus mehreren Quellen liest sich als Summe mit Herkunft, nicht
      als drei Zahlen in einer Reihe. */
@@ -19165,41 +19235,38 @@ function showCharacter() {
   const fa = ABILITIES[faehigkeitVon(p)];
   const offen = offenePunkte();
 
-  const kampf = [
-    zeile("Leben", `${p.hp} <i style="font-style:normal;color:var(--vellum-faint)">von ${
-      playerMaxHp()}</i>`),
+  const kampf = werteKarte("Im Kampf", [
+    zeile("Leben", `${p.hp} ${leise(`von ${playerMaxHp()}`)}`),
     zeile("Angriff", summe(p.baseAtk, equipBonus("atk"), statusMag(p, "Stärke"))),
     zeile("Schutz", summe(p.baseDef, equipBonus("def"), statusMag(p, "Schutz"))),
-  ].join("");
+  ]);
 
-  const lage = [
+  const lage = werteKarte("Wie es steht", [
     zeile("Fackelöl", p.oil > 0
-      ? `${p.oil} / ${oilCap()} <i style="font-style:normal;color:var(--vellum-faint)">· Sicht ${
-          fovFromOil(p.oil).toFixed(1)}</i>`
+      ? `${p.oil} / ${oilCap()} ${leise(`· Sicht ${fovFromOil(p.oil).toFixed(1)}`)}`
       : '<span style="color:var(--madder-lit)">erloschen</span>'),
     zeile("Rucksack", `${imRucksack(p).length} / ${raster().spalten * raster().reihen} Plätze`),
-    zeile("Etage", `${G.floor} <i style="font-style:normal;color:var(--vellum-faint)">· ${
-      escapeHtml(theme().name)} · tiefste ${G.deepest}</i>`),
+    zeile("Etage", `${G.floor} ${leise(`· ${escapeHtml(theme().name)} · tiefste ${G.deepest}`)}`),
     zeile("Runden", G.turns),
-  ].join("");
+  ]);
 
-  const wer = [
+  const wer = werteKarte("Wer du bist", [
     zeile("Stufe", `${META.stufe | 0}${offen
       ? ` <i style="font-style:normal;color:var(--verdigris-lit)">· ${offen} ${
           offen === 1 ? "Punkt" : "Punkte"} frei</i>` : ""}`),
-    zeile("Erfahrung", `${META.xp | 0} / ${xpNeeded()}<i style="font-style:normal;color:var(--vellum-faint)"> · ${
-      p.xp | 0} in diesem Abstieg</i>`),
-    zeile("Fähigkeit", fa
-      ? `<b style="font-weight:600">${escapeHtml(fa.name)}</b><br>${escapeHtml(fa.desc)}`
-      : '<span style="color:var(--vellum-faint)">kein Modul angelegt</span>'),
-  ].join("");
+    zeile("Erfahrung", `${META.xp | 0} / ${xpNeeded()}${leise(` · ${p.xp | 0} in diesem Abstieg`)}`),
+    zeile("Fähigkeit", fa ? `<b>${escapeHtml(fa.name)}</b>` : leise("kein Modul angelegt")),
+    fa ? `<li class="wertnotiz">${escapeHtml(fa.desc)}</li>` : "",
+  ]);
 
   const koerper = ["Waffe", "Rüstung", "Amulett", "Modul"].map(slot => {
     const e = p.equipped[slot];
-    return zeile(slot, e
-      ? `<span style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(e.def.name)}</span>` +
-        `<i style="font-style:normal;color:var(--vellum-faint)"> · ${escapeHtml(bonusText(e.def))}</i>`
-      : '<span style="color:var(--vellum-faint)">nichts</span>');
+    return e
+      ? karte(Object.assign(stueckKopf(e, `<span class="kartenstufe">${slot}</span>`),
+                            { was: escapeHtml(bonusText(e.def)), knoepfe: "" }))
+      : karte({ titel: "nichts", farbe: "var(--vellum-dim)", knoepfe: "",
+                bild: `<span class="kartenbild">${slotBild(slot, "var(--stone-600)")}</span>`,
+                rechts: `<span class="kartenstufe">${slot}</span>` });
   }).join("");
 
   // Gelernte Raenge, nach Zweigen sortiert
@@ -19215,11 +19282,11 @@ function showCharacter() {
 
   openModal(`<h2>Der Held</h2>
     <p class="sub">Wer hier unten steht, und womit.</p>
-    ${kopf("Im Kampf")}<div class="grid2">${kampf}</div>
-    ${kopf("Wie es steht")}<div class="grid2">${lage}</div>
-    ${kopf("Am Körper")}<div class="grid2">${koerper}</div>
-    ${kopf("Wer du bist")}<div class="einspaltig">${wer}</div>
-    ${linien ? kopf("Fertigkeiten") + linien : ""}
+    <div class="kartentafel heldtafel">${kampf}${lage}${wer}</div>
+    <p class="abschnitt">Am Körper</p>
+    <div class="kartentafel heldtafel">${koerper}</div>
+    ${linien ? `<div class="kartentafel heldtafel">${
+      karte({ titel: "Fertigkeiten", knoepfe: "", klasse: "breit", inhalt: linien })}</div>` : ""}
     <div class="foot">Esc schließt</div>`);
 }
 
@@ -20270,7 +20337,8 @@ function baumMarkup() {
       style="left:${o.x}px;top:${o.y}px;--ast:${ast.def.farbe}"
       title="${escapeHtml(t.name)} ${r}/${t.max} — ${escapeHtml(t.text(Math.max(1, r)))}${
         offen ? "" : " · " + escapeHtml(vorstufe)}">
-      <span class="knotenrang">${r}<i>/${t.max}</i></span>
+      <span class="knotenrang stufenpunkte" role="img" aria-label="Rang ${r} von ${t.max}">${
+        Array.from({ length: t.max }, (_, i) => `<i${i < r ? ' class="an"' : ""}></i>`).join("")}</span>
       <span class="knotenname">${escapeHtml(t.name)}</span>
       <span class="knotentext">${offen
         ? escapeHtml(t.text(Math.min(t.max, r + 1)))
@@ -20373,22 +20441,22 @@ let kaufWahl = "schmied";        // welcher Haendler im Kaufen-Reiter offen ist
 
 function verkaufTafel() {
   const b = verkaufWahl;
-  if (!b) return '<p class="quiet">Kachel anklicken · <b>Rechtsklick verkauft sofort</b></p>';
+  if (!b) return karte({ titel: "Nichts gewählt", knoepfe: "",
+                         was: "Kachel anklicken · <b>Rechtsklick verkauft sofort</b>" });
   const e = ausBestand(b);
   const d = e.def;
-  const werkstoff = d.kind === "material";
-  return `<div class="tafelkopf">
-      <b style="color:${lesbar(seltenFarbe(b))}">${escapeHtml(d.name)}${
-        b.menge > 1 ? ` \u00d7${b.menge}` : ""}</b>
-      <span>${seltenName(b)}</span>
-    </div>
-    <p class="tafeltext">${escapeHtml(d.slot ? bonusText(d) : (d.note || ""))}${
-      werkstoff ? '<em class="sage">Material \u2014 zum Aufwerten und Bauen.</em>' : ""}${
-      b.id in huginWill() ? '<em class="sage">Hugin will ihn für seine nächste Stufe.</em>' : ""}</p>
-    <div class="tafeltaten">
-      ${d.kind === "plunder" ? '<button class="bag-act" id="zerlegBtn">Zerlegen</button>' : ""}
-      <button class="bag-act drop" id="verkaufBtn">Verkaufen \u00b7 ${verkaufPreis(e)} M</button>
-    </div>`;
+  const notizen = [
+    d.kind === "material" ? "Material — zum Aufwerten und Bauen." : "",
+    b.id in huginWill() ? "Hugin will ihn für seine nächste Stufe." : "",
+  ].filter(Boolean).join(" ");
+  return karte(Object.assign(
+    stueckKopf(e, b.menge > 1 ? `<span class="kartenstufe">×${b.menge}</span>` : undefined), {
+      was: escapeHtml(d.slot ? bonusText(d) : (d.note || "")),
+      wo: notizen,
+      knoepfe: `<div class="kartentaten">
+          ${d.kind === "plunder" ? '<button class="bag-act" id="zerlegBtn">Zerlegen</button>' : ""}
+          <button class="bag-act drop" id="verkaufBtn">Verkaufen · ${verkaufPreis(e)} M</button>
+        </div>` }));
 }
 
 /* == Der Lagerbildschirm =================================================
@@ -20508,8 +20576,9 @@ function uebersichtBereich() {
   const anteil = naechste
     ? Math.max(0, Math.min(1, (umsatz - vorige) / (naechste - vorige))) : 1;
 
-  const zeile = (wort, wert, gold) =>
-    `<div class="zahlenzeile${gold ? " gold" : ""}"><span>${wort}</span><b>${wert}</b></div>`;
+  // Eine Zahl als kleine Karte: das Wort oben, die Zahl darunter
+  const zahl = (wort, wert, art) =>
+    `<div class="karte zahlkarte${art ? " " + art : ""}"><span>${wort}</span><b>${wert}</b></div>`;
 
   const angelegt = LADE_PLAETZE.filter(sl => (META.anlegen || {})[sl]).length;
   const modul = (META.anlegen || {})["Modul"];
@@ -20517,26 +20586,27 @@ function uebersichtBereich() {
   return `<div class="uebersicht">
       <section>
         <p class="feldkopf">Deine Zahlen</p>
-        <div class="zahlenliste">
-          ${zeile("Abstiege", META.laeufe | 0)}
-          ${zeile("Tiefste Etage", META.beste | 0, true)}
-          ${zeile("Siege", META.siege | 0)}
-          ${zeile("Baupläne", `${(META.plaene || []).length} von ${
+        <div class="zahlkarten">
+          ${zahl("Abstiege", META.laeufe | 0)}
+          ${zahl("Tiefste Etage", META.beste | 0, "gold")}
+          ${zahl("Siege", META.siege | 0)}
+          ${zahl("Baupläne", `${(META.plaene || []).length} von ${
             Object.keys(ITEMS).filter(id => ITEMS[id].kind === "bauplan").length}`)}
-          ${zeile("Umsatz", `${umsatz} M`)}
-          ${zeile("Händlerrang", rangName(rang))}
+          <div class="karte zahlkarte breit">
+            <span>Händlerrang · ${umsatz} M Umsatz</span><b>${rangName(rang)}</b>
+            <div class="rangbalken"><i style="width:${Math.round(anteil * 100)}%"></i></div>
+            <p class="kartenwo">${naechste
+              ? `noch ${naechste - umsatz} Umsatz bis zum nächsten Rang`
+              : "höchster Rang erreicht"}</p>
+          </div>
         </div>
-        <div class="rangbalken"><i style="width:${Math.round(anteil * 100)}%"></i></div>
-        <p class="quiet" style="margin:6px 0 0">${naechste
-          ? `noch ${naechste - umsatz} Umsatz bis zum nächsten Rang`
-          : "höchster Rang erreicht"}</p>
 
         <p class="feldkopf" style="margin-top:20px">Bereit?</p>
-        <div class="zahlenliste">
-          ${zeile("Am Körper", `${angelegt}/4`)}
-          ${zeile("Im Rucksack", (META.mitnahme || []).length)}
-          ${zeile("Am Gürtel", `${(META.guertel || []).filter(Boolean).length}/${GUERTEL_PLAETZE}`)}
-          ${zeile("Fähigkeit", modul ? escapeHtml(vorlage(modul).name) : "keine")}
+        <div class="zahlkarten">
+          ${zahl("Am Körper", `${angelegt}/4`, angelegt ? "" : "warn")}
+          ${zahl("Im Rucksack", (META.mitnahme || []).length)}
+          ${zahl("Am Gürtel", `${(META.guertel || []).filter(Boolean).length}/${GUERTEL_PLAETZE}`)}
+          ${zahl("Fähigkeit", modul ? escapeHtml(vorlage(modul).name) : "keine", modul ? "" : "warn")}
         </div>
       </section>
 
@@ -21389,32 +21459,36 @@ function showCamp(reiter) {
   if (lagerReiter === "verkaufen") {
     /* Verkauft wird aus dem Lager selbst, nicht aus einer Liste daneben. Man
        sieht dieselben Kacheln wie im Aufbruch und weiss deshalb sofort, was
-       man weggibt - und was danach an Platz frei wird. */
-    const lm = lagerRaster();
-    const wert = bestand.filter(x => !bleibtBeimVerkaufen(x.b))
-      .reduce((a, x) => a + verkaufPreis(x.e), 0);
-    /* Das Raster steht links in der Huelle - hier rechts steht nur noch, was
-       an der gewaehlten Kachel haengt. */
+       man weggibt - und was danach an Platz frei wird. Rechts zwei Karten:
+       das gewaehlte Stueck und alles auf einmal. */
+    const weg = bestand.filter(x => !bleibtBeimVerkaufen(x.b));
+    const wert = weg.reduce((a, x) => a + verkaufPreis(x.e), 0);
+    const alles = karte({
+      titel: "Alles verkaufen",
+      rechts: `<span class="kartenstufe">${weg.length} ${weg.length === 1 ? "Stück" : "Stücke"}</span>`,
+      was: `bringt <b class="up">${wert} M</b>`,
+      wo: "Material und Hugins Plunder bleiben liegen",
+      knoepfe: `<button class="bag-act drop" id="allesBtn" ${weg.length ? "" : "disabled"}>Alles verkaufen · ${wert} M</button>` });
     inhalt = META.lager.length
       ? `<p class="feldkopf">Verkaufen <span class="rechts">Linksklick wählt · Rechtsklick verkauft sofort</span></p>
-        <div class="tafel">${verkaufTafel()}</div>
-        <button class="choice" id="allesBtn" style="margin-top:12px">
-          <span class="key" aria-hidden="true">·</span><span>Alles verkaufen</span>
-          <span class="note">${wert} Münzen — Material und Hugins Plunder bleiben liegen</span></button>`
+        <div class="kartentafel verkauftafel">${verkaufTafel()}${alles}</div>`
       : '<p class="quiet" style="padding:14px 0">Dein Lager ist leer. Bring etwas herauf.</p>';
   } else if (lagerReiter === "kaufen") {
-    /* Vier Haendler nebeneinander, jeder mit seinem Rang. Wer noch nichts bei
-       einem gelassen hat, findet dort zwei Waren und ein misstrauisches
-       Gesicht - das ist der Sinn der Sache. */
+    /* Vier Haendler nebeneinander, jeder mit seinem Rang und dem Weg zum
+       naechsten. Darunter seine Waren als Karten - wer noch nichts bei ihm
+       gelassen hat, findet dort zwei Waren und ein misstrauisches Gesicht. */
     const h = HAENDLER_VON[kaufWahl] || HAENDLER[0];
     const rangH = haendlerRang(h.id);
     const reihe = HAENDLER.map(x => {
       const r = haendlerRang(x.id);
+      const bis = RANG_SCHWELLEN[r + 1], von = RANG_SCHWELLEN[r] || 0;
+      const anteil = bis ? Math.max(0, Math.min(1, (umsatzVon(x.id) - von) / (bis - von))) : 1;
       return `<button class="haendlerpille${x.id === h.id ? " an" : ""}"
         data-haendler="${x.id}">
         <b>${escapeHtml(x.name)}</b>
         <span>${escapeHtml(x.was)}</span>
         <em>${escapeHtml(rangName(r))}</em>
+        <span class="rangbalken" aria-hidden="true"><i style="width:${Math.round(anteil * 100)}%"></i></span>
       </button>`;
     }).join("");
 
@@ -21428,16 +21502,14 @@ function showCamp(reiter) {
           ? (sortimentFuer(h.id, rangH + 1).length > seine.length
             ? `${bisher} von ${naechste} M — dann führt er mehr` : "mehr führt er nicht")
           : "höchster Rang"}</span></p>` +
-      (seine.length ? seine.map(({ w, e }) => {
+      (seine.length ? `<div class="kartentafel">${seine.map(({ w, e }) => {
         const preis = kaufPreis(e);
-        return zeile(
-          `<span style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(e.def.name)}${
-            e.menge > 1 ? ` ×${e.menge}` : ""}</span>`,
-          escapeHtml(e.def.slot ? bonusText(e.def) : (e.def.note || "")),
-          `<button class="bag-act" data-kauf="${w.id}" ${
-            META.muenzen < preis ? "disabled" : ""}>${preis} M</button>`,
-          META.muenzen < preis);
-      }).join("")
+        return karte(Object.assign(
+          stueckKopf(e, e.menge > 1 ? `<span class="kartenstufe">×${e.menge}</span>` : undefined), {
+            was: escapeHtml(e.def.slot ? bonusText(e.def) : (e.def.note || "")),
+            sperre: META.muenzen < preis ? `fehlt: ${preis - META.muenzen} M` : "",
+            tat: `Kaufen · ${preis} M`, daten: `data-kauf="${w.id}"` }));
+      }).join("")}</div>`
         : '<p class="quiet" style="padding:14px 0">Er hat dir nichts zu bieten. ' +
           'Bring ihm etwas, dann ändert sich das.</p>');
   } else if (lagerReiter === "handbuch") {
@@ -21800,29 +21872,53 @@ function huginBild(stufe) {
   return huginBilder[stufe];
 }
 
-function ausbauKarte(k) {
-  const fertig = k.stufe >= k.max;
-  const punkte = Array.from({ length: k.max }, (_, i) =>
-    `<i${i < k.stufe ? ' class="an"' : ""}></i>`).join("");
-  const zeilen = fertig ? "" : k.bedarf.map(([wort, hat, soll]) => {
+/* == Karten ==============================================================
+   Die gemeinsame Form der Lagerreiter: Kopf mit Bild, Name und rechts Stufe
+   oder Seltenheit, darunter was es kann, dann der Bedarf mit Haben und
+   Brauchen, zuletzt der Knopf - und der sagt, was fehlt, statt nur grau zu
+   sein. Der Name traegt die Seltenheitsfarbe, der Rahmen bleibt ruhig. */
+function karte(k) {
+  const bedarf = k.fertig ? [] : (k.bedarf || []);
+  const zeilen = bedarf.map(([wort, hat, soll]) => {
     const da = hat >= soll;
     return `<li class="${da ? "da" : "fehlt"}"><span>${da ? "✓" : "✗"} ${
       escapeHtml(wort)}</span><b>${hat} / ${soll}</b></li>`;
   }).join("");
-  const fehlt = k.bedarf.filter(([, hat, soll]) => hat < soll)
+  const fehlt = bedarf.filter(([, hat, soll]) => hat < soll)
     .map(([wort, hat, soll]) => wort === "Münzen" ? `${soll - hat} M` : `${soll - hat} ${wort}`);
-  const knopf = fertig
-    ? '<p class="ausbaufertig">fertig ausgebaut</p>'
-    : `<button class="bag-act" ${k.daten} ${fehlt.length ? "disabled" : ""}>${escapeHtml(fehlt.length
-        ? `fehlt: ${fehlt.slice(0, 2).join(" · ")}${fehlt.length > 2 ? " …" : ""}` : "Ausbauen")}</button>`;
-  return `<article class="ausbaukarte${fertig ? " fertig" : ""}">
-      <header class="ausbaukopf">${k.bild || ""}<b>${escapeHtml(k.titel)}</b>
-        <span class="stufenpunkte" role="img" aria-label="Stufe ${k.stufe} von ${k.max}">${punkte}</span></header>
-      <p class="ausbauwas">${k.was}</p>
-      ${k.wo ? `<p class="ausbauwo">${escapeHtml(k.wo)}</p>` : ""}
+  const sperre = k.sperre || (fehlt.length
+    ? `fehlt: ${fehlt.slice(0, 2).join(" · ")}${fehlt.length > 2 ? " …" : ""}` : "");
+  const knopf = k.fertig ? `<p class="kartenfertig">${escapeHtml(k.fertig)}</p>`
+    : k.knoepfe != null ? k.knoepfe
+    : `<button class="bag-act" ${k.daten || ""} ${sperre ? "disabled" : ""}>${escapeHtml(sperre || k.tat)}</button>`;
+  return `<article class="karte${k.fertig ? " fertig" : ""}${k.klasse ? " " + k.klasse : ""}">
+      <header class="kartenkopf">${k.bild || ""}<b${k.farbe ? ` style="color:${k.farbe}"` : ""}>${
+        escapeHtml(k.titel)}</b>${k.rechts || ""}</header>
+      ${k.was ? `<p class="kartenwas">${k.was}</p>` : ""}
+      ${k.wo ? `<p class="kartenwo">${escapeHtml(k.wo)}</p>` : ""}
+      ${k.inhalt || ""}
       ${zeilen ? `<ul class="bedarf">${zeilen}</ul>` : ""}
       ${knopf}
     </article>`;
+}
+
+// Stufenpunkte rechts im Kopf
+function stufenPunkte(stufe, max) {
+  return `<span class="stufenpunkte" role="img" aria-label="Stufe ${stufe} von ${max}">${
+    Array.from({ length: max }, (_, i) => `<i${i < stufe ? ' class="an"' : ""}></i>`).join("")}</span>`;
+}
+
+// Ein Stueck als Kopf einer Karte: sein Bild, der Name in seiner Farbe, rechts die Seltenheit
+function stueckKopf(e, rechts) {
+  return { bild: `<span class="kartenbild">${kachelBild(e)}</span>`, titel: e.def.name,
+           farbe: lesbar(e.def.slot ? seltenFarbe(e) : e.def.tint),
+           rechts: rechts != null ? rechts
+             : e.def.slot ? `<span class="kartenstufe">${seltenName(e)}</span>` : "" };
+}
+
+function ausbauKarte(k) {
+  return karte(Object.assign({}, k, { klasse: "ausbaukarte", rechts: stufenPunkte(k.stufe, k.max),
+                                      tat: "Ausbauen", fertig: k.stufe >= k.max ? "fertig ausgebaut" : "" }));
 }
 
 function ausbautenBereich() {
@@ -21875,21 +21971,20 @@ function ausbautenBereich() {
 
   return `<p class="quiet" style="padding:2px 0 12px">Ausbauten bleiben dir für immer — auch wenn du unten liegen bleibst.</p>
     <p class="feldkopf">Werkbänke <span class="rechts">jede Stufe schaltet Stärkeres frei</span></p>
-    <div class="ausbautafel">${baenke}</div>
+    <div class="kartentafel">${baenke}</div>
     <p class="feldkopf">Rucksack und Lager <span class="rechts">Schritt für Schritt</span></p>
-    <div class="ausbautafel">${plaetze}</div>
+    <div class="kartentafel">${plaetze}</div>
     <p class="feldkopf">Der Hof <span class="rechts">Hugin fliegt, während du unten bist — auch wenn du nicht wiederkommst</span></p>
-    <div class="ausbautafel">${hugin}</div>`;
+    <div class="kartentafel">${hugin}</div>`;
 }
 
 /* == Die Werkstatt im Lager ==============================================
    Oben die Werkbaenke nebeneinander wie die Haendler, darunter die gewaehlte:
-   ihr Ausbau, der Vorrat, was sich aus gelernten Plaenen bauen laesst und was
-   im Lager aufgewertet werden kann. */
-function werkstattBereich(bestand, zeile) {
+   ihr Vorrat, dann Karten - was sich aus gelernten Plaenen bauen laesst und
+   was im Lager aufgewertet werden kann, in der Kraeuterkueche die Rezepte. */
+function werkstattBereich(bestand) {
   const bank = WERKBANK_VON[werkbankWahl] || WERKBAENKE[0];
   const stufe = werkbankStufe(bank.id);
-  const farbig = e => `<span style="color:${lesbar(seltenFarbe(e))}">${escapeHtml(e.def.name)}</span>`;
   const reihe = WERKBAENKE.map(w => `<button class="haendlerpille${w.id === bank.id ? " an" : ""}"
       data-bank="${w.id}">
       <b>${escapeHtml(w.name)}</b>
@@ -21910,17 +22005,20 @@ function werkstattBereich(bestand, zeile) {
     return `<span class="stoffmarke${n ? "" : " leer"}"
       style="--tint:${ITEMS[id].tint}">${escapeHtml(ITEMS[id].name)}<b>${n}</b></span>`;
   }).join("");
+  const stoffBedarf = stoffe => Object.entries(stoffe)
+    .map(([id, n]) => [ITEMS[id].name, werkstoffVorrat(id), n]);
+  // Was kein Material ist, steht statt des Knopfs - Material zeigt die Liste
+  const sperre = warum => warum && warum !== "zu wenig Material" && warum !== "zu wenig Münzen" ? warum : "";
 
   // Die Kraeuterkueche baut keine Plaene, sie stellt nach Rezept her
   if (bank.id === "kraeuterkueche") {
     const rezepte = REZEPTE.map(r => {
       const e = buildItem(r.id);
-      const warum = herstellHindernisOben(r.id);
-      return zeile(`<span style="color:${lesbar(e.def.tint)}">${escapeHtml(e.def.name)}</span>`,
-        `<span class="sprung">${escapeHtml(e.def.note || "")}</span><span class="stoffpreis">${
-          warum.startsWith("braucht") ? escapeHtml(warum) : kostenText(r.stoffe)}</span>`,
-        `<button class="bag-act" data-herstellen="${r.id}" ${warum ? "disabled" : ""}>Herstellen</button>`,
-        !!warum);
+      return karte(Object.assign(stueckKopf(e, `<span class="kartenstufe">Stufe ${ROEMISCH[r.stufe]}</span>`), {
+        was: escapeHtml(e.def.note || ""), bedarf: stoffBedarf(r.stoffe),
+        // Der Kopf nennt die Stufe schon - auf dem Knopf reicht "braucht Küche II"
+        sperre: sperre(herstellHindernisOben(r.id)).replace("Kräuterküche", "Küche"),
+        tat: "Herstellen", daten: `data-herstellen="${r.id}"` }));
     }).join("");
     return `<div class="haendlerreihe">${reihe}</div>
       <p class="feldkopf">${escapeHtml(bank.name)} · Stufe ${ROEMISCH[stufe]}
@@ -21929,39 +22027,34 @@ function werkstattBereich(bestand, zeile) {
       <p class="feldkopf">Material im Lager</p>
       <div class="stoffreihe">${vorrat}</div>
       <p class="feldkopf">Herstellen <span class="rechts">sofort, aus dem Lager</span></p>
-      ${rezepte}`;
+      <div class="kartentafel">${rezepte}</div>`;
   }
 
   const alle = Object.keys(ITEMS).filter(id => ITEMS[id].kind === "bauplan" &&
     werkbankFuer(ITEMS[ITEMS[id].plan]) === bank).map(id => ITEMS[id].plan);
   const gelernt = alle.filter(id => (META.plaene || []).includes(id))
     .sort((a, b) => SELTEN_RANG[seltenheitVon({ id: a })] - SELTEN_RANG[seltenheitVon({ id: b })]);
-  const bauen = gelernt.length ? gelernt.map(id => {
+  const bauen = gelernt.length ? `<div class="kartentafel">${gelernt.map(id => {
     const e = buildItem(id);
-    const warum = bauHindernis(id);
-    return zeile(farbig(e),
-      `<span class="sprung">${escapeHtml(bonusText(e.def))}</span><span class="stoffpreis">${
-        warum.startsWith("braucht") ? escapeHtml(warum) : preisText(bauKosten(id))}</span>`,
-      `<button class="bag-act" data-bauen="${id}" ${warum ? "disabled" : ""}>Bauen</button>`,
-      !!warum);
-  }).join("")
+    const k = bauKosten(id);
+    return karte(Object.assign(stueckKopf(e), {
+      was: escapeHtml(bonusText(e.def)),
+      bedarf: [...stoffBedarf(k.stoffe), ["Münzen", META.muenzen, k.muenzen]],
+      sperre: sperre(bauHindernis(id)), tat: "Bauen", daten: `data-bauen="${id}"` }));
+  }).join("")}</div>`
     : '<p class="quiet" style="padding:6px 0 14px">Noch kein Bauplan gelernt — bring einen lebend hinauf.</p>';
 
   const passend = bestand.filter(({ e }) => e.def.slot && !e.def.quest && werkbankFuer(e.def) === bank);
-  const aufwerten = passend.length ? passend.map(({ e, b, i }) => {
+  const aufwerten = passend.length ? `<div class="kartentafel">${passend.map(({ e, b, i }) => {
     const voll = (b.stufe || 0) >= AUFWERT_MAX;
-    const kosten = aufwertKosten(b);
-    const reicht = aufwertBankReicht(b);
-    const geht = !voll && reicht && kostenGedeckt(kosten);
     const ziel = ROEMISCH[(b.stufe || 0) + 1];
-    return zeile(farbig(e),
-      voll ? "voll ausgereizt"
-           : `<span class="sprung">${stufeVorschau(b)}</span><span class="stoffpreis">${
-               reicht ? kostenText(kosten) : `braucht ${escapeHtml(bank.name)} ${ziel}`}</span>`,
-      voll ? '<button class="bag-act" disabled>—</button>'
-           : `<button class="bag-act" data-aufwert="${i}" ${geht ? "" : "disabled"}>${ziel}</button>`,
-      !geht);
-  }).join("")
+    return karte(Object.assign(stueckKopf(e, stufenPunkte(b.stufe || 0, AUFWERT_MAX)), {
+      was: voll ? escapeHtml(bonusText(e.def)) : stufeVorschau(b),
+      bedarf: voll ? [] : stoffBedarf(aufwertKosten(b)),
+      fertig: voll ? "voll ausgereizt" : "",
+      sperre: !voll && !aufwertBankReicht(b) ? `braucht ${bank.name} ${ziel}` : "",
+      tat: `Auf ${ziel} aufwerten`, daten: `data-aufwert="${i}"` }));
+  }).join("")}</div>`
     : '<p class="quiet" style="padding:6px 0 14px">Nichts im Lager, was diese Werkbank schärfen könnte.</p>';
 
   return `<div class="haendlerreihe">${reihe}</div>
@@ -22106,22 +22199,29 @@ function ladeFrisch() {
   ladeBinde();
 }
 
+/* Ein Platz am Koerper als Karte. Der Platz bleibt der Knopf, auf den man
+   zieht und von dem man nimmt - daten traegt data-platz oder data-gear. */
+function slotKarte(slot, e, daten, leerText, leerGesperrt) {
+  const d = e && (e.def || ausBestand(e).def);
+  return `<button class="gear-slot slotkarte${e ? " belegt" : ""}" ${daten}${!e && leerGesperrt ? " disabled" : ""}>
+      <span class="kartenkopf">
+        <span class="gear-box${e ? "" : " leer"}">${e ? kachelBild(e) : slotBild(slot, "var(--stone-600)")}</span>
+        <b style="color:${e ? lesbar(seltenFarbe(e)) : "var(--vellum-dim)"}">${e ? escapeHtml(d.name) : "nichts angelegt"}</b>
+        <span class="kartenstufe">${slot}</span>
+      </span>
+      <span class="kartenwas">${e ? escapeHtml(bonusText(d)) : leerText}</span>
+    </button>`;
+}
+
 function ladeMarkup() {
   const rm = raster();
 
-  const plaetze = LADE_PLAETZE.map(slot => {
-    const b = META.anlegen[slot];
-    const farbe = b ? lesbar(seltenFarbe(b)) : "var(--stone-600)";
-    return `<button class="gear-slot ${b ? "belegt" : ""}" data-platz="${slot}">
-      <span class="gear-box ${b ? "" : "leer"}">${slotBild(slot, farbe)}</span>
-      <span class="gear-text">
-        <span class="art">${slot}</span>
-        <b style="color:${b ? farbe : "var(--vellum-dim)"}">${
-          b ? escapeHtml(vorlage(b).name) : "nichts"}</b>
-        <span>${b ? escapeHtml(bonusText(ausBestand(b).def)) : "—"}</span>
-      </span>
-    </button>`;
-  }).join("");
+  /* Jeder Platz am Koerper ist eine Karte - und bleibt der Knopf, auf den man
+     zieht und von dem man nimmt. */
+  const plaetze = LADE_PLAETZE.map(slot =>
+    slotKarte(slot, META.anlegen[slot], `data-platz="${slot}"`, "zieh ein Stück hierher", false)).join("");
+
+  const guertelBelegt = (META.guertel || []).filter(Boolean).length;
 
   /* Nur noch die rechte Spalte: das Lager steht in der Huelle und ist auf
      jedem Reiter dasselbe. Was hier steht, ist das, was mit hinabgeht. */
@@ -22130,7 +22230,7 @@ function ladeMarkup() {
         <p class="feldkopf">Rucksack <b>${META.mitnahme.length}/${rm.spalten * rm.reihen}</b>
           <span class="rechts">geht mit hinab</span></p>
         ${rasterMarkup(META.mitnahme, rm.spalten, rm.reihen, "mit", ladeWahl, 50)}
-        <div class="tafel" style="margin-top:14px">${ladeTafel()}</div>
+        <div style="margin-top:14px">${ladeTafel()}</div>
       </section>
 
       <section>
@@ -22138,19 +22238,16 @@ function ladeMarkup() {
           <b>${LADE_PLAETZE.filter(sl => META.anlegen[sl]).length}/4</b></p>
         <div class="ladeplaetze">${plaetze}</div>
 
-        <p class="feldkopf" style="margin-top:18px">Gürtel
-          <b>${(META.guertel || []).filter(Boolean).length}/${GUERTEL_PLAETZE}</b></p>
-        ${guertelReihe(META.guertel || [], "gplatz")}
-        <p class="quiet" style="margin:8px 0 0">Flaschen, Tasten 1–5. Belegt keinen
-          Platz im Rucksack.</p>
-
-        <div class="ausgang" style="margin-top:18px;padding-top:14px">
-          <button class="choice" id="notBtn">
-            <span class="key">N</span><span>Mit Notausrüstung hinab</span>
-            <span class="note">rostiger Dolch und ein Ölfläschchen</span></button>
-          <button class="choice" id="ladeRaeum">
-            <span class="key" aria-hidden="true">↺</span><span>Lager aufräumen</span>
-            <span class="note">sortiert nach Art und schließt die Lücken</span></button>
+        <div class="kartentafel ladekarten">
+          ${karte({ titel: "Gürtel", knoepfe: "", klasse: "breit",
+                    rechts: `<span class="kartenstufe">${guertelBelegt}/${GUERTEL_PLAETZE}</span>`,
+                    wo: "Flaschen und Wurfgerät, Tasten 1–5 · belegt keinen Platz im Rucksack",
+                    inhalt: guertelReihe(META.guertel || [], "gplatz") })}
+          ${karte({ titel: "Mit Notausrüstung hinab", rechts: '<span class="kartenstufe">Taste N</span>',
+                    was: "rostiger Dolch und ein Ölfläschchen — was gepackt ist, bleibt oben",
+                    knoepfe: '<button class="bag-act" id="notBtn">Ohne Gepäck hinab</button>' })}
+          ${karte({ titel: "Lager aufräumen", was: "sortiert nach Art und schließt die Lücken",
+                    knoepfe: '<button class="bag-act" id="ladeRaeum">Aufräumen</button>' })}
         </div>
       </section>
     </div>`;
@@ -22158,29 +22255,28 @@ function ladeMarkup() {
 
 function ladeTafel() {
   const b = ladeWahl;
-  if (!b) return '<p class="quiet">Wähle eine Kachel. Ziehen bewegt sie, ein Klick zeigt sie hier.</p>';
+  if (!b) return karte({ titel: "Nichts gewählt", knoepfe: "",
+                         was: "Wähle eine Kachel. Ziehen bewegt sie, ein Klick zeigt sie hier." });
   const e = ausBestand(b);
   const d = e.def;
   const imLager = META.lager.includes(b);
   const angelegt = LADE_PLAETZE.find(sl => META.anlegen[sl] === b);
   const kannAnlegen = d.slot && !angelegt;
-  return `<div class="tafelkopf">
-      <b style="color:${lesbar(seltenFarbe(b))}">${escapeHtml(d.name)}${
-        b.menge > 1 ? ` ×${b.menge}` : ""}</b>
-      <span>${seltenName(b)} · ${verkaufPreis(e)} M</span>
-    </div>
-    <p class="tafeltext">${escapeHtml(d.slot ? bonusText(d) : (d.note || ""))}${
-      d.sage ? `<em class="sage">„${escapeHtml(d.sage)}“</em>` : ""}</p>
-    <div class="tafeltaten">
-      ${angelegt
-        ? '<button class="bag-act" id="tafelAb">Abnehmen</button>'
-        : `<button class="bag-act" id="tafelHin">${imLager ? "In den Rucksack" : "Ins Lager"}</button>`}
-      ${kannAnlegen ? '<button class="bag-act" id="tafelAn">Anlegen</button>' : ""}
-      ${!angelegt && istFlasche(d) && guertelPlatzImLager(b) >= 0
-        ? '<button class="bag-act" id="tafelGuertel">An den Gürtel</button>' : ""}
-      ${imLager && !angelegt
-        ? `<button class="bag-act drop" id="tafelWeg">Verkaufen · ${verkaufPreis(e)} M</button>` : ""}
-    </div>`;
+  const rechts = [b.menge > 1 ? `×${b.menge}` : "", d.slot ? seltenName(e) : "", `${verkaufPreis(e)} M`]
+    .filter(Boolean).join(" · ");
+  return karte(Object.assign(stueckKopf(e, `<span class="kartenstufe">${rechts}</span>`), {
+    was: escapeHtml(d.slot ? bonusText(d) : (d.note || "")),
+    wo: d.sage ? `„${d.sage}“` : "",
+    knoepfe: `<div class="kartentaten">
+        ${angelegt
+          ? '<button class="bag-act" id="tafelAb">Abnehmen</button>'
+          : `<button class="bag-act" id="tafelHin">${imLager ? "In den Rucksack" : "Ins Lager"}</button>`}
+        ${kannAnlegen ? '<button class="bag-act" id="tafelAn">Anlegen</button>' : ""}
+        ${!angelegt && istFlasche(d) && guertelPlatzImLager(b) >= 0
+          ? '<button class="bag-act" id="tafelGuertel">An den Gürtel</button>' : ""}
+        ${imLager && !angelegt
+          ? `<button class="bag-act drop" id="tafelWeg">Verkaufen · ${verkaufPreis(e)} M</button>` : ""}
+      </div>` }));
 }
 
 /* Ein Stueck von einem Behaelter in den anderen. Gibt zurueck, ob es ging. */
